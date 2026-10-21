@@ -3,7 +3,7 @@
 
 Discord 스타일 웹 채팅 프로젝트. HTML·CSS·JavaScript 프론트엔드와 PHP·MySQL 백엔드를 사용한다.
 
-현재는 MySQL 스키마, PHP 공통 처리, 실제 회원 인증과 채널별 메시지 저장을 웹 화면에 연결했다. 참여 채널을 조회하고 DB 저장에 성공한 메시지만 화면에 표시한다. 이전 대화 조회와 신규 메시지 폴링은 5단계다.
+현재는 MySQL 스키마, PHP 공통 처리, 실제 회원 인증과 채널별 메시지 저장·조회를 웹 화면에 연결했다. 참여 채널의 최신 50개 대화를 불러오며 이전 기록 추가 조회와 요청 완료 후 2초 간격의 새 메시지 자동 갱신을 지원한다.
 
 팀원 A는 프론트엔드, 팀원 B는 DB·인증·메시지 API, 팀원 C는 서버·채널·프로필 관리 기능을 담당한다. 프론트엔드는 백엔드 연동 확인에 필요한 최소 화면부터 구성한다.
 
@@ -20,6 +20,7 @@ Discord 스타일 웹 채팅 프로젝트. HTML·CSS·JavaScript 프론트엔드
 - [2단계 검증 결과](docs/PHASE-2-VERIFICATION.md): PHP·웹 통합 테스트 35개와 실제 화면 확인
 - [3단계 검증 결과](docs/PHASE-3-VERIFICATION.md): 실제 회원 인증·횟수 제한·화면 연동 확인
 - [4단계 검증 결과](docs/PHASE-4-VERIFICATION.md): 실제 메시지 저장·채널 권한·동시 전송·웹 연동 확인
+- [5단계 검증 결과](docs/PHASE-5-VERIFICATION.md): 이전 대화 조회·신규 적체·폴링·실제 화면 확인
 - [한국어 커밋 메시지](docs/COMMIT-MESSAGES.md): 기존 이력 변경과 이후 작성 규칙
 
 ---
@@ -54,8 +55,21 @@ APP_ENV가 development 또는 test인 CLI에서만 실행한다. 기존 사용�
 ---
 ## 현재 진행 상태
 
-1단계 DB 구조, 2단계 공통 처리, 3단계 회원 인증, 4단계 채널별 메시지 저장과 화면 연동을 완료했다. GET API는 csrf.php·get_current_user.php·get_channels.php·health.php, POST API는 register.php·login.php·logout.php·send_message.php다. 가입 후 별도로 로그인하며 인증된 사용자의 현재 서버 소속을 확인하고 원문 메시지를 저장한다. 비밀번호 원문은 DB·브라우저 저장소에 보관하지 않는다.
+1단계 DB 구조, 2단계 공통 처리, 3단계 회원 인증, 4단계 채널별 메시지 저장, 5단계 이전·신규 대화 조회와 자동 갱신을 완료했다. GET API는 csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php, POST API는 register.php·login.php·logout.php·send_message.php다. 가입 후 별도로 로그인하며 인증된 사용자의 현재 서버 소속을 확인하고 원문 메시지를 저장·조회한다. 비밀번호 원문은 DB·브라우저 저장소에 보관하지 않는다.
 
-메시지는 새로고침 후에도 DB에 남지만 현재 화면은 이번 접속에서 저장 성공한 메시지만 표시한다. 5단계에서 이전 대화 불러오기·신규 메시지 폴링을 연결하고, 6단계에서 전체 흐름을 검증한다. 전송 결과를 확인하지 못했을 때는 중복 저장 가능성을 안내하며 자동으로 다시 보내지 않는다.
+메시지는 새로고침 후에도 DB에서 복원된다. 최신 50개보다 오래된 기록은 이전 대화 더 보기로 추가하고, 새 메시지는 이전 조회 완료 후 2초 뒤에 확인한다. 50개 초과 신규 기록은 페이지를 연속 조회하고 통신 오류 시 최대 30초까지 대기한다. 채널 이동·로그아웃 시 이전 요청을 취소하며, 과거 대화를 읽는 위치·채널별 초안·문자열 ID 정밀도를 유지한다. 전송 성공 응답은 중복 없이 표시하되 조회 커서를 앞당기지 않는다. 6단계의 전체 인수 검증과 C의 서버·채널·프로필 관리 기능은 후속 작업이다.
+
+---
+## 5단계 검사 실행
+
+실제 PHP 8.4와 MySQL 8.4가 필요하다. PHP_TEST_BIN·MYSQL_TEST_CLIENT·MYSQL_TEST_PORT에 실행 도구와 전용 검사 DB 포트를 지정한다. 기존 통합 검사는 로컬 root·빈 비밀번호를 사용하는 별도 테스트 MySQL 인스턴스에서 실행한다. 개발용 33360 포트와 분리한 33361 포트를 사용할 수 있다. 검사마다 무작위 DB를 생성하고 해당 DB만 정리한다. 실제 웹 라우터 검사에는 MYSQL_HOST·MYSQL_PORT·MYSQL_DATABASE·MYSQL_USER·MYSQL_PASSWORD·APP_ENV·SESSION_COOKIE_SECURE 환경 변수도 필요하다. .runtime/php.ini에는 pdo_mysql·mbstring과 세션 저장 위치를 설정한다.
+
+```powershell
+node --test # 기존 인증·저장과 신규 조회 전체 검사
+node --check frontend/app.js # 실제 화면 스크립트 문법 검사
+node --check frontend/message-feed.mjs # 조회 상태 모듈 문법 검사
+```
+
+다른 컴퓨터에서는 Git에서 제외된 PHP·MySQL 실행 도구·DB·개인 설정을 별도로 준비한다. 이번 컴퓨터의 .runtime/start-local.ps1은 이미 구성한 DB와 웹을 다시 시작하는 개인 실행 도구이며 저장소에는 포함하지 않는다.
 
 작업 저장소는 [siwoo440/SystemMakers](https://github.com/siwoo440/SystemMakers)다. 사용자 지시에 따라 기존 개발 커밋 전체를 main에 통합했으며 이후 작업·커밋·푸시도 main에서 진행한다. 공통 필드·응답 형식·삭제 정책을 바꾸면 API.md와 DATABASE.md를 같은 변경에서 갱신한다.

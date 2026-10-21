@@ -1,9 +1,9 @@
 ---
 # SystemMakers API 명세 초안
 
-작성일: 2026-10-21 · 계약 버전: 0.2 · 구현 담당: B · 연동 대상: A·C
+작성일: 2026-10-21 · 계약 버전: 0.3 · 구현 담당: B · 연동 대상: A·C
 
-회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 메시지 조회·폴링 API는 5단계이며 아래 조회 예시는 해당 구현의 기준이다. 서버·채널·프로필 관리 API 구현은 C의 담당이다. 0.2에서는 소속 채널 조회 계약을 추가했다.
+회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 0.3에서는 기존 조회 커서 계약을 실제 PHP·MySQL과 웹 폴링에 구현했다. 서버·채널·프로필 관리 API 구현은 C의 담당이다.
 
 ---
 ## 1. 공통 규칙
@@ -141,7 +141,7 @@
 } // 로그인 입력 종료
 ```
 
-성공 응답의 `data`는 `user`와 `csrf_token`을 포함한다. `user`의 필드는 공통 성공 예시와 같다. `session_regenerate_id(true)` 이후 응답하며 실패 시 인증된 세션을 남기지 않는다.
+성공 응답의 `data`는 `user`와 `csrf_token`을 포함한다. `user`의 필드는 공통 성공 예시와 같다. 최종 세션 잠금에서 기존 인증·CSRF를 빈 상태로 바꾸고 session_regenerate_id(false)로 새 식별자를 발급한다. 빈 기존 세션을 먼저 저장하여 잠금을 기다리던 동시 로그인이 이전 CSRF로 성공하지 못하도록 한다. 새 인증·CSRF는 교체된 세션에만 기록하며 기존 빈 게스트 파일은 PHP 세션 정리 대상이다. 교체 실패 시 인증된 세션을 남기지 않는다.
 
 없는 계정과 잘못된 비밀번호는 모두 401 `INVALID_CREDENTIALS`, 동일한 안내 문구로 반환한다. 이미 로그인한 세션의 재로그인 요청은 409 `ALREADY_AUTHENTICATED`로 거절한다.
 
@@ -227,7 +227,7 @@
 
 저장 트랜잭션을 커밋한 뒤 201을 반환한다. 자동 재전송에 대한 중복 방지 키는 MVP에 포함하지 않는다. 네트워크 단절 시 이미 저장됐을 수 있으므로 A는 전송을 자동 반복하지 않고 조회로 확인한다.
 
-현재 4단계 화면은 확인된 저장 응답만 표시한다. 조회 API를 연결하기 전에는 응답 유실 시 저장 여부를 단정하지 않고 중복 가능성을 안내한다. CSRF 오류에서 토큰을 갱신하더라도 원래 POST는 자동 반복하지 않는다. 전송 중에는 중복 제출과 로그아웃을 막고, 채널을 이동해도 성공 응답은 원래 채널에만 반영한다.
+화면은 확인된 저장 응답과 조회 응답을 ID 기준으로 병합한다. 응답 유실 시 저장 여부를 단정하지 않고 자동 갱신된 대화를 확인하도록 안내한다. CSRF 오류에서 토큰을 갱신하더라도 원래 POST는 자동 반복하지 않는다. 전송 중에는 중복 제출과 로그아웃을 막고, 채널을 이동해도 성공 응답은 원래 채널에만 반영한다. 권한 상실이 확인된 뒤 도착한 전송 응답은 표시하지 않는다.
 
 ---
 ### 5.2 메시지 조회와 커서
@@ -292,7 +292,7 @@ before_id와 after_id의 동시 사용은 400 `INVALID_QUERY`다. 커서는 범�
 
 채널 이동 시 진행 중 요청을 취소하거나 이전 채널의 응답을 무시한다. 동일 메시지를 두 번 표시하지 않도록 ID로 중복을 제거한다. 전송 성공 응답을 화면에 먼저 추가했더라도 폴링 커서는 전송 응답으로 앞당기지 않는다. 전송 전에 도착한 다른 메시지가 누락될 수 있기 때문이다.
 
-최소 프론트는 회원가입·로그인·로그아웃, 현재 사용자 표시, 채널 선택, 메시지 목록·전송·이전 조회를 제공한다. C의 채널 목록 API가 완성되기 전에는 개발용 샘플 채널 ID를 직접 입력하여 검증한다. 브라우저에서 내용을 textContent로 표시하여 HTML을 실행하지 않는다.
+최소 프론트는 회원가입·로그인·로그아웃, 현재 사용자 표시, 실제 소속 채널 선택, 메시지 목록·전송·이전 조회·연결 오류 재시도를 제공한다. 소속은 get_channels.php에서 확인하며 임의의 채널 ID를 화면에 만들지 않는다. 브라우저에서 내용을 textContent로 표시하여 HTML을 실행하지 않는다. 최초 50개를 불러오고 이전 기록 버튼으로 50개씩 추가한다. 이전 기록을 추가할 때 기존 메시지의 화면 위치를 보존하고, 신규 메시지는 하단을 읽는 경우에만 자동으로 이동한다. 과거 기록을 읽는 중에는 새 메시지 수와 이동 버튼을 표시한다. 뒤로 가기 캐시에서 화면이 복구되면 기존 커서에서 조회를 재개한다.
 
 ---
 ## 6. 오류 처리 기준
@@ -330,6 +330,7 @@ before_id와 after_id의 동시 사용은 400 `INVALID_QUERY`다. 커서는 범�
 | require_csrf(): void | backend/includes/csrf.php | 세션 토큰과 X-CSRF-Token 비교; 실패 시 공통 403 |
 | require_channel_member(PDO, string, string): array | backend/includes/permissions.php | 채널 ID·인증 사용자 ID로 권한 검사; id와 server_id를 문자열로 반환; 404·403 구분 |
 | store_message(PDO, string, string, string): array | backend/includes/messages.php | 검증된 채널 ID·세션 사용자 ID·원문을 채널·멤버십 잠금과 함께 저장하고 커밋된 공개 메시지 반환 |
+| read_messages(PDO, string, string, int, ?string, ?string): array | backend/includes/message_history.php | 검증된 채널·세션 사용자·개수·이전/신규 커서로 현재 소속과 실제 페이지 조회, 응답 전 전체 잠금 해제 |
 | respond_success(array, int): never | backend/includes/response.php | data와 HTTP 상태를 가진 공통 JSON 출력 |
 | respond_error(string, string, int, array): never | backend/includes/response.php | 오류 코드·문구·HTTP 상태·선택적 fields 출력 |
 
@@ -346,7 +347,7 @@ C는 서버 생성과 생성자 owner 멤버십 등록을 하나의 트랜잭션
 
 가입·중복·잘못된 비밀번호·세션 교체·로그아웃·세션 만료, 비로그인 401, CSRF 403, 다른 서버 접근 403, 없는 채널 404, 작성자 ID 위조 거절, 메시지 저장·채널 분리·이전 및 신규 커서·빈 결과·100개 초과 적체·동시 전송 순서·로그인 429를 검증한다.
 
-초기 DB·공통 계층·회원 인증에 이어 실제 메시지 저장·소속 채널 조회·동시 전송·멤버십 잠금과 웹 전송을 검증했다. 최신 결과는 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 인증 상세는 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다. 메시지 조회·폴링 HTTP API는 후속 단계다.
+초기 DB·공통 계층·회원 인증·메시지 저장에 이어 실제 메시지 최초·이전·신규 조회, 권한 재검사, 100개 초과 적체, 큰 ID, 폴링 취소와 화면 연동을 검증했다. 최신 결과는 [PHASE-5-VERIFICATION.md](PHASE-5-VERIFICATION.md), 저장 상세는 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 인증 상세는 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다.
 
 ---
 ## 검색 참고

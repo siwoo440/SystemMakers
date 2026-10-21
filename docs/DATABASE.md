@@ -167,7 +167,7 @@ PHP 세션에는 user_id, 로그인 시각, 마지막 인증 활동 시각, csrf
 
 멤버십 공유 잠금은 전송 트랜잭션 동안 탈퇴·강퇴와의 충돌을 제어한다. 세션 잠금을 오래 보유하는 것으로 DB 권한 검사를 대체하지 않는다. C의 여러 자원 변경 트랜잭션은 서버 → 채널 ID 오름차순 → 멤버십 순서로 잠금을 취득한다. 교착·잠금 시간 초과 시 전체 작업을 롤백하고 제한된 재시도 후 공통 오류로 처리한다.
 
-조회는 채널 필터와 ID 범위를 사용하는 읽기 전용 쿼리다. 인증·CSRF 정보를 읽은 뒤 PHP 세션 잠금을 해제하여 폴링이 전송·로그아웃 요청을 대기시키지 않도록 한다.
+조회는 채널 필터와 ID 범위를 사용하는 읽기 전용 쿼리다. PHP 인증 정보를 읽은 뒤 세션 잠금을 해제한다. read_messages는 트랜잭션에서 채널 행·현재 멤버십 행을 순서대로 FOR SHARE로 확인하여 조회 중 삭제·탈퇴와 충돌하지 않도록 한다. 실제 메시지를 limit+1개 선택하고 초과 한 행을 제거한 뒤 공개 응답을 구성한다. 최초·이전은 ID 내림차순으로 선택 후 오름차순으로 반환하고 신규는 처음부터 오름차순이다. 커서는 실제 반환한 최소·최대 ID에서 계산하며 빈 신규 조회는 요청한 after_id를 유지한다. 응답 전 커밋하고 모든 실패에서 롤백한다. 스키마 변경과 신규 인덱스는 필요하지 않다.
 
 ---
 ## 6. 생성 순서와 개발용 데이터
@@ -189,7 +189,7 @@ schema.sql의 생성 순서는 users → servers → server_members → channels
 - 두 연결에서 같은 채널에 동시 전송하여 ID 커서 누락 방지 확인.
 - 새 세션·동시 로그인 요청에서도 이메일·IP 제한 유지 확인.
 
-테이블·고유 키·외래 키·삭제 정책·본문 길이·조회 쿼리·재적용 거절은 실제 MySQL에서 검증했다. 스키마 결과는 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 공통 계층은 [PHASE-2-VERIFICATION.md](PHASE-2-VERIFICATION.md), 인증은 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다. 실제 메시지 저장·동시 전송의 ID 발급/커밋 순서·멤버십 탈퇴 대기·시간 초과 재시도·개발 데이터 보존은 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md)에 기록했다. 운영 배포 환경은 아직 확정하지 않았다.
+테이블·고유 키·외래 키·삭제 정책·본문 길이·조회 쿼리·재적용 거절은 실제 MySQL에서 검증했다. 스키마 결과는 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 공통 계층은 [PHASE-2-VERIFICATION.md](PHASE-2-VERIFICATION.md), 인증은 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다. 실제 메시지 저장·동시 전송의 ID 발급/커밋 순서·멤버십 탈퇴 대기·시간 초과 재시도·개발 데이터 보존은 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 실제 조회·커서·현재 소속 검사는 [PHASE-5-VERIFICATION.md](PHASE-5-VERIFICATION.md)에 기록했다. 운영 배포 환경은 아직 확정하지 않았다.
 
 ---
 ## 검색 참고

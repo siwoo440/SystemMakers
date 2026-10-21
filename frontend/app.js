@@ -1,4 +1,5 @@
 "use strict"; // 엄격한 자바스크립트 검사
+import { MessageFeed } from "/message-feed.mjs"; // 채널 기록과 자동 갱신 수명 관리
 const byId = (id) => document.getElementById(id); // 화면 요소 조회
 let channels = Object.create(null); // 서버에서 확인한 채널별 화면 자료
 const messageInput = byId("message-input"); // 메시지 작성 필드
@@ -24,6 +25,77 @@ let channelError = ""; // 소속 채널 조회 실패 안내
 let channelLoadVersion = 0; // 늦은 채널 조회 응답 구분
 let sendRequest = null; // 현재 메시지 전송 요청
 let savedDrafts = null; // 만료된 같은 계정의 미전송 초안
+function pauseMessageFeeds() // 계정과 채널 전환 전 조회 중단
+{
+    Object.values(channels).forEach((channel) => channel.feed?.pause()); // 예약과 진행 중 요청 취소
+}
+function updateHistoryControls() // 기록 조회 버튼과 갱신 상태 표시
+{
+    const feed = channels[activeChannel]?.feed; // 현재 채널 조회 상태
+    byId("load-older").hidden = !feed?.loaded || !feed.hasOlder || feed.blocked; // 남은 이전 기록 표시
+    byId("load-older").disabled = Boolean(feed?.busy); // 조회 중 겹치는 이전 요청 차단
+    byId("retry-messages").hidden = !feed?.error || feed.blocked; // 통신 실패의 수동 재시도
+    byId("retry-messages").disabled = Boolean(feed?.busy); // 재연결 중 중복 요청 차단
+    byId("history-status").textContent = !feed ? "로그인 후 대화를 불러옵니다." : feed.blocked ? "채널 접근을 확인하세요." : feed.error ? "대화를 갱신하지 못했습니다. 다시 연결하는 중입니다." : !feed.loaded ? "이전 대화를 불러오는 중입니다." : feed.busy ? "대화 확인 중…" : "대화 연결됨 · 2초 간격 자동 갱신"; // 확인된 조회 상태
+}
+function createChannelFeed(channelId, channel, userId) // 실제 소속 채널의 조회 연결
+{
+    const feed = new MessageFeed({ channelId, request: (query, signal) => requestEndpoint("/api/get_messages.php?" + query, null, signal), onChange: (change) => // 동일 출처의 취소 가능한 기록 조회
+    {
+        if (currentUser?.id !== userId || channels[channelId] !== channel) // 이전 계정과 교체된 채널 응답
+        {
+            return; // 현재 화면 변경 차단
+        }
+        channel.messages = feed.list().map((item) => ({ id: item.id, name: item.username, timestamp: item.created_at, text: item.content })); // 확인된 공개 기록 변환
+        if (activeChannel !== channelId) // 현재 표시하지 않는 채널
+        {
+            channel.unread += change.added; // 원래 채널의 새 메시지 수 유지
+            return; // 다른 채널 화면 변경 차단
+        }
+        if (!["loading", "state"].includes(change.kind)) // 실제 기록이 바뀐 경우
+        {
+            const top = messageScroll.scrollTop; // 기존 읽는 위치
+            const height = messageScroll.scrollHeight; // 이전 기록 높이
+            const keepBottom = nearBottom(); // 새 메시지 자동 이동 조건
+            messages.replaceChildren(...channel.messages.map(createMessage)); // 중복 없는 실제 기록 표시
+            if (change.kind === "initial" || (change.kind !== "before" && keepBottom)) // 최초 진입 또는 하단에서 신규 수신
+            {
+                scrollToBottom(); // 최신 대화 위치 표시
+            }
+            else // 과거 기록을 읽는 중인 상태
+            {
+                messageScroll.scrollTop = change.kind === "before" ? top + messageScroll.scrollHeight - height : top; // 이전 기록 추가 시 현재 메시지 위치 보존
+                if (["after", "send"].includes(change.kind)) // 하단에 새로 추가된 기록
+                {
+                    channel.unread += change.added; // 실제 새 기록만 안내
+                }
+            }
+            channel.scroll = messageScroll.scrollTop; // 복원할 위치 갱신
+            showNewMessages(); // 새 메시지 이동 버튼 갱신
+        }
+        updateHistoryControls(); // 조회 진행과 오류 안내
+        updateComposer(); // 권한 변경에 따른 전송 상태
+    }, onError: (error) => // 실제 조회 오류의 인증과 권한 처리
+    {
+        if (currentUser?.id !== userId || channels[channelId] !== channel) // 이전 계정 오류 여부
+        {
+            return; // 늦은 오류 무시
+        }
+        if (error.status === 401) // 실제 세션 만료
+        {
+            expireMessageSession().catch(ignoreConnectionFailure); // 폴링 종료와 로그인 화면 복구
+        }
+        else if ([403, 404].includes(error.status)) // 현재 채널 소속 또는 존재 상실
+        {
+            channel.feedback = "채널에 접근할 수 없습니다. 채널 목록을 다시 확인하세요."; // 실제 접근 오류 안내
+            channel.error = true; // 접근 실패 표시
+            channelError = channel.feedback; // 소속 목록 재확인 제공
+            renderChannels(); // 재확인 버튼 표시
+            updateComposer(); // 권한 없는 전송 차단
+        }
+    } }); // 조회 경계 연결 종료
+    return feed; // 채널별 독립 조회 상태 반환
+}
 function validId(value) // 큰 정수 문자열 계약 검사
 {
     return typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value) && (value.length < 20 || value <= "18446744073709551615"); // 부호 없는 64비트 범위 확인
@@ -81,7 +153,7 @@ function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
     const count = Array.from(messageInput.value).length; // 원문 코드 포인트 수
     const hasText = /[^\p{White_Space}\uFEFF]/u.test(messageInput.value); // 공백 외 글자 여부
     const containsNull = messageInput.value.includes("\u0000"); // 저장 불가능한 빈 문자
-    const available = Boolean(currentUser && channel && csrfToken && !authBusy && !authInitializing && !channelLoading && !channelError); // 실제 전송 준비 상태
+    const available = Boolean(currentUser && channel && !channel.feed?.blocked && csrfToken && !authBusy && !authInitializing && !channelLoading && !channelError); // 실제 전송 준비 상태
     messageInput.disabled = !available; // 게스트와 미확인 채널 입력 차단
     byId("message-count").textContent = `${count.toLocaleString("ko-KR")} / 2,000`; // 원문 길이 표시
     byId("message-count").classList.toggle("over-limit", count > 2000); // 초과 길이 표시
@@ -94,7 +166,7 @@ function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
     {
         channel.draft = messageInput.value; // 채널별 작성 원문 보관
     }
-    const feedback = containsNull ? "지원하지 않는 빈 문자를 제거하세요." : count > 2000 ? "메시지는 2,000자까지 입력할 수 있습니다." : !currentUser ? "로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다." : channelLoading ? "참여 중인 채널을 확인하는 중입니다." : channelError ? channelError : !channel ? "참여 중인 채널이 없습니다. 서버 참여 후 사용할 수 있습니다." : !csrfToken ? "화면 보호 정보를 확인하지 못했습니다. 다시 로그인하세요." : channel.feedback || "새로고침 후에도 DB에 저장됩니다. 이전 대화 조회는 다음 단계입니다."; // 확인된 기능 범위와 오류 안내
+    const feedback = containsNull ? "지원하지 않는 빈 문자를 제거하세요." : count > 2000 ? "메시지는 2,000자까지 입력할 수 있습니다." : !currentUser ? "로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다." : channelLoading ? "참여 중인 채널을 확인하는 중입니다." : channelError ? channelError : !channel ? "참여 중인 채널이 없습니다. 서버 참여 후 사용할 수 있습니다." : !csrfToken ? "화면 보호 정보를 확인하지 못했습니다. 다시 로그인하세요." : channel.feedback || "대화는 DB에 저장되며 새 메시지를 자동으로 확인합니다."; // 확인된 기능 범위와 오류 안내
     byId("composer-feedback").textContent = feedback; // 안전한 상태 문구 출력
     byId("composer-feedback").classList.toggle("error", count > 2000 || containsNull || Boolean(channel?.error) || Boolean(channelError)); // 실패 상태 색상
 }
@@ -132,6 +204,7 @@ function renderEmptyConversation() // 선택 가능한 채널 없는 화면
     messages.replaceChildren(); // 이전 대화 표시 제거
     showNewMessages(); // 새 메시지 안내 초기화
     updateComposer(); // 입력 잠금과 안내 갱신
+    updateHistoryControls(); // 빈 화면 기록 조회 상태 초기화
 }
 function selectChannel(channelId) // 실제 소속 채널 전환
 {
@@ -139,6 +212,7 @@ function selectChannel(channelId) // 실제 소속 채널 전환
     {
         return; // 미확인 채널 선택 중단
     }
+    pauseMessageFeeds(); // 이전 채널 요청 취소와 늦은 응답 무효화
     if (channels[activeChannel]) // 이전 선택 존재 여부
     {
         channels[activeChannel].scroll = messageScroll.scrollTop; // 이전 읽는 위치 보관
@@ -149,7 +223,7 @@ function selectChannel(channelId) // 실제 소속 채널 전환
     byId("channel-title").textContent = channel.title; // 실제 채널 이름
     byId("channel-description").textContent = channel.serverName; // 실제 소속 서버 이름
     byId("welcome-title").textContent = `# ${channel.title}에 오신 것을 환영해요`; // 채널 시작 안내
-    byId("welcome-description").textContent = "이 화면에서 저장에 성공한 메시지를 표시합니다. 이전 대화 조회·자동 갱신은 다음 단계입니다."; // 구현 범위 안내
+    byId("welcome-description").textContent = "저장된 대화를 불러오고 새 메시지를 자동으로 확인합니다."; // 실제 기록 조회 안내
     byId("message-label").textContent = `${channel.title} 채널 메시지`; // 채널별 입력 레이블
     messageInput.placeholder = `# ${channel.title}에 메시지 보내기`; // 채널별 입력 안내
     messageInput.value = channel.draft; // 채널별 초안 복원
@@ -162,6 +236,7 @@ function selectChannel(channelId) // 실제 소속 채널 전환
         channel.unread = 0; // 확인한 새 메시지 수 초기화
     }
     showNewMessages(); // 선택 채널의 새 메시지 안내
+    channel.feed.activate(); // 최초 조회 또는 기존 커서의 신규 확인
     if (sidebarOpen) // 모바일 목록 열림 여부
     {
         setSidebar(false); // 선택 후 대화 화면 복귀
@@ -188,6 +263,7 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
     const generation = authGeneration; // 요청 당시 계정 상태
     const userId = currentUser.id; // 요청 당시 사용자 식별자
     const version = ++channelLoadVersion; // 최신 조회 식별 번호
+    pauseMessageFeeds(); // 목록 교체 중 기존 기록 요청 중단
     channelLoading = true; // 실제 조회 진행 상태
     channelError = ""; // 이전 오류 초기화
     renderChannels(); // 조회 중 목록 안내
@@ -208,7 +284,11 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
         {
             const previous = channels[item.id]; // 같은 계정의 기존 채널 자료
             const recovered = savedDrafts?.userId === userId ? savedDrafts.values[item.id] || "" : ""; // 같은 계정의 만료 전 초안
-            nextChannels[item.id] = { title: item.name, serverName: item.server_name, messages: previous?.messages || [], draft: previous?.draft || recovered, scroll: previous?.scroll ?? null, unread: previous?.unread || 0, feedback: previous?.feedback || "", error: previous?.error || false }; // 확인된 채널과 현재 화면 자료
+            const channel = previous && !previous.feed?.blocked ? previous : { messages: [], draft: previous?.draft || recovered, scroll: null, unread: 0, feedback: "", error: false }; // 권한이 유지된 기존 기록만 재사용
+            channel.title = item.name; // 현재 채널 이름
+            channel.serverName = item.server_name; // 현재 소속 서버 이름
+            channel.feed ??= createChannelFeed(item.id, channel, userId); // 계정과 채널별 독립 기록 상태
+            nextChannels[item.id] = channel; // 확인한 소속 채널 보관
         }); // 소속 채널 준비 끝
         savedDrafts = null; // 확인 후 만료 전 초안 참조 제거
         channels = nextChannels; // 확인한 소속 채널만 유지
@@ -266,7 +346,7 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
     try // 실제 저장 성공 응답 확인
     {
         const data = await requestEndpoint("/api/send_message.php", { channel_id: channelId, content: request.content }); // 최신 보호 토큰과 원문 전송
-        if (request.generation !== authGeneration || currentUser?.id !== request.userId || channels[channelId] !== channel) // 계정이나 채널 자료 교체 여부
+        if (request.generation !== authGeneration || currentUser?.id !== request.userId || channels[channelId] !== channel || channel.feed.blocked) // 계정·채널 교체와 조회 중 권한 상실 여부
         {
             return; // 이전 계정의 늦은 성공 무시
         }
@@ -275,12 +355,7 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
         {
             throw requestError("저장 응답을 확인하지 못했습니다."); // 불완전한 성공 응답 거절
         }
-        const keepBottom = activeChannel === channelId && nearBottom(); // 현재 표시 중인 하단 여부
-        const message = { id: result.id, name: result.username, timestamp: result.created_at, text: result.content }; // 확인된 응답만 화면 자료로 변환
-        if (!channel.messages.some((item) => item.id === message.id)) // 같은 성공 응답의 중복 표시 방지
-        {
-            channel.messages.push(message); // 원래 채널에만 저장 결과 추가
-        }
+        channel.feed.add(result); // 신규 조회 커서를 유지한 전송 결과 중복 제거
         if (channel.draft === request.content) // 제출 이후 수정하지 않은 초안 여부
         {
             channel.draft = ""; // 확정된 제출 초안만 제거
@@ -291,22 +366,6 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
         }
         channel.feedback = "메시지가 저장되었습니다. 새로고침 후에도 DB에 남습니다."; // 확인된 저장 결과 안내
         channel.error = false; // 성공 상태 복원
-        if (activeChannel === channelId) // 제출한 채널이 현재 화면인 경우
-        {
-            messages.replaceChildren(...channel.messages.map(createMessage)); // 확인한 원래 채널 메시지 출력
-            if (keepBottom) // 기존 대화 하단을 읽던 경우
-            {
-                scrollToBottom(); // 저장한 메시지 위치 표시
-            }
-            else // 이전 대화를 읽던 경우
-            {
-                channel.unread += 1; // 하단 새 메시지 집계
-            }
-        }
-        else // 응답 도착 전에 채널을 이동한 경우
-        {
-            channel.unread += 1; // 원래 채널의 새 메시지 수
-        }
     }
     catch (error) // 저장 실패와 불확실한 결과 처리
     {
@@ -511,9 +570,15 @@ function ignoreConnectionFailure() // 선택적 연결 확인 실패 처리
 {
     return undefined; // 확인하지 못한 상태 유지
 }
-async function requestEndpoint(path, body = null) // 동일 출처 JSON API 요청
+async function requestEndpoint(path, body = null, signal = null) // 동일 출처의 취소 가능한 JSON API 요청
 {
     const controller = new AbortController(); // 오래 걸리는 요청 취소 도구
+    const cancel = () => controller.abort(); // 채널 수명 종료의 요청 취소
+    signal?.addEventListener("abort", cancel, { once: true }); // 채널 이동과 로그아웃 연결
+    if (signal?.aborted) // 요청 직전 이미 취소된 수명
+    {
+        controller.abort(); // 종료된 조회의 네트워크 시작 차단
+    }
     const timeout = window.setTimeout(() => controller.abort(), 15000); // 연결 확인 대기 시간 제한
     const headers = { Accept: "application/json" }; // JSON 응답 요청
     if (body !== null) // 실제 상태 변경 요청 여부
@@ -547,6 +612,7 @@ async function requestEndpoint(path, body = null) // 동일 출처 JSON API 요�
     finally // 요청 자원 정리
     {
         window.clearTimeout(timeout); // 완료한 요청의 대기 제한 제거
+        signal?.removeEventListener("abort", cancel); // 완료한 요청의 취소 연결 제거
     }
 }
 async function refreshCsrf(generation = authGeneration) // 실제 세션 보호 토큰 재조회
@@ -566,6 +632,7 @@ async function refreshCsrf(generation = authGeneration) // 실제 세션 보호 
 }
 function clearSessionView(preserveDrafts = false) // 종료된 계정 자료 정리
 {
+    pauseMessageFeeds(); // 종료된 계정의 조회와 예약 제거
     savedDrafts = preserveDrafts && currentUser ? { userId: currentUser.id, values: Object.fromEntries(Object.entries(channels).map(([id, channel]) => [id, channel.draft])) } : null; // 같은 계정 재로그인용 초안
     currentUser = null; // 이전 사용자 제거
     csrfToken = null; // 이전 보호 정보 제거
@@ -737,6 +804,7 @@ async function logout() // 실제 로그인 세션 종료
         return; // 처리할 수 없는 로그아웃 중단
     }
     authGeneration += 1; // 이전 사용자 조회 응답 무효화
+    pauseMessageFeeds(); // 로그아웃 요청 전 기존 대화 조회 중단
     setAuthBusy(true); // 중복 로그아웃 요청 차단
     sessionNotice = "로그아웃 중…"; // 실제 요청 진행 안내
     renderAuthState(); // 사용자 영역 상태 갱신
@@ -775,6 +843,10 @@ async function logout() // 실제 로그인 세션 종료
         openAuth(); // 다시 로그인할 화면 표시
         showAuthError("세션이 만료되었습니다. 다시 로그인하세요."); // 만료 이유 접근성 안내
     }
+    else if (currentUser && channels[activeChannel]) // 로그아웃 실패로 기존 세션이 유지된 경우
+    {
+        channels[activeChannel].feed.activate(); // 실제 남아 있는 계정의 조회 복구
+    }
 }
 async function checkConnections() // 최초 세션과 실제 연결 확인
 {
@@ -806,6 +878,16 @@ async function checkConnections() // 최초 세션과 실제 연결 확인
     await health; // 실제 데이터베이스 확인 종료 대기
 }
 byId("retry-channels").addEventListener("click", loadChannels); // 소속 채널 조회 재시도
+byId("load-older").addEventListener("click", () => channels[activeChannel]?.feed.older()); // 현재 채널의 이전 기록 추가
+byId("retry-messages").addEventListener("click", () => channels[activeChannel]?.feed.activate()); // 확인하지 못한 대화 수동 재조회
+window.addEventListener("pagehide", pauseMessageFeeds); // 화면 종료 시 폴링과 진행 요청 정리
+window.addEventListener("pageshow", (event) => // 뒤로 가기 캐시에서 복구된 화면
+{
+    if (event.persisted && currentUser && channels[activeChannel]) // 로그인한 기존 채널 복구 여부
+    {
+        channels[activeChannel].feed.activate(); // 남은 신규 기록 확인 재개
+    }
+}); // 화면 수명 복구 연결 종료
 messageInput.addEventListener("input", () => // 입력 수정 상태 처리
 {
     if (channels[activeChannel]) // 선택한 실제 채널 여부

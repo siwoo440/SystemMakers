@@ -31,7 +31,8 @@ if (session_id() !== $original_id || !is_string($_SESSION['csrf_token'] ?? null)
     respond_error('CSRF_INVALID', '요청 확인 토큰이 올바르지 않습니다.', 403); // 폐기된 요청의 인증 복원 금지
 }
 require_guest($pdo); // 잠금 해제 중 생긴 인증 상태 재검사
-if (!session_regenerate_id(true)) // 이전 세션 ID와 저장 데이터 폐기
+$_SESSION = []; // 기존 잠금 안에서 오래된 인증과 토큰 폐기
+if (!session_regenerate_id(false)) // 비워진 기존 세션 저장 후 새 식별자 발급
 {
     throw new RuntimeException('Session unavailable.'); // 교체 실패의 인증 생성 차단
 }

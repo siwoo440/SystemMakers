@@ -462,7 +462,32 @@ button:disabled /* 비활성 버튼 */
     white-space: pre-wrap; /* 입력 줄바꿈 유지 */
     overflow-wrap: anywhere; /* 긴 메시지 줄바꿈 */
 }
-.local-label /* 로컬 메시지 배지 */
+.history-controls /* 이전 기록과 연결 상태 영역 */
+{
+    display: flex; /* 안내와 버튼 가로 배치 */
+    flex-wrap: wrap; /* 좁은 화면 자동 줄바꿈 */
+    align-items: center; /* 안내 기준선 맞춤 */
+    gap: 10px; /* 안내 요소 간격 */
+    min-height: 44px; /* 조회 중 읽기 위치 흔들림 완화 */
+    margin-bottom: 14px; /* 메시지 목록과 간격 */
+    color: #a5b8c6; /* 연결 안내 색상 */
+    font-size: 12px; /* 보조 안내 크기 */
+}
+.history-button /* 과거 기록과 재연결 버튼 */
+{
+    border: 1px solid #4c6b78; /* 버튼 윤곽 */
+    border-radius: 7px; /* 버튼 모서리 */
+    padding: 8px 12px; /* 터치 영역 */
+    color: #d7eeee; /* 버튼 글자 색상 */
+    background: #263b47; /* 버튼 배경 */
+    cursor: pointer; /* 클릭 가능 표시 */
+}
+.history-button:disabled /* 조회 중 버튼 */
+{
+    opacity: 0.6; /* 비활성 상태 표시 */
+    cursor: wait; /* 실제 요청 진행 표시 */
+}
+.local-label /* DB 저장 메시지 배지 */
 {
     color: #78bcb4; /* 로컬 배지 색상 */
     font-size: 9px; /* 로컬 배지 크기 */
