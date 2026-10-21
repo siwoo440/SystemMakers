@@ -3,6 +3,7 @@ import { MessageFeed } from "/message-feed.mjs"; // 채널 기록과 자동 갱�
 import { ServerManager } from "/server-manager.mjs"; // 실제 서버 소속 상태
 import { mountServerUI } from "/server-ui.mjs"; // 명시적 관리 화면
 import { mountChannelUI } from "/channel-ui.mjs"; // 역할별 채널 관리 화면
+import { mountProfileUI } from "/profile-ui.mjs"; // 본인 정보 조회·사용자명 수정
 const byId = (id) => document.getElementById(id); // 화면 요소 조회
 let channels = Object.create(null); // 서버에서 확인한 채널별 화면 자료
 const messageInput = byId("message-input"); // 메시지 작성 필드
@@ -30,11 +31,13 @@ let sendRequest = null; // 현재 메시지 전송 요청
 let savedDrafts = null; // 만료된 같은 계정의 미전송 초안
 let serverUI = null; // 초기화한 관리 화면 연결
 let channelUI = null; // 초기화한 채널 관리 연결
+let profileUI = null; // 초기화한 본인 프로필 화면
 const serverManager = new ServerManager({ request: requestEndpoint, getUser: () => currentUser, storage: selectionStorage(), onChange: renderManagementUI }); // 계정별 서버 관리 수명
 function renderManagementUI() // 서버·채널 관리의 같은 처리 상태
 {
     serverUI?.render(); // 소유자 서버 관리 상태
     channelUI?.render(); // 역할과 현재 채널 상태
+    profileUI?.render(); // 본인 정보와 공통 요청 잠금
 }
 function selectionStorage() // 차단될 수 있는 선택 저장소
 {
@@ -68,7 +71,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         {
             return; // 현재 화면 변경 차단
         }
-        channel.messages = feed.list().map((item) => ({ id: item.id, name: item.username, timestamp: item.created_at, text: item.content })); // 확인된 공개 기록 변환
+        channel.messages = feed.list().map((item) => ({ id: item.id, name: item.user_id === currentUser?.id ? currentUser.username : item.username, timestamp: item.created_at, text: item.content })); // 지연 기록도 현재 본인 표시 이름 사용
         if (activeChannel !== channelId) // 현재 표시하지 않는 채널
         {
             channel.unread += change.added; // 원래 채널의 새 메시지 수 유지
@@ -616,6 +619,16 @@ function setAuthBusy(busy) // 인증 요청 중 화면 보호
     byId("close-auth").disabled = busy; // 요청 중 모달 닫기 차단
     renderAuthState(); // 사용자 버튼 상태 갱신
 }
+function applyProfile(user) // 같은 계정의 확인된 프로필 반영
+{
+    if (!currentUser || user.id !== currentUser.id) // 다른 계정의 늦은 결과
+    {
+        return; // 본인 정보 교체 차단
+    }
+    currentUser = user; // 계정 번호를 유지한 본인 정보
+    Object.values(channels).forEach((channel) => channel.feed?.renameUser(user.id, user.username)); // 초안·대화·커서를 유지한 이름 갱신
+    renderAuthState(); // 현재 사용자명과 이니셜 갱신
+}
 function validUser(user) // 실제 사용자 응답 기본 검사
 {
     return user && validId(user.id) && typeof user.username === "string" && user.username.length > 0; // 렌더링에 필요한 사용자 자료 검사
@@ -630,7 +643,7 @@ function ignoreConnectionFailure() // 선택적 연결 확인 실패 처리
 {
     return undefined; // 확인하지 못한 상태 유지
 }
-async function requestEndpoint(path, body = null, signal = null) // 동일 출처의 취소 가능한 JSON API 요청
+async function requestEndpoint(path, body = null, signal = null, method = null) // 동일 출처의 취소 가능한 JSON API 요청
 {
     const controller = new AbortController(); // 오래 걸리는 요청 취소 도구
     const cancel = () => controller.abort(); // 채널 수명 종료의 요청 취소
@@ -652,7 +665,7 @@ async function requestEndpoint(path, body = null, signal = null) // 동일 출�
     }
     try // 응답과 실패 정보 확인
     {
-        const response = await fetch(path, { method: body === null ? "GET" : "POST", credentials: "same-origin", headers, body: body === null ? undefined : JSON.stringify(body), cache: "no-store", signal: controller.signal }); // 세션 쿠키를 사용한 실제 API 호출
+        const response = await fetch(path, { method: method || (body === null ? "GET" : "POST"), credentials: "same-origin", headers, body: body === null ? undefined : JSON.stringify(body), cache: "no-store", signal: controller.signal }); // 기존 인증과 명시한 PATCH 요청
         const payload = await response.json(); // 표준 JSON 응답 읽기
         if (!response.ok || payload.success !== true) // 서버 실패 응답 여부
         {
@@ -712,6 +725,7 @@ function clearSessionView(preserveDrafts = false) // 종료된 계정 자료 정
     pauseMessageFeeds(); // 종료된 계정의 조회와 예약 제거
     serverUI?.clear(); // 이전 초대 코드와 관리 입력 폐기
     channelUI?.clear(); // 이전 채널 관리 대상과 입력 제거
+    profileUI?.clear(); // 이전 이메일·사용자명 입력과 응답 폐기
     serverManager.reset(); // 서버·영구 선택·진행 결과 수명 제거
     savedDrafts = preserveDrafts && currentUser ? { userId: currentUser.id, values: Object.fromEntries(Object.entries(channels).map(([id, channel]) => [id, channel.draft])) } : null; // 같은 계정 재로그인용 초안
     currentUser = null; // 이전 사용자 제거
@@ -973,9 +987,9 @@ async function checkConnections() // 최초 세션과 실제 연결 확인
     }
     await health; // 실제 데이터베이스 확인 종료 대기
 }
-async function serverFailure(error) // 관리 요청의 기존 인증 복구 연결
+async function serverFailure(error, generation = authGeneration, userId = currentUser?.id) // 관리·프로필 복구의 계정 수명
 {
-    if (error.code === "STALE_RESPONSE") // 정리된 계정의 늦은 응답
+    if (error.code === "STALE_RESPONSE" || generation !== authGeneration || userId !== currentUser?.id) // 중첩 복구도 이전 계정 결과 폐기
     {
         return "로그인 상태를 다시 확인하세요."; // 이전 자료 표시 중단
     }
@@ -993,7 +1007,7 @@ async function serverFailure(error) // 관리 요청의 기존 인증 복구 연
         }
         catch (recovery) // 복구 중 계정 변경
         {
-            return serverFailure(recovery); // 동일한 인증 종료 경계
+            return serverFailure(recovery, generation, userId); // 복구 시작 계정의 종료 경계 유지
         }
     }
     if ([403, 404].includes(error.status)) // 소속 또는 자원 상실
@@ -1008,6 +1022,7 @@ async function serverFailure(error) // 관리 요청의 기존 인증 복구 연
 byId("retry-channels").addEventListener("click", loadChannels); // 소속 채널 조회 재시도
 serverUI = mountServerUI({ manager: serverManager, byId, onReload: loadChannels, onSelect: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 실제 관리 화면 연결
 channelUI = mountChannelUI({ manager: serverManager, byId, getChannel: () => activeChannel && channels[activeChannel] ? { ...channels[activeChannel], id: activeChannel } : null, hasChannel: (id) => Boolean(channels[id]), onDeleted: discardDeletedChannel, onReload: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest && !channelLoading && !channelError) }); // 실제 채널과 권한별 관리 연결
+profileUI = mountProfileUI({ manager: serverManager, byId, getUser: () => currentUser, onUser: applyProfile, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 기존 인증·요청 수명으로 본인 프로필 연결
 document.addEventListener("visibilitychange", () => // 빈 서버를 포함한 창 복귀 갱신
 {
     if (document.visibilityState === "visible" && currentUser && !authInitializing && !serverManager.busy && !channelLoading) // 안정된 로그인 화면

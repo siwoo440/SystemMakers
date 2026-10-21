@@ -113,7 +113,7 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
         this.channel = validId(id) ? id : null; // 잘못된 ID 배제
         this.persist(); // 채널 ID만 저장
     }
-    async execute(operation, body = null, query = null) // 사용자 한 번의 명시적 변경
+    async execute(operation, body = null, query = null, method = null) // 사용자 한 번의 명시적 변경
     {
         if (this.busy) // 중복 생성과 삭제 차단
         {
@@ -130,7 +130,7 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
         try // 자동 재전송 없는 실제 요청
         {
             const suffix = query ? "?" + new URLSearchParams(query).toString() : ""; // 검증된 조회 조건
-            const data = await this.request("/api/" + operation + ".php" + suffix, body); // 같은 출처 API
+            const data = await this.request("/api/" + operation + ".php" + suffix, body, null, method); // 같은 출처와 명시한 PATCH 지원
             if (version !== this.version || this.getUser()?.id !== userId) // 계정 종료 뒤 늦은 결과
             {
                 throw Object.assign(new Error("로그인 상태가 변경되었습니다."), { code: "STALE_RESPONSE" }); // 이전 결과 사용 중단

@@ -1037,7 +1037,7 @@ button:disabled /* 비활성 버튼 */
     background: #111b29; /* 입력 배경 */
     color: #f5f8ff; /* 입력값 대비 */
 }
-#server-error, #channel-manage-error /* 실제 관리 실패 안내 */
+#server-error, #channel-manage-error, #profile-error /* 실제 관리 실패 안내 */
 {
     color: #ffb7b7; /* 읽을 수 있는 경고색 */
 }

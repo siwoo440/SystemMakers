@@ -28,6 +28,7 @@ $apiFiles = // 공개 API 허용 목록
     '/api/create_channel.php' => 'create_channel.php', // 관리자 채널 생성
     '/api/update_channel.php' => 'update_channel.php', // 관리자 채널 이름 변경
     '/api/delete_channel.php' => 'delete_channel.php', // 관리자 채널 삭제
+    '/api/profile.php' => 'profile.php', // 본인 프로필 조회·사용자명 변경
 ]; // API 목록 종료
 if (isset($apiFiles[$path])) // 허용한 API 여부
 {
@@ -57,6 +58,7 @@ $staticFiles = // 공개 정적 파일 허용 목록
     '/server-manager.mjs' => ['server-manager.mjs', 'text/javascript; charset=utf-8'], // 소속 상태와 변경 수명
     '/server-ui.mjs' => ['server-ui.mjs', 'text/javascript; charset=utf-8'], // 서버 관리 대화상자
     '/channel-ui.mjs' => ['channel-ui.mjs', 'text/javascript; charset=utf-8'], // 역할별 채널 관리 대화상자
+    '/profile-ui.mjs' => ['profile-ui.mjs', 'text/javascript; charset=utf-8'], // 본인 프로필 대화상자
 ]; // 정적 파일 목록 종료
 if (!isset($staticFiles[$path])) // 비공개 또는 없는 경로
 {

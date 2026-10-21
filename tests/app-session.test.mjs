@@ -38,7 +38,7 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
         }, createElement: element, querySelector: () => null }, // DOM 생성 경계
         fetch: async (url, options) => // 실제 요청 함수의 네트워크 경계
         {
-            const call = { url, headers: options.headers, body: options.body === undefined ? null : JSON.parse(options.body) }; // 전송된 사용자와 본문 관측
+            const call = { url, method: options.method, headers: options.headers, body: options.body === undefined ? null : JSON.parse(options.body) }; // 전송된 사용자와 본문 관측
             calls.push(call); // 자동 재전송 여부 기록
             const result = await handler(call); // 상황별 API 응답
             return { ok: result.status < 400, status: result.status, headers: { get: () => null }, json: async () => result.status < 400 ? { success: true, data: result.data } : { success: false, error: { code: result.code, message: result.code } } }; // 실제 JSON 응답 형태
@@ -163,3 +163,49 @@ test("삭제 확정 뒤 목록 오류에도 기록·초안·선택 폐기", asyn
     assert.equal(run.evaluate("deletedFeed.list().length"), 0); // 기록 저장소 제거
     assert.equal(run.evaluate("deletedFeed.active"), false); // 조회 예약 종료
 }); // 후속 오류 검사 종료
+test("프로필 PATCH는 기대 계정·CSRF·실제 변경 메서드 전달", async (context) => // 공통 요청 확장 회귀
+{
+    const run = setup(() => ({ status: 200, data: { user: { id: "1", username: "new_name" } } })); // 실제 성공 응답 경계
+    context.after(run.stop); // 검사 조회 정리
+    await run.evaluate('requestEndpoint("/api/profile.php", { username: "new_name" }, null, "PATCH")'); // 실제 화면 요청
+    assert.equal(run.calls[0].method, "PATCH"); // POST로 잘못 변경되는 문제 포착
+    assert.equal(run.calls[0].headers["X-Expected-User-Id"], "1"); // 본인 의도 계정
+    assert.equal(run.calls[0].headers["X-CSRF-Token"], "a".repeat(64)); // 기존 보호 토큰
+}); // PATCH 요청 검사 끝
+test("프로필 반영은 본인 메시지 이름만 갱신·초안·기록·커서 유지", (context) => // 기존 대화 보존
+{
+    const run = setup(() => ({ status: 200, data: {} })); // 요청 없는 표시 변경
+    context.after(run.stop); // 예약 정리
+    run.evaluate('channels["1"].feed.add({ id:"2",channel_id:"1",user_id:"2",username:"other_user",content:"other message",created_at:"2026-10-21T00:00:00Z" }); channels["1"].feed.after="2"; channels["1"].feed.oldest="1"; applyProfile({id:"1",username:"new_name",email:"a@example.test",created_at:"2026-10-21T00:00:00Z"});'); // 실제 프로필 적용
+    assert.deepEqual(run.state(), { userId: "1", channelIds: ["1"], draft: "A private draft" }); // 계정·목록·초안 보존
+    assert.equal(run.evaluate('channels["1"].messages[0].name'), "new_name"); // 본인 표시 이름
+    assert.equal(run.evaluate('channels["1"].messages[1].name'), "other_user"); // 타인 이름 유지
+    assert.equal(run.evaluate('channels["1"].feed.list()[0].username'), "new_name"); // 캐시 이름 갱신
+    assert.equal(run.evaluate('channels["1"].feed.after'), "2"); // 신규 커서 유지
+    assert.equal(run.evaluate('channels["1"].feed.oldest'), "1"); // 과거 커서 유지
+    run.evaluate('applyProfile({id:"2",username:"wrong_user"})'); // 늦은 다른 계정 응답
+    assert.equal(run.evaluate('currentUser.username'), "new_name"); // 계정 교체 차단
+}); // 프로필 표시 검사 끝
+test("프로필 CSRF 복구의 늦은 실패는 새 로그인 계정 유지", async (context) => // 중첩 인증 복구 수명 회귀
+{
+    let release; // 지연된 계정 확인
+    let entered; // 복구 요청 시작 신호
+    const waiting = new Promise((resolve) => entered = resolve); // 실제 대기 경계
+    const run = setup((call) => // 실제 토큰 복구의 네트워크 경계
+    {
+        if (call.url === "/api/csrf.php") // 새 보호 토큰
+        {
+            return { status: 200, data: { csrf_token: "b".repeat(64) } }; // 같은 계정 복구 시작
+        }
+        entered(); // 기대 계정 확인 요청 진입
+        return new Promise((resolve) => release = resolve); // 늦은 인증 실패
+    });
+    context.after(run.stop); // 실제 예약 정리
+    const pending = run.evaluate('serverFailure(requestError("보호 오류",403,"CSRF_INVALID"))'); // 프로필의 공통 인증 복구
+    await waiting; // 현재 계정 확인 대기 상태
+    run.evaluate('authGeneration++; clearSessionView(); currentUser={id:"2",username:"user_b"}; csrfToken="c".repeat(64);'); // 이전 계정 종료 뒤 새 로그인
+    release({ status: 401, code: "UNAUTHORIZED" }); // 이전 복구의 늦은 실패
+    await pending; // 중첩 실패 처리 종료
+    assert.equal(run.state().userId, "2"); // 새 계정 종료 차단
+    assert.equal(run.evaluate("csrfToken"), "c".repeat(64)); // 새 보호 토큰 보존
+}); // 중첩 복구 검사 끝

@@ -1,11 +1,11 @@
 ---
 # SystemMakers 데이터베이스 구조
 
-작성일: 2026-10-21 · 계약 버전: 0.4 · 구조 담당: B · 서버·채널 기능 담당: C
+작성일: 2026-10-21 · 계약 버전: 0.5 · 구조 담당: B · 서버·채널 기능 담당: C
 
 회원·서버·멤버십·채널·메시지의 관계와 API 구현 규칙을 정의한다. [schema.sql](../backend/sql/schema.sql)을 MySQL 8.4.13에 적용했으며 PHP 인증·메시지 저장·조회와 연결한 6단계 전체 인수 검증을 완료했다. 스키마의 최초 15개 검증 기록은 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 최신 전체 90개 결과는 [PHASE-6-VERIFICATION.md](PHASE-6-VERIFICATION.md)에 있다. API 필드·인증·검증 규칙은 [API.md](API.md)와 함께 사용한다.
 
-0.2에서 8절 설계를 확정했고 0.3에서 server_invites·management_rate_limits 변경 파일과 실행 도구를 적용했다. 0.4는 9단계 채널 관리와 잠금 검증 결과를 반영한 문서 계약이며 스키마는 그대로 8개 테이블이다. 추가 마이그레이션은 없다. 신규/기존 DB에는 기존 001 변경 파일을 적용한다. 최신 전체 130개와 자료 보존 근거는 [9단계 결과](PHASE-9-VERIFICATION.md)에 있다. 프로필 API는 후속 구현이다.
+0.2에서 8절 설계를 확정했고 0.3에서 초대·요청 제한 변경 파일을 적용했다. 0.4에서 채널 관리, 0.5에서 본인 프로필의 보존·트랜잭션 검증을 반영했다. 0.5는 문서 계약 버전이며 스키마는 기존 8개 테이블 그대로다. 9~10단계 추가 마이그레이션은 없다. 최초 환경에는 기존 schema.sql과 001 변경 파일을 적용한다. 최신 전체 150개와 자료 보존 근거는 [10단계 결과](PHASE-10-VERIFICATION.md)에 있다.
 
 ---
 ## 1. 공통 설정
@@ -261,7 +261,7 @@ invite_issue_user는 10회/600초, invite_join_user는 10회/600초, invite_join
 | 채널 생성 | 서버 FOR UPDATE → 본인 소속 FOR SHARE → 역할 재검사 → 채널 삽입 |
 | 채널 변경·삭제 | 채널에서 서버 ID 후보 확인 → 서버 FOR UPDATE → 채널 FOR UPDATE → 본인 소속 FOR SHARE → 현재 역할·이름 재검사 → 변경/삭제 |
 | 서버 삭제 | 서버 FOR UPDATE → 소속 채널 모두 ID순 FOR UPDATE → 현재 초대 FOR UPDATE → 소속 모두 user_id순 FOR UPDATE → 소유자·이름 재검사 → 서버 DELETE와 CASCADE |
-| 프로필 | 본인 users 행 UPDATE와 UNIQUE 제약, 다른 계정 ID는 입력 대상에서 배제 |
+| 프로필 | 본인 users 행 FOR UPDATE → username만 UPDATE → 공개 정보 SELECT → COMMIT; UNIQUE 제약으로 경쟁 중복 거절, 다른 계정 ID 입력 배제 |
 
 후보 조회 뒤 자원 삭제·코드 교체·역할 변경이 있으면 잠금 후 현재 상태로 다시 판정한다. 변경 트랜잭션의 소유자 전체 검사도 FOR SHARE로 현재 값을 읽어 후보 조회가 만든 과거 스냅샷을 사용하지 않는다. owner 소속과 servers.owner_id가 불일치하면 500으로 롤백한다. 초대 유효성의 DB 현재 시각은 모든 필요한 잠금을 얻은 뒤 읽는다. 초대/탈퇴/삭제 커밋 전에 시작해 이미 권한 잠금을 얻은 메시지는 먼저 커밋될 수 있으며, 삭제에는 그 메시지도 포함된다. 서버 삭제가 멤버십을 먼저 지워 진행 중 전송과 잠금 순서를 역전하지 않도록 채널을 선점한다. 삭제 미리보기의 집계는 삭제 잠금이나 승인 토큰을 대체하지 않는다. 미리보기 수치는 하나의 읽기 전용 일관된 스냅샷에서 집계한 뒤 응답 전에 트랜잭션을 종료한다.
 
@@ -272,7 +272,7 @@ invite_issue_user는 10회/600초, invite_join_user는 10회/600초, invite_join
 
 8단계 변경 파일은 [001_server_invites_and_limits.sql](../backend/sql/migrations/001_server_invites_and_limits.sql)이다. 기존 schema.sql을 덮어쓰거나 재적용하지 않는다. 생성 순서는 server_invites → management_rate_limits다. 빈 DB는 기존 6개 테이블 생성 뒤 동일 변경 파일을 적용한다. scripts/migrate.php는 DB별 잠금·기존 구조·신규 이름 충돌을 확인하고 재적용/부분 적용을 거절하며 파일 해시를 출력한다. DDL의 부분 실패는 전체 롤백으로 간주하지 않고 실제 생성 상태를 확인한다.
 
-별도 검사 DB에서 변경 적용·재실행 거절·기존 사용자 보존·강제 실패 롤백·만료·중복 역할 보존·CASCADE·잠금 경합·횟수 제한을 확인했다. 9단계는 기존 channels의 서버별 UNIQUE와 messages의 ON DELETE CASCADE를 재사용하며 마지막 채널 삭제·타 채널 보존·진행 전송·권한 상실·소유자 불일치·부모 삭제 경합을 실제 DB에서 검사했다. 개발 DB는 사용자 1·서버 1·채널 3·대화 3·테이블 8개를 보존했다. 실행 순서·확인 범위는 README와 9단계 결과에 기록했다. 운영 배포의 백업 복원·부하 검증은 후속 범위다.
+별도 검사 DB에서 변경 적용·재실행 거절·기존 자료 보존·강제 실패 롤백·만료·중복 역할 보존·CASCADE·잠금 경합·횟수 제한을 확인했다. 9단계 채널 관리에 이어 10단계는 users.username의 기존 고유 키를 재사용한다. 이름 변경 전후 ID·이메일·password_hash·가입일·서버 소유자·소속·작성 대화를 비교하고, 잠금 대기 중 다른 계정의 이름 선점은 409·강제 DB 실패는 500으로 무변경을 확인했다. 개발 자료 보존과 실제 웹 확인 범위는 [10단계 결과](PHASE-10-VERIFICATION.md)를 따른다. 운영 백업 복원·부하 검증은 후속 범위다.
 
 ---
 ## 검색 참고

@@ -33,6 +33,17 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
     {
         return [...this.items.values()].sort((left, right) => compareId(left.id, right.id)); // 큰 ID의 오름차순
     }
+    renameUser(userId, username) // 같은 작성자의 메모리 표시 이름 갱신
+    {
+        for (const [id, item] of this.items) // 현재 보관한 기록
+        {
+            if (item.user_id === userId) // 본인 작성 기록만
+            {
+                this.items.set(id, { ...item, username }); // 대화 ID·본문·시각 보존
+            }
+        }
+        this.onChange({ kind: "profile", added: 0 }); // 조회 커서와 예약을 유지한 표시 갱신
+    }
     add(item) // 확인한 전송 성공 응답 병합
     {
         if (this.blocked) // 전송 응답 대기 중 권한 상실 여부
