@@ -130,6 +130,19 @@ test("권한 상실의 기록 제거와 폴링 종료", async () => // 사라진
     run.feed.add(message("2")); // 권한 확인 뒤 도착한 이전 전송 성공
     assert.deepEqual(run.feed.list(), []); // 늦은 저장 응답으로 대화 부활 없음
 }); // 권한 검사 종료
+test("일시 정지 채널의 전송 거절도 과거 기록과 커서 제거", async () => // 다른 채널로 이동한 뒤 전송 거절의 과거 대화 노출 포착
+{
+    const run = await setup(() => page(["1"], "initial", true)); // 과거 대화가 있는 실제 상태
+    await run.feed.activate(); // 최초 기록 불러오기
+    run.feed.pause(); // 전송 응답 전에 다른 채널로 이동
+    run.feed.block(Object.assign(new Error("forbidden"), { status: 403 })); // 전송에서 확인한 권한 거절
+    assert.deepEqual(run.feed.list(), []); // 과거 대화 즉시 제거
+    assert.equal(run.feed.blocked, true); // 재선택 전 차단
+    assert.equal(run.feed.hasOlder, false); // 이전 조회 차단
+    assert.equal(run.timers.size, 0); // 폴링 예약 제거
+    await run.feed.activate(); // 접근 거절 채널의 재선택
+    assert.equal(run.calls.length, 1); // 임의 재조회와 과거 표시 없음
+}); // 정지 채널 권한 검사 종료
 test("잘못된 채널과 커서 응답의 원자적 거절", async () => // 잘못된 응답의 일부 반영 포착
 {
     const run = await setup((count) => count === 1 ? page(["1"], "initial") : { messages: [message("2"), message("3", "9")], pagination: { mode: "after", has_more: false, next_before_id: "2", next_after_id: "3" } }); // 다른 채널이 섞인 응답

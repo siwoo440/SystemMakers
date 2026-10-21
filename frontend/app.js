@@ -81,9 +81,9 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         {
             return; // 늦은 오류 무시
         }
-        if (error.status === 401) // 실제 세션 만료
+        if (error.status === 401 || error.code === "SESSION_CHANGED") // 세션 만료 또는 다른 탭 계정 변경
         {
-            expireMessageSession().catch(ignoreConnectionFailure); // 폴링 종료와 로그인 화면 복구
+            expireMessageSession(error.code === "SESSION_CHANGED").catch(ignoreConnectionFailure); // 계정 자료 정리와 로그인 화면 복구
         }
         else if ([403, 404].includes(error.status)) // 현재 채널 소속 또는 존재 상실
         {
@@ -242,16 +242,16 @@ function selectChannel(channelId) // 실제 소속 채널 전환
         setSidebar(false); // 선택 후 대화 화면 복귀
     }
 }
-async function expireMessageSession() // 보호된 메시지 기능의 세션 만료 처리
+async function expireMessageSession(changed = false) // 만료되거나 다른 계정으로 바뀐 화면 정리
 {
     authGeneration += 1; // 이전 계정의 응답 무효화
-    sessionNotice = "세션 만료 · 다시 로그인하세요"; // 확인된 인증 만료 안내
+    sessionNotice = changed ? "계정 변경 · 다시 로그인 정보를 확인하세요" : "세션 만료 · 다시 로그인하세요"; // 실제 계정 종료 사유
     clearSessionView(true); // 미전송 초안만 같은 계정 복원용 보관
     await refreshCsrf().catch(ignoreConnectionFailure); // 새 세션의 보호 정보 준비
     if (!authInitializing && !authBusy) // 인증 화면 표시 가능한 상태
     {
         openAuth(); // 실제 로그인 화면 열기
-        showAuthError("세션이 만료되었습니다. 다시 로그인하세요."); // 만료 이유 안내
+        showAuthError(changed ? "로그인 계정이 변경되었습니다. 이전 초안은 자동 전송하지 않습니다. 현재 계정을 확인하세요." : "세션이 만료되었습니다. 다시 로그인하세요."); // 실제 종료 이유 안내
     }
 }
 async function loadChannels() // 로그인 사용자의 실제 소속 채널 조회
@@ -311,9 +311,9 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
         {
             return; // 이전 실패 응답 무시
         }
-        if (error.status === 401) // 실제 로그인 만료 응답
+        if (error.status === 401 || error.code === "SESSION_CHANGED") // 실제 로그인 만료와 계정 변경 응답
         {
-            await expireMessageSession(); // 계정 화면 정리와 로그인 안내
+            await expireMessageSession(error.code === "SESSION_CHANGED"); // 이전 계정 목록과 기록 정리
             return; // 만료 계정 조회 종료
         }
         channelError = "참여 채널을 확인하지 못했습니다. 채널 목록 다시 확인을 눌러주세요."; // 성공 추정 없는 실패 안내
@@ -373,9 +373,9 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
         {
             return; // 이전 실패가 현재 계정을 변경하지 않도록 중단
         }
-        if (error.status === 401) // 실제 인증 만료 응답
+        if (error.status === 401 || error.code === "SESSION_CHANGED") // 실제 인증 만료와 계정 변경 응답
         {
-            await expireMessageSession(); // 초안 보관과 인증 화면 전환
+            await expireMessageSession(error.code === "SESSION_CHANGED"); // 같은 계정 초안만 보관하고 이전 화면 종료
             return; // 만료 계정 처리 종료
         }
         if (error.code === "CSRF_INVALID") // 보호 토큰 불일치 응답
@@ -385,8 +385,13 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
                 await refreshCsrf(request.generation); // 자동 전송 없는 최신 토큰 조회
                 channel.feedback = "화면 보호 정보를 갱신했습니다. 초안을 확인하고 다시 전송하세요."; // 명시적 사용자 재제출 안내
             }
-            catch // 보호 정보 복구 실패
+            catch (recoveryError) // 보호 정보 또는 계정 확인 실패
             {
+                if (recoveryError.status === 401 || recoveryError.code === "SESSION_CHANGED") // 복구 중 세션 만료나 다른 계정 확인
+                {
+                    await expireMessageSession(recoveryError.code === "SESSION_CHANGED"); // 새 계정으로 이전 초안 전달 차단
+                    return; // 이전 채널의 복구 안내 적용 중단
+                }
                 channel.feedback = "화면 보호 정보를 갱신하지 못했습니다. 다시 로그인하세요."; // 복구 실패 안내
             }
         }
@@ -396,8 +401,8 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
         }
         if (error.status === 404 || error.code === "FORBIDDEN") // 사라졌거나 참여 상태가 바뀐 채널
         {
-            channelError = channel.feedback; // 목록 재확인이 필요한 실제 오류
-            renderChannels(); // 채널 목록 재시도 버튼 표시
+            channel.feed.block(error); // 비활성 채널도 과거 기록과 조회 수명 제거
+            return; // 공통 차단 경계의 권한 안내 유지
         }
         channel.error = true; // 초안을 유지한 실패 표시
     }
@@ -581,6 +586,10 @@ async function requestEndpoint(path, body = null, signal = null) // 동일 출�
     }
     const timeout = window.setTimeout(() => controller.abort(), 15000); // 연결 확인 대기 시간 제한
     const headers = { Accept: "application/json" }; // JSON 응답 요청
+    if (currentUser) // 화면이 확인한 사용자 존재 여부
+    {
+        headers["X-Expected-User-Id"] = currentUser.id; // 다른 탭 계정 변경의 서버 사전 검사
+    }
     if (body !== null) // 실제 상태 변경 요청 여부
     {
         headers["Content-Type"] = "application/json"; // 표준 JSON 요청 형식
@@ -627,6 +636,19 @@ async function refreshCsrf(generation = authGeneration) // 실제 세션 보호 
     {
         return; // 이전 보호 정보 무시
     }
+    const expectedUserId = currentUser?.id; // 토큰을 적용할 화면 계정
+    if (expectedUserId) // 로그인 상태에서 보호 정보 교체 여부
+    {
+        const identity = await requestEndpoint("/api/get_current_user.php"); // 새 토큰 조회 뒤 현재 세션과 기대 계정 확인
+        if (!validUser(identity.user) || identity.user.id !== expectedUserId) // 계정 응답의 추가 일치 검사
+        {
+            throw requestError("로그인 계정이 변경되었습니다. 다시 확인하세요.", 403, "SESSION_CHANGED"); // 다른 계정 토큰의 초안 사용 차단
+        }
+        if (generation !== authGeneration) // 계정 확인 중 교체된 수명
+        {
+            return; // 이전 토큰 적용 차단
+        }
+    }
     csrfToken = data.csrf_token; // 브라우저 메모리에만 새 토큰 보관
     renderAuthState(); // 보호 준비 상태 갱신
 }
@@ -662,6 +684,12 @@ async function restoreCurrentUser(generation) // 실제 로그인 세션 복원
         {
             throw requestError("사용자 정보를 확인하지 못했습니다."); // 잘못된 인증 자료 거절
         }
+        if (currentUser && currentUser.id !== data.user.id) // 실제 계정이 바뀐 복원 응답
+        {
+            authGeneration += 1; // 이전 계정 요청 무효화
+            generation = authGeneration; // 이번 복원 수명 갱신
+            clearSessionView(); // 이전 계정의 채널·초안·기록 제거
+        }
         currentUser = data.user; // 실제 사용자 자료 보관
         sessionNotice = "로그인됨"; // 소속 권한과 구분한 인증 상태
         await loadChannels(); // 확인된 사용자 소속 채널 조회
@@ -672,9 +700,14 @@ async function restoreCurrentUser(generation) // 실제 로그인 세션 복원
         {
             return; // 이전 상태의 늦은 실패 무시
         }
+        if (error.code === "SESSION_CHANGED") // 복원 중 다른 탭 계정 변경
+        {
+            await expireMessageSession(true); // 이전 계정 자료를 남기지 않는 복구
+            return; // 사용자 교체를 성공으로 추정하지 않도록 종료
+        }
         if (error.status === 401) // 실제 비로그인 확인
         {
-            currentUser = null; // 미확인 사용자 정보 제거
+            clearSessionView(true); // 이전 기록 제거와 같은 계정 초안만 보관
             sessionNotice = "로그인 후 채널 이용 가능"; // 확인된 게스트 상태
             await refreshCsrf(); // 만료로 교체된 세션의 토큰 갱신
         }
@@ -695,8 +728,13 @@ async function handleAuthFailure(error) // 실제 인증 실패 안내 구성
             await refreshCsrf(); // 사용자의 다음 요청을 위한 재발급
             return "화면 보호 정보를 갱신했습니다. 입력을 확인하고 다시 제출하세요."; // 자동 재전송 없는 명시적 안내
         }
-        catch // 보호 토큰 재발급 실패
+        catch (recoveryError) // 보호 토큰과 계정 재확인 실패
         {
+            if (recoveryError.status === 401 || recoveryError.code === "SESSION_CHANGED") // 실제 계정 종료 확인
+            {
+                await expireMessageSession(recoveryError.code === "SESSION_CHANGED"); // 이전 계정 화면과 토큰 제거
+                return "로그인 상태가 변경되었습니다. 현재 계정을 다시 확인하세요."; // 자동 재전송 없는 상태 안내
+            }
             return "화면 보호 정보를 갱신하지 못했습니다. 연결을 확인하고 다시 시도하세요."; // 복구 실패 안내
         }
     }
@@ -822,9 +860,9 @@ async function logout() // 실제 로그인 세션 종료
     }
     catch (error) // 로그아웃 실패 또는 세션 만료
     {
-        if (error.status === 401) // 서버에서 실제 세션 만료 확인
+        if (error.status === 401 || error.code === "SESSION_CHANGED") // 서버에서 세션 만료 또는 계정 변경 확인
         {
-            sessionNotice = "세션 만료 · 다시 로그인하세요"; // 다시 로그인할 상태 안내
+            sessionNotice = error.code === "SESSION_CHANGED" ? "계정 변경 · 다시 확인하세요" : "세션 만료 · 다시 로그인하세요"; // 현재 세션 종료 이유
             clearSessionView(); // 만료된 사용자 화면 자료 제거
             await refreshCsrf().catch(ignoreConnectionFailure); // 로그인 전 새 보호 토큰 발급 시도
             expired = true; // 로그인 화면 재표시 준비

@@ -49,6 +49,14 @@ function require_user(PDO $pdo): array // 필수 로그인 사용자 검증
     {
         respond_error('UNAUTHORIZED', '로그인이 필요합니다.', 401); // 공통 비로그인 응답
     }
+    if (array_key_exists('HTTP_X_EXPECTED_USER_ID', $_SERVER)) // 화면이 확인한 계정 헤더 존재 여부
+    {
+        $expected = $_SERVER['HTTP_X_EXPECTED_USER_ID']; // 요청 화면의 기대 사용자 ID
+        if (!valid_id($expected) || !hash_equals($user['id'], $expected)) // 현재 세션과 화면 계정 불일치
+        {
+            respond_error('SESSION_CHANGED', '로그인 계정이 변경되었습니다. 다시 확인하세요.', 403); // 자료 조회와 저장 전 계정 혼동 차단
+        }
+    }
     return $user; // 검증된 공개 사용자 정보
 }
 function require_guest(PDO $pdo): void // 로그인 중 가입과 재로그인 차단

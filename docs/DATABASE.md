@@ -1,9 +1,9 @@
 ---
-# SystemMakers 데이터베이스 구조 초안
+# SystemMakers 데이터베이스 구조
 
 작성일: 2026-10-21 · 계약 버전: 0.1 · 구조 담당: B · 서버·채널 기능 담당: C
 
-회원·서버·멤버십·채널·메시지의 관계와 API 구현 시 지킬 규칙을 정의한다. [schema.sql](../backend/sql/schema.sql)을 구현하고 MySQL 8.4.13의 테스트 전용 DB에 적용하여 검증했다. [검증 결과](SCHEMA-VERIFICATION.md)의 전체 테스트 15개가 통과했다. PHP 인증·메시지 API는 다음 단계다. API 필드·인증·검증 규칙은 [API.md](API.md)와 함께 사용한다.
+회원·서버·멤버십·채널·메시지의 관계와 API 구현 규칙을 정의한다. [schema.sql](../backend/sql/schema.sql)을 MySQL 8.4.13에 적용했으며 PHP 인증·메시지 저장·조회와 연결한 6단계 전체 인수 검증을 완료했다. 스키마의 최초 15개 검증 기록은 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 최신 전체 90개 결과는 [PHASE-6-VERIFICATION.md](PHASE-6-VERIFICATION.md)에 있다. API 필드·인증·검증 규칙은 [API.md](API.md)와 함께 사용한다.
 
 ---
 ## 1. 공통 설정
@@ -152,7 +152,7 @@ PHP 환경 변수 이름은 AUTH_RATE_LIMIT_KEY이며 32바이트 이상으로 �
 | messages.channel_id | channels.id | CASCADE | 채널 삭제 시 메시지 삭제 |
 | messages.user_id | users.id | RESTRICT | 작성 메시지가 남아 있는 사용자 삭제 차단 |
 
-채널 삭제는 해당 채널 메시지의 영구 삭제로 이어진다. 서버 삭제는 멤버십·채널·메시지의 영구 삭제로 이어진다. C의 삭제 API는 권한 검사와 사용자에게 이 영향을 알리는 절차를 갖춰야 한다. 이번 문서 작성 단계에서 실제 삭제는 수행하지 않는다.
+채널 삭제는 해당 채널 메시지의 영구 삭제로 이어진다. 서버 삭제는 멤버십·채널·메시지의 영구 삭제로 이어진다. C의 삭제 API는 권한 검사와 사용자에게 이 영향을 알리는 절차를 갖춰야 한다. 삭제 동작 검증은 자동 검사의 무작위 DB와 이번에 생성한 임시 검증 자료에 한정했다.
 
 서버 탈퇴는 server_members 한 행만 지우므로 기존 메시지를 삭제하지 않는다. 계정 탈퇴·익명화·메시지 수정·삭제 API는 이번 범위에서 제공하지 않는다. 참조를 무시하기 위한 FOREIGN_KEY_CHECKS 해제는 사용하지 않는다. [MySQL 외래 키 문서](https://dev.mysql.com/doc/refman/8.4/en/create-table-foreign-keys.html)
 
@@ -160,6 +160,8 @@ PHP 환경 변수 이름은 AUTH_RATE_LIMIT_KEY이며 32바이트 이상으로 �
 ## 5. 인증·권한·동시성 규칙
 
 PHP 세션에는 user_id, 로그인 시각, 마지막 인증 활동 시각, csrf_token을 저장한다. 세션은 서버의 PHP 세션 저장소로 관리하며 별도의 DB 세션 테이블은 두지 않는다. 비밀번호 원문·해시는 세션에 저장하지 않는다. require_user는 세션 만료와 실제 사용자 존재 여부를 확인하고 문자열 id를 반환한다.
+
+화면이 X-Expected-User-Id를 전달하면 require_user는 실제 세션 사용자와 일치하는지도 세션 잠금 안에서 검사한다. 다른 탭이 새 계정으로 로그인했을 때 이전 초안을 새 계정 작성자로 저장하지 않도록 본문·메시지 조회·쓰기 전에 SESSION_CHANGED로 거절한다. 이 헤더로 작성자를 지정하거나 멤버십 검사를 생략하지 않는다. 실제 작성자는 계속 세션에서 결정한다. DB 스키마나 추가 비밀 열은 필요하지 않다.
 
 채널 접근은 channels에서 채널·서버를 확인한 뒤 server_members의 (server_id, 세션 user_id) 존재 여부로 판정한다. 채널 없음은 404, 멤버십 없음은 403, 로그인 없음은 401이다. 요청의 user_id나 role을 신뢰하지 않는다.
 

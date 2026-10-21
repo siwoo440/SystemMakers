@@ -57,6 +57,19 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
         this.controller = null; // 취소 도구 참조 제거
         this.busy = false; // 이전 요청의 입력 잠금 정리
     }
+    block(error) // 조회와 전송의 공통 접근 종료
+    {
+        this.pause(); // 활성 여부와 무관한 조회·예약 취소
+        this.blocked = true; // 소속 재확인 전 접근 차단
+        this.items.clear(); // 과거 대화 즉시 제거
+        this.hasOlder = false; // 이전 기록 요청 차단
+        this.loaded = false; // 확인된 접근 상태 폐기
+        this.oldest = null; // 과거 기록 커서 제거
+        this.after = "0"; // 신규 기록 커서 제거
+        this.error = error; // 실제 거절 사유 보관
+        this.onChange({ kind: "error", added: 0 }); // 비활성 채널도 기록 정리 반영
+        this.onError(error); // 인증 복구 또는 권한 안내
+    }
     activate() // 선택한 채널의 조회 시작 또는 재개
     {
         this.pause(); // 이전 조회 수명 정리
@@ -150,10 +163,8 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
             this.failures += 1; // 재연결 대기 증가
             if ([401, 403, 404].includes(error.status)) // 인증과 채널 권한 종료
             {
-                this.blocked = true; // 목록과 계정 복구 전 조회 차단
-                this.active = false; // 자동 갱신 종료
-                this.items.clear(); // 권한 없는 과거 대화 제거
-                this.hasOlder = false; // 과거 기록 조회 차단
+                this.block(error); // 조회와 전송에 같은 접근 종료 경계
+                return; // 종료된 수명의 후속 예약 차단
             }
             this.onChange({ kind: "error", added: 0 }); // 실제 오류와 목록 상태 표시
             this.onError(error); // 인증 복구와 권한 안내 연결

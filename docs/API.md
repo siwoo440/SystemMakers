@@ -1,9 +1,9 @@
 ---
-# SystemMakers API 명세 초안
+# SystemMakers API 명세
 
-작성일: 2026-10-21 · 계약 버전: 0.3 · 구현 담당: B · 연동 대상: A·C
+작성일: 2026-10-21 · 계약 버전: 0.4 · 구현 담당: B · 연동 대상: A·C
 
-회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 0.3에서는 기존 조회 커서 계약을 실제 PHP·MySQL과 웹 폴링에 구현했다. 서버·채널·프로필 관리 API 구현은 C의 담당이다.
+회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 0.4에서는 전체 인수 검증과 기대 사용자 헤더에 의한 계정 변경 차단을 추가했다. 서버·채널·프로필 관리 API 구현은 C의 담당이다.
 
 ---
 ## 1. 공통 규칙
@@ -16,6 +16,7 @@
 | 응답 | `Content-Type: application/json; charset=utf-8`, `Cache-Control: no-store` |
 | 인증 | 같은 출처의 PHP 세션 쿠키; 토큰을 localStorage에 저장하지 않음 |
 | 상태 변경 보호 | 모든 POST에 `X-CSRF-Token` 헤더 적용; 회원가입·로그인 포함 |
+| 화면 계정 보호 | 로그인한 웹 화면은 `X-Expected-User-Id` 헤더에 확인한 사용자 ID 전달; 보호된 API는 현재 세션과 불일치 시 403 SESSION_CHANGED |
 | 문자 | UTF-8; 잘못된 UTF-8 입력 거절 |
 | ID | 모든 자원 ID는 JSON에서도 양의 10진수 문자열; `"1"` 형식 |
 | ID 범위 | `1`~`18446744073709551615`; 부호·소수·공백·앞자리 0 불허 |
@@ -71,11 +72,13 @@
 3. 회원가입 성공 후 별도의 로그인 요청을 보낸다. 가입만으로 서버 멤버십이나 로그인 상태가 생기지 않는다.
 4. 로그인 성공 시 세션 ID와 CSRF 토큰을 갱신한다. A는 응답의 새 토큰으로 기존 토큰을 교체한다.
 5. 새로고침 시 CSRF 토큰을 다시 조회하고 `get_current_user.php`로 로그인 상태를 확인한다.
-6. 보호된 API가 401을 반환하면 폴링을 중지하고 로그인 화면을 표시한다.
-7. `CSRF_INVALID` 발생 시 토큰을 다시 조회한다. 전송 중이던 POST는 자동 재전송하지 않고 사용자의 다음 제출을 기다린다.
+6. 보호된 API가 401 또는 SESSION_CHANGED를 반환하면 폴링·이전 계정 기록을 정리하고 로그인 재확인 화면을 표시한다. 같은 계정의 만료 초안만 메모리에 보관하며 다른 계정에 복원하지 않는다.
+7. `CSRF_INVALID` 발생 시 토큰을 조회한 뒤 현재 계정을 기대 사용자 헤더로 다시 확인한다. 같은 계정일 때만 토큰을 적용하고 초안을 유지한다. 전송 중이던 POST는 자동 재전송하지 않는다.
 8. 로그아웃 성공 시 폴링·화면의 사용자 정보·메시지 상태·보관한 CSRF 토큰을 비운다.
 
 동일 출처 fetch의 `credentials` 값은 `same-origin`으로 통일한다. 개발 서버가 따로 있으면 프록시를 통해 동일 출처로 연결하는 방식을 우선한다. 교차 출처 배포는 현재 계약에 포함하지 않으며, 도입 시 허용 출처·쿠키·CORS를 함께 변경해야 한다.
+
+X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조건을 추가한다. require_user가 실제 인증을 확인한 뒤 같은 PHP 세션 잠금 안에서 검사한다. 보호된 조회·메시지 전송·로그아웃 모두 적용하며, 명시한 값이 빈 값·잘못된 ID·다른 계정이면 본문 처리와 자료 조회·저장 전에 거절한다. 실제 사용자의 ID·이메일은 오류에 노출하지 않는다. 헤더를 생략한 기존 API 클라이언트는 기존 계약을 유지하지만 웹 화면처럼 계정을 기억하는 클라이언트는 이 헤더를 함께 보내야 한다. 조회한 사용자와 토큰 사이에 계정이 다시 바뀌더라도 다음 보호 요청의 서버 검사에서 차단한다.
 
 세션 쿠키 이름은 `systemmakers_session`, Path는 `/`, Domain은 지정하지 않는다. HttpOnly와 SameSite=Lax를 적용하고 운영 HTTPS에서는 Secure를 적용한다. URL을 통한 세션 전달은 금지하며 strict mode를 활성화한다. 유휴 만료는 30분, 로그인 후 최대 수명은 12시간이다. 인증 요청 시 서버에서 시각을 검사하며 만료 시 401을 반환한다. 주기적인 인증된 폴링도 활동으로 취급한다. CSRF 발급만으로 로그인 유휴 시간을 연장하지 않는다.
 
@@ -304,6 +307,7 @@ before_id와 after_id의 동시 사용은 400 `INVALID_QUERY`다. 커서는 범�
 | 401 | UNAUTHORIZED | 보호된 API의 비로그인·세션 만료·존재하지 않는 세션 사용자 |
 | 401 | INVALID_CREDENTIALS | 없는 계정 또는 비밀번호 불일치 |
 | 403 | CSRF_INVALID | CSRF 토큰 누락·불일치 |
+| 403 | SESSION_CHANGED | 명시한 기대 계정 헤더의 형식 오류 또는 현재 로그인 계정과 불일치 |
 | 403 | FORBIDDEN | 존재하는 채널의 서버에 소속되지 않음 |
 | 404 | CHANNEL_NOT_FOUND | 해당 채널 없음 |
 | 404 | NOT_FOUND | 라우터에 없는 API 경로 |
@@ -316,17 +320,17 @@ before_id와 after_id의 동시 사용은 400 `INVALID_QUERY`다. 커서는 범�
 | 429 | RATE_LIMITED | 로그인 횟수 제한; Retry-After 헤더 제공 |
 | 500 | INTERNAL_ERROR | DB·세션 저장 등 내부 실패; 내부 원인 숨김 |
 
-검사 우선순위는 메서드 → 보호된 API의 인증 → POST 크기·Content-Type·JSON 검사 → CSRF → 입력 검증 → 채널 존재 → 멤버십 → DB 동작이다. 로그인·회원가입은 메서드 검사 후 이미 로그인 중이면 409로 처리한다. 429 판정은 CSRF·로그인 입력 검증 뒤, 비밀번호 검사 전에 수행한다.
+검사 우선순위는 메서드 → 보호된 API의 인증·기대 계정 일치 → POST 크기·Content-Type·JSON 검사 → CSRF → 입력 검증 → 채널 존재 → 멤버십 → DB 동작이다. 로그인·회원가입은 메서드 검사 후 이미 로그인 중이면 409로 처리한다. 429 판정은 CSRF·로그인 입력 검증 뒤, 비밀번호 검사 전에 수행한다. 조회 또는 전송에서 FORBIDDEN·CHANNEL_NOT_FOUND를 확인한 화면은 해당 채널의 저장된 기록과 조회 예약을 함께 지운다.
 
 ---
 ## 7. 팀원 C와 공유할 내부 계약
 
 다음 함수는 2단계에서 구현한 공통 인터페이스다. 실제 검증 결과는 [PHASE-2-VERIFICATION.md](PHASE-2-VERIFICATION.md)에 기록했다.
 
-| 예정 함수 | 위치 | 계약 |
+| 공통 함수 | 위치 | 계약 |
 |---|---|---|
 | db(): PDO | backend/config/database.php | utf8mb4·UTC·예외 모드·실제 prepared statement를 사용하는 연결 |
-| require_user(PDO): array | backend/includes/auth.php | 유효한 사용자 반환; 키는 id, username, email, created_at; 실패 시 공통 401 |
+| require_user(PDO): array | backend/includes/auth.php | 유효한 사용자 반환; 키는 id, username, email, created_at; 비로그인 401, 명시된 기대 계정 불일치 403 SESSION_CHANGED |
 | require_csrf(): void | backend/includes/csrf.php | 세션 토큰과 X-CSRF-Token 비교; 실패 시 공통 403 |
 | require_channel_member(PDO, string, string): array | backend/includes/permissions.php | 채널 ID·인증 사용자 ID로 권한 검사; id와 server_id를 문자열로 반환; 404·403 구분 |
 | store_message(PDO, string, string, string): array | backend/includes/messages.php | 검증된 채널 ID·세션 사용자 ID·원문을 채널·멤버십 잠금과 함께 저장하고 커밋된 공개 메시지 반환 |
@@ -347,7 +351,7 @@ C는 서버 생성과 생성자 owner 멤버십 등록을 하나의 트랜잭션
 
 가입·중복·잘못된 비밀번호·세션 교체·로그아웃·세션 만료, 비로그인 401, CSRF 403, 다른 서버 접근 403, 없는 채널 404, 작성자 ID 위조 거절, 메시지 저장·채널 분리·이전 및 신규 커서·빈 결과·100개 초과 적체·동시 전송 순서·로그인 429를 검증한다.
 
-초기 DB·공통 계층·회원 인증·메시지 저장에 이어 실제 메시지 최초·이전·신규 조회, 권한 재검사, 100개 초과 적체, 큰 ID, 폴링 취소와 화면 연동을 검증했다. 최신 결과는 [PHASE-5-VERIFICATION.md](PHASE-5-VERIFICATION.md), 저장 상세는 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 인증 상세는 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다.
+초기 DB·공통 계층·회원 인증·메시지 저장·조회를 연결한 공개 API 전체 흐름과 기대 계정 보호·전송 거절의 기록 정리를 검증했다. 최신 결과는 [PHASE-6-VERIFICATION.md](PHASE-6-VERIFICATION.md), 조회 상세는 [PHASE-5-VERIFICATION.md](PHASE-5-VERIFICATION.md), 저장 상세는 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 인증 상세는 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다.
 
 ---
 ## 검색 참고

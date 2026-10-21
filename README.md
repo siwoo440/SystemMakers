@@ -10,8 +10,8 @@ Discord 스타일 웹 채팅 프로젝트. HTML·CSS·JavaScript 프론트엔드
 ---
 ## 공유 문서
 
-- [API 명세 초안](docs/API.md): 요청·응답, 세션·CSRF, 오류 코드와 메시지 폴링
-- [DB 구조 초안](docs/DATABASE.md): 테이블·인덱스·외래 키·삭제·트랜잭션 규칙
+- [API 명세](docs/API.md): 요청·응답, 세션·CSRF·기대 계정, 오류 코드와 메시지 폴링
+- [DB 구조](docs/DATABASE.md): 테이블·인덱스·외래 키·삭제·트랜잭션 규칙
 - [개발 방향](docs/DEVELOPMENT-DIRECTION.md): 역할 분담, 범위와 구현 순서
 - [초기 스키마](backend/sql/schema.sql): 테이블 6개·외래 키·인덱스·본문 길이 제약
 - [스키마 검증 결과](docs/SCHEMA-VERIFICATION.md): 실제 MySQL 8.4.13에서 전체 테스트 15개 통과
@@ -21,6 +21,7 @@ Discord 스타일 웹 채팅 프로젝트. HTML·CSS·JavaScript 프론트엔드
 - [3단계 검증 결과](docs/PHASE-3-VERIFICATION.md): 실제 회원 인증·횟수 제한·화면 연동 확인
 - [4단계 검증 결과](docs/PHASE-4-VERIFICATION.md): 실제 메시지 저장·채널 권한·동시 전송·웹 연동 확인
 - [5단계 검증 결과](docs/PHASE-5-VERIFICATION.md): 이전 대화 조회·신규 적체·폴링·실제 화면 확인
+- [6단계 전체 인수 결과](docs/PHASE-6-VERIFICATION.md): 가입부터 로그아웃까지 전체 흐름·계정 변경·권한 상실·확인 범위
 - [한국어 커밋 메시지](docs/COMMIT-MESSAGES.md): 기존 이력 변경과 이후 작성 규칙
 
 ---
@@ -55,21 +56,29 @@ APP_ENV가 development 또는 test인 CLI에서만 실행한다. 기존 사용�
 ---
 ## 현재 진행 상태
 
-1단계 DB 구조, 2단계 공통 처리, 3단계 회원 인증, 4단계 채널별 메시지 저장, 5단계 이전·신규 대화 조회와 자동 갱신을 완료했다. GET API는 csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php, POST API는 register.php·login.php·logout.php·send_message.php다. 가입 후 별도로 로그인하며 인증된 사용자의 현재 서버 소속을 확인하고 원문 메시지를 저장·조회한다. 비밀번호 원문은 DB·브라우저 저장소에 보관하지 않는다.
+1단계 DB 구조부터 5단계 대화 조회·자동 갱신과 6단계 로컬 전체 인수 검증을 완료했다. GET API는 csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php, POST API는 register.php·login.php·logout.php·send_message.php다. 가입 후 별도로 로그인하며 인증된 사용자의 현재 서버 소속을 확인하고 원문 메시지를 저장·조회한다. 비밀번호 원문은 DB·브라우저 저장소에 보관하지 않는다.
 
-메시지는 새로고침 후에도 DB에서 복원된다. 최신 50개보다 오래된 기록은 이전 대화 더 보기로 추가하고, 새 메시지는 이전 조회 완료 후 2초 뒤에 확인한다. 50개 초과 신규 기록은 페이지를 연속 조회하고 통신 오류 시 최대 30초까지 대기한다. 채널 이동·로그아웃 시 이전 요청을 취소하며, 과거 대화를 읽는 위치·채널별 초안·문자열 ID 정밀도를 유지한다. 전송 성공 응답은 중복 없이 표시하되 조회 커서를 앞당기지 않는다. 6단계의 전체 인수 검증과 C의 서버·채널·프로필 관리 기능은 후속 작업이다.
+메시지는 새로고침 후에도 DB에서 복원된다. 최신 50개보다 오래된 기록은 이전 대화 더 보기로 추가하고, 새 메시지는 이전 조회 완료 후 2초 뒤에 확인한다. 50개 초과 신규 기록은 페이지를 연속 조회하고 통신 오류 시 최대 30초까지 대기한다. 채널 이동·로그아웃 시 이전 요청을 취소하며, 과거 대화를 읽는 위치·채널별 초안·문자열 ID 정밀도를 유지한다. 전송 성공 응답은 중복 없이 표시하되 조회 커서를 앞당기지 않는다.
+
+브라우저는 확인한 사용자 ID를 X-Expected-User-Id 헤더로 보내고 서버는 현재 세션과 다르면 자료 조회·저장·로그아웃 전에 SESSION_CHANGED로 거절한다. 다른 탭의 계정 변경 시 이전 계정 기록·초안을 화면에서 지우고 재확인을 안내한다. 같은 계정의 CSRF 교체는 초안을 보존하며 자동 재전송하지 않는다. 조회 또는 전송에서 채널 권한 상실을 확인하면 해당 기록을 지우고 조회·전송을 차단한다.
+
+로컬 인수 검증 완료 범위는 기존 B 담당 API와 웹 연동이다. C의 서버·채널·프로필 관리, 운영 호스팅·HTTPS·프록시·부하 검증은 남아 있다. 상세 확인 범위와 후속 작업은 6단계 검증 결과에 구분했다.
 
 ---
-## 5단계 검사 실행
+## 전체 검사 실행
 
 실제 PHP 8.4와 MySQL 8.4가 필요하다. PHP_TEST_BIN·MYSQL_TEST_CLIENT·MYSQL_TEST_PORT에 실행 도구와 전용 검사 DB 포트를 지정한다. 기존 통합 검사는 로컬 root·빈 비밀번호를 사용하는 별도 테스트 MySQL 인스턴스에서 실행한다. 개발용 33360 포트와 분리한 33361 포트를 사용할 수 있다. 검사마다 무작위 DB를 생성하고 해당 DB만 정리한다. 실제 웹 라우터 검사에는 MYSQL_HOST·MYSQL_PORT·MYSQL_DATABASE·MYSQL_USER·MYSQL_PASSWORD·APP_ENV·SESSION_COOKIE_SECURE 환경 변수도 필요하다. .runtime/php.ini에는 pdo_mysql·mbstring과 세션 저장 위치를 설정한다.
 
 ```powershell
 node --test # 기존 인증·저장과 신규 조회 전체 검사
+node --test tests/acceptance.test.mjs # 실제 공개 API 전체 인수 검사
+node --test tests/app-session.test.mjs tests/message-feed.test.mjs # 계정 변경과 조회 수명 회귀 검사
 node --check frontend/app.js # 실제 화면 스크립트 문법 검사
 node --check frontend/message-feed.mjs # 조회 상태 모듈 문법 검사
 ```
 
 다른 컴퓨터에서는 Git에서 제외된 PHP·MySQL 실행 도구·DB·개인 설정을 별도로 준비한다. 이번 컴퓨터의 .runtime/start-local.ps1은 이미 구성한 DB와 웹을 다시 시작하는 개인 실행 도구이며 저장소에는 포함하지 않는다.
+
+현재 검증 기준은 전체 90개 통과다. 인수 검사는 실제 공개 router.php와 회원 API를 사용하며 가입한 기존 계정만 seed-dev.php로 연결한다. 화면 회귀 검사는 실제 app.js와 MessageFeed를 실행하고 DOM·네트워크·시계 경계만 대체한다. 실행하지 않은 운영 환경 검사를 이 숫자에 포함하지 않는다.
 
 작업 저장소는 [siwoo440/SystemMakers](https://github.com/siwoo440/SystemMakers)다. 사용자 지시에 따라 기존 개발 커밋 전체를 main에 통합했으며 이후 작업·커밋·푸시도 main에서 진행한다. 공통 필드·응답 형식·삭제 정책을 바꾸면 API.md와 DATABASE.md를 같은 변경에서 갱신한다.
