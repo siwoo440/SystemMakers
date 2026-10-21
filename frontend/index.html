@@ -31,6 +31,7 @@
             </section> <!-- 서버 관리 끝 -->
             <nav class="channel-navigation" aria-label="텍스트 채널"> <!-- 채널 탐색 -->
                 <p class="section-label">텍스트 채널 <span id="channel-count">00</span></p> <!-- 실제 참여 채널 수 -->
+                <div class="server-actions"><button type="button" id="create-channel" hidden>채널 만들기</button><button type="button" id="rename-channel" hidden>이름 변경</button><button type="button" id="delete-channel" hidden>채널 삭제</button></div> <!-- 서버별 소유자·관리자 동작 -->
                 <div id="channel-list"></div> <!-- 실제 소속 채널 버튼 목록 -->
                 <p class="channel-status" id="channel-status" role="status">로그인 후 참여 채널이 표시됩니다.</p> <!-- 빈 목록과 조회 상태 -->
                 <button type="button" class="channel-retry" id="retry-channels" hidden>채널 목록 다시 확인</button> <!-- 실패한 실제 조회 재시도 -->
@@ -93,5 +94,16 @@
             <div class="server-actions"><button type="button" id="server-close">취소·닫기</button><button type="submit" id="server-submit">확인</button></div> <!-- 최종 명시적 변경 -->
         </form> <!-- 관리 폼 끝 -->
     </dialog> <!-- 서버 관리 대화상자 끝 -->
+    <dialog id="channel-dialog" class="server-dialog" aria-labelledby="channel-manage-title" aria-describedby="channel-manage-help"> <!-- 고정 대상의 채널 관리 -->
+        <form id="channel-manage-form"> <!-- 명시적 채널 변경 -->
+            <h2 id="channel-manage-title">채널 관리</h2> <!-- 현재 작업 제목 -->
+            <p id="channel-manage-help"></p> <!-- 입력 규칙과 삭제 영향 -->
+            <p id="channel-manage-impact" role="status"></p> <!-- 실제 서버·채널·대화 수 -->
+            <label id="channel-value-label" for="channel-value">채널 이름</label> <!-- 이름 입력 레이블 -->
+            <input id="channel-value" name="name" autocomplete="off" maxlength="32768" required> <!-- 새 이름 또는 삭제 확인 -->
+            <p id="channel-manage-error" role="alert"></p> <!-- 실제 오류와 수동 재확인 -->
+            <div class="server-actions"><button type="button" id="channel-manage-close">취소·닫기</button><button type="submit" id="channel-manage-submit">확인</button></div> <!-- 최종 제출과 취소 -->
+        </form> <!-- 채널 관리 폼 끝 -->
+    </dialog> <!-- 채널 관리 대화상자 끝 -->
 </body> <!-- 화면 끝 -->
 </html> <!-- 한국어 문서 끝 -->

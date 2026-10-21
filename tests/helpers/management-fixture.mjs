@@ -11,13 +11,20 @@ export async function fixture(context) // 독립 공개 API 검사 환경
     const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // PHP 실행 파일
     const mysql = process.env.MYSQL_TEST_CLIENT || "mysql"; // DB 실행 도구
     const port = process.env.MYSQL_TEST_PORT || "33361"; // 검사 전용 포트
+    const locks = []; // 실패 시 해제할 독립 잠금 연결
+    let server = null; // 정리할 웹 서버
     if (port !== "33361") // 개발 DB 오접속 방지
     {
         throw new Error("관리 검사는 전용 33361 포트 필요"); // 안전한 실행 조건
     }
     const sql = (input, selected = true) => execFileSync(mysql, ["--no-defaults", "--protocol=TCP", "--host=127.0.0.1", "--port=" + port, "--user=root", "--batch", "--skip-column-names", "--default-character-set=utf8mb4", ...(selected ? [database] : [])], { input, encoding: "utf8", windowsHide: true }).trim(); // 실제 SQL 결과
     sql("CREATE DATABASE " + database + " CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci", false); // 무작위 검사 DB 생성
-    context.after(() => sql("DROP DATABASE " + database, false)); // 해당 DB만 정리
+    context.after(() => // 잠금 연결부터 정리하는 종료 경계
+    {
+        locks.forEach((connection) => connection.kill()); // 실패로 남은 잠금 해제
+        server?.kill(); // 추가 HTTP 처리 종료
+        sql("DROP DATABASE " + database, false); // 해당 DB만 정리
+    }); // 검사 종료 처리 끝
     sql(readFileSync(path.join(root, "backend/sql/schema.sql"), "utf8")); // 기존 스키마 적용
     const work = path.join(root, ".runtime", database); // 독립 세션 폴더
     mkdirSync(work, { recursive: true }); // 검사 저장소 준비
@@ -27,8 +34,7 @@ export async function fixture(context) // 독립 공개 API 검사 환경
     const address = probe.address().port; // 배정된 포트
     await new Promise((resolve) => probe.close(resolve)); // 포트 예약 종료
     const origin = "http://127.0.0.1:" + address; // 공개 라우터 주소
-    const server = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-d", "session.save_path=" + work, "-S", "127.0.0.1:" + address, path.join(root, "router.php")], { env, windowsHide: true, stdio: "ignore" }); // 실제 PHP 웹 서버
-    context.after(() => server.kill()); // 검사 웹 서버 정리
+    server = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-d", "session.save_path=" + work, "-S", "127.0.0.1:" + address, path.join(root, "router.php")], { env, windowsHide: true, stdio: "ignore" }); // 실제 PHP 웹 서버
     function client() // 독립 회원 쿠키 경계
     {
         const session = { cookie: "", token: "", id: "" }; // 실제 인증 상태
@@ -79,7 +85,7 @@ export async function fixture(context) // 독립 공개 API 검사 환경
     {
         const source = 'require ' + JSON.stringify(path.join(root, 'backend/config/database.php')) + '; $pdo=db(); $pdo->beginTransaction(); $pdo->query(' + JSON.stringify(statement) + ')->fetchAll(); echo "LOCKED\\n"; fflush(STDOUT); fgets(STDIN); ' + (after ? '$pdo->exec(' + JSON.stringify(after) + '); ' : '') + '$pdo->commit();'; // 실제 잠금과 명시적 해제
         const process = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-r", source], { env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] }); // 실제 독립 DB 연결
-        context.after(() => process.kill()); // 실패 시 잠금 연결 정리
+        locks.push(process); // DB 제거 전에 잠금 연결 정리
         await new Promise((resolve, reject) => // 잠금 획득 신호
         {
             process.stdout.once("data", resolve); // 잠금 이후 신호

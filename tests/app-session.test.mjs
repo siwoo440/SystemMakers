@@ -140,3 +140,26 @@ test("비활성 채널의 전송 권한 상실은 과거 기록과 늦은 응답
     assert.equal(run.evaluate('channels["1"].messages.length'), 0); // 화면의 이전 대화 제거
     assert.equal(run.evaluate('channels["1"].feed.list().length'), 0); // 조회 저장소의 이전 대화 제거
 }); // 비활성 채널 권한 검사 끝
+test("마지막 채널 제거 후 초안·기록·선택 ID와 예약 정리", async (context) => // 실제 화면의 빈 서버 전환
+{
+    const run = setup((call) => call.url.includes("list_servers") ? { status: 200, data: { servers: [{ id: "1", name: "서버", owner_id: "1", role: "owner", created_at: "2026-10-21T00:00:00Z" }] } } : { status: 200, data: { channels: [] } }); // 서버는 유지하고 채널만 삭제된 응답
+    context.after(run.stop); // 검사 자원 정리
+    run.evaluate('serverManager.identity="1"; serverManager.selected="1"; serverManager.channel="1"; globalThis.deletedFeed=channels["1"].feed;'); // 기존 선택과 기록
+    await run.evaluate("loadChannels()"); // 실제 소속 재조회 경로
+    assert.deepEqual(run.state(), { userId: "1", channelIds: [], draft: "" }); // 이전 자료 표시 제거
+    assert.equal(run.evaluate("serverManager.selected"), "1"); // 빈 서버 선택 유지
+    assert.equal(run.evaluate("serverManager.channel"), null); // 삭제된 영구 선택 제거
+    assert.equal(run.evaluate("deletedFeed.active"), false); // 이전 폴링 종료
+}); // 빈 서버 화면 검사 종료
+test("삭제 확정 뒤 목록 오류에도 기록·초안·선택 폐기", async (context) => // 후속 통신 실패의 삭제 자료 노출 방지
+{
+    const run = setup((call) => call.url.includes("list_servers") ? { status: 200, data: { servers: [{ id: "1", name: "서버", owner_id: "1", role: "owner", created_at: "2026-10-21T00:00:00Z" }] } } : { status: 500, code: "INTERNAL_ERROR" }); // 삭제 후 조회 실패
+    context.after(run.stop); // 검사 자원 정리
+    run.evaluate('serverManager.identity="1"; serverManager.selected="1"; serverManager.channel="1"; globalThis.deletedFeed=channels["1"].feed; discardDeletedChannel("1");'); // 확인한 삭제 응답 경계
+    await run.evaluate("loadChannels()"); // 실패하는 후속 조회
+    assert.deepEqual(run.state(), { userId: "1", channelIds: [], draft: "" }); // 삭제 자료 재노출 없음
+    assert.equal(run.evaluate("serverManager.selected"), "1"); // 서버 보존
+    assert.equal(run.evaluate("serverManager.channel"), null); // 저장 선택 제거
+    assert.equal(run.evaluate("deletedFeed.list().length"), 0); // 기록 저장소 제거
+    assert.equal(run.evaluate("deletedFeed.active"), false); // 조회 예약 종료
+}); // 후속 오류 검사 종료

@@ -31,7 +31,7 @@ function management_actor(PDO $pdo, array $server, string $user_id, bool $owner 
     {
         throw new ManagementException('FORBIDDEN', 403); // 자료 접근 차단
     }
-    $check = $pdo->prepare("SELECT user_id FROM server_members WHERE server_id=:server AND role='owner'"); // 소유자 전체 검사
+    $check = $pdo->prepare("SELECT user_id FROM server_members WHERE server_id=:server AND role='owner'" . ($lock ? ' FOR SHARE' : '')); // 잠금 뒤 최신 소유자 전체 검사
     $check->execute(['server' => $server['id']]); // 같은 서버 소유자
     $owners = $check->fetchAll(PDO::FETCH_COLUMN); // 실제 소유자 목록
     if (count($owners) !== 1 || (string) $owners[0] !== (string) $server['owner_id'] || (($role === 'owner') !== ($user_id === (string) $server['owner_id']))) // 교차 테이블 불변식

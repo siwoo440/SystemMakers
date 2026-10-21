@@ -3,6 +3,7 @@ declare(strict_types=1); // 엄격한 자료형
 require_once __DIR__ . '/bootstrap.php'; // 기존 보안과 JSON 처리
 require_once __DIR__ . '/server_management.php'; // 관리 업무
 require_once __DIR__ . '/management_rate_limit.php'; // 독립 요청 집계
+require_once __DIR__ . '/channel_management.php'; // 채널 관리 업무
 $contracts = [ // 고정된 필드 계약
     'list_servers' => ['GET', []], // 내 서버 목록
     'create_server' => ['POST', ['name']], // 서버와 기본 채널 생성
@@ -13,6 +14,9 @@ $contracts = [ // 고정된 필드 계약
     'leave_server' => ['POST', ['server_id']], // 본인 탈퇴
     'get_deletion_preview' => ['GET', ['resource_type', 'resource_id']], // 영향 미리보기
     'delete_server' => ['POST', ['server_id', 'confirm_name']], // 이름 확인 삭제
+    'create_channel' => ['POST', ['server_id', 'name']], // 관리자 채널 생성
+    'update_channel' => ['POST', ['channel_id', 'name']], // 관리자 이름 변경
+    'delete_channel' => ['POST', ['channel_id', 'confirm_name']], // 관리자 이름 확인 삭제
 ]; // 계약 목록 종료
 [$method, $fields] = $contracts[$management_operation]; // 고정 진입점의 계약
 require_method([$method]); // 메서드 우선 검사
@@ -32,7 +36,7 @@ else // 상태 변경 요청
 foreach ($fields as $field) // 필드별 엄격한 형식 검사
 {
     $value = $input[$field] ?? null; // 누락 포함 원본 값
-    if (in_array($field, ['server_id', 'resource_id'], true)) // 문자열 ID 필드
+    if (in_array($field, ['server_id', 'resource_id', 'channel_id'], true)) // 문자열 ID 필드
     {
         $input[$field] = validate_id($value, $field, false, $method === 'GET'); // 기존 ID 범위 계약
     }
@@ -70,15 +74,21 @@ try // 업무 도메인 오류 변환
     {
         consume_management_attempt($pdo, $user['id'], false); // 성공·무효 코드 모두 집계
     }
-    $result = run_management($pdo, $management_operation, $user['id'], $input); // 현재 권한 재검사와 업무
+    $is_channel = in_array($management_operation, ['create_channel', 'update_channel', 'delete_channel'], true); // 고정 채널 작업 구분
+    $result = $is_channel ? run_channel_management($pdo, $management_operation, $user['id'], $input) : run_management($pdo, $management_operation, $user['id'], $input); // 현재 권한 재검사와 업무
     respond_success($result['data'], $result['status']); // 커밋된 공개 결과
 }
 catch (ManagementException $error) // 정책에 따른 실패 안내
 {
+    if (in_array($management_operation, ['update_channel', 'delete_channel'], true) && $error->getMessage() === 'SERVER_NOT_FOUND') // 후보 부모의 동시 삭제
+    {
+        $error = new ManagementException('CHANNEL_NOT_FOUND', 404); // 채널 존재 오류 계약 유지
+    }
     if ($management_operation === 'join_server' && $error->getMessage() === 'SERVER_NOT_FOUND') // 후보 조회 뒤 서버 삭제 경합
     {
         $error = new ManagementException('INVALID_INVITE', 400); // 코드의 일반 무효 계약 유지
     }
     $messages = ['FORBIDDEN' => '이 작업에 접근할 수 없습니다.', 'SERVER_NOT_FOUND' => '서버를 찾을 수 없습니다.', 'CHANNEL_NOT_FOUND' => '채널을 찾을 수 없습니다.', 'INVALID_INVITE' => '초대 코드가 유효하지 않습니다.', 'OWNER_CANNOT_LEAVE' => '소유자는 서버에서 탈퇴할 수 없습니다.', 'NAME_MISMATCH' => '현재 이름을 다시 확인하세요.', 'RATE_LIMITED' => '요청이 많습니다. 잠시 후 다시 시도하세요.']; // 정보 노출 없는 문구
+    $messages['CHANNEL_NAME_TAKEN'] = '같은 서버에 이미 있는 채널 이름입니다.'; // 중복 필드 안내
     respond_error($error->getMessage(), $messages[$error->getMessage()] ?? '요청을 처리할 수 없습니다.', $error->getCode()); // 공통 오류 계약
 }
