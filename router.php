@@ -16,6 +16,15 @@ $apiFiles = // 공개 API 허용 목록
     '/api/send_message.php' => 'send_message.php', // 채널 메시지 저장 API
     '/api/get_messages.php' => 'get_messages.php', // 채널 메시지 조회 API
     '/api/health.php' => 'health.php', // DB 연결 확인 API
+    '/api/list_servers.php' => 'list_servers.php', // 내 서버 목록
+    '/api/create_server.php' => 'create_server.php', // 서버와 기본 채널 생성
+    '/api/get_server_invite.php' => 'get_server_invite.php', // 초대 상태
+    '/api/create_server_invite.php' => 'create_server_invite.php', // 초대 코드 발급
+    '/api/revoke_server_invite.php' => 'revoke_server_invite.php', // 코드 폐기
+    '/api/join_server.php' => 'join_server.php', // 초대 참여
+    '/api/leave_server.php' => 'leave_server.php', // 본인 소속 탈퇴
+    '/api/get_deletion_preview.php' => 'get_deletion_preview.php', // 삭제 영향 미리보기
+    '/api/delete_server.php' => 'delete_server.php', // 소유자 서버 삭제
 ]; // API 목록 종료
 if (isset($apiFiles[$path])) // 허용한 API 여부
 {
@@ -42,6 +51,8 @@ $staticFiles = // 공개 정적 파일 허용 목록
     '/app.css' => ['app.css', 'text/css; charset=utf-8'], // 웹 화면 스타일
     '/app.js' => ['app.js', 'text/javascript; charset=utf-8'], // 화면 상호작용
     '/message-feed.mjs' => ['message-feed.mjs', 'text/javascript; charset=utf-8'], // 채널 기록과 자동 갱신 모듈
+    '/server-manager.mjs' => ['server-manager.mjs', 'text/javascript; charset=utf-8'], // 소속 상태와 변경 수명
+    '/server-ui.mjs' => ['server-ui.mjs', 'text/javascript; charset=utf-8'], // 서버 관리 대화상자
 ]; // 정적 파일 목록 종료
 if (!isset($staticFiles[$path])) // 비공개 또는 없는 경로
 {

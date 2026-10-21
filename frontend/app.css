@@ -957,3 +957,91 @@ button:disabled /* 비활성 버튼 */
     opacity: .65; /* 비활성 상태 구분 */
     cursor: not-allowed; /* 입력 제한 포인터 */
 }
+.server-list /* 실제 소속 탐색 영역 */
+{
+    display: flex; /* 세로 버튼 배치 */
+    flex-direction: column; /* 서버별 줄 구분 */
+    gap: 8px; /* 서버 사이 간격 */
+    overflow-y: auto; /* 많은 소속 탐색 */
+    max-height: 65vh; /* 화면 내부 제한 */
+}
+.server-choice /* 이름 기반 서버 버튼 */
+{
+    width: 44px; /* 탐색 크기 */
+    min-height: 44px; /* 터치 영역 */
+    border-radius: 14px; /* 둥근 서버 아이콘 */
+    border: 1px solid #3a485b; /* 공간 구분 */
+    background: #252e3d; /* 어두운 배경 */
+    color: #e5eef7; /* 읽기 쉬운 이름 */
+}
+.server-choice[aria-pressed="true"] /* 선택한 실제 소속 */
+{
+    border-color: #68d8bf; /* 선택 강조 */
+    background: #245b52; /* 선택 배경 */
+}
+.server-tools /* 소속과 관리 진입 영역 */
+{
+    padding: 12px 16px; /* 화면 안쪽 여백 */
+    border-bottom: 1px solid #344051; /* 채널과 구분 */
+    overflow-wrap: anywhere; /* 긴 서버명 줄바꿈 */
+}
+.server-tools p, .server-dialog p /* 관리 안내 가독성 */
+{
+    font-size: 13px; /* 상태 문구 크기 */
+    line-height: 1.6; /* 쉬운 줄 읽기 */
+    color: #c4cede; /* 안내 대비 */
+}
+.server-actions /* 여러 관리 버튼 배치 */
+{
+    display: flex; /* 버튼 가로 배치 */
+    flex-wrap: wrap; /* 작은 화면 줄바꿈 */
+    gap: 6px; /* 버튼 간격 */
+    margin-top: 8px; /* 상단 간격 */
+}
+.server-actions button /* 명시적 관리 동작 */
+{
+    border: 1px solid #46566c; /* 버튼 경계 */
+    background: #293649; /* 버튼 배경 */
+    color: #eff6ff; /* 명확한 버튼 글씨 */
+    padding: 8px 10px; /* 터치 여백 */
+    border-radius: 7px; /* 둥근 경계 */
+    font-size: 12px; /* 짧은 작업 이름 */
+}
+.server-actions button:disabled /* 사용할 수 없는 동작 */
+{
+    opacity: .5; /* 비활성 상태 */
+    cursor: not-allowed; /* 제한 포인터 */
+}
+.server-dialog /* 새 작업과 삭제 확인 */
+{
+    width: min(520px, calc(100vw - 32px)); /* 작은 화면 대응 */
+    max-height: calc(100dvh - 32px); /* 휴대폰 키보드와 화면 제한 */
+    overflow-y: auto; /* 긴 삭제 영향 탐색 */
+    padding: 24px; /* 내용 여백 */
+    border: 1px solid #536176; /* 대화상자 경계 */
+    border-radius: 16px; /* 둥근 창 */
+    background: #1b2432; /* 기존 화면 색상 */
+    color: #f0f5fc; /* 본문 대비 */
+}
+.server-dialog::backdrop /* 작업 중 배경 구분 */
+{
+    background: rgb(0 0 0 / 70%); /* 배경 조작 강조 */
+}
+.server-dialog input:not([type="checkbox"]) /* 이름과 초대 코드 입력 */
+{
+    width: 100%; /* 전체 입력 폭 */
+    padding: 10px; /* 입력 여백 */
+    margin: 8px 0; /* 레이블 간격 */
+    border: 1px solid #61758d; /* 입력 경계 */
+    border-radius: 6px; /* 둥근 입력 */
+    background: #111b29; /* 입력 배경 */
+    color: #f5f8ff; /* 입력값 대비 */
+}
+#server-error /* 실제 관리 실패 안내 */
+{
+    color: #ffb7b7; /* 읽을 수 있는 경고색 */
+}
+.channel-sidebar /* 관리와 긴 목록의 공존 */
+{
+    overflow-y: auto; /* 작은 화면 탐색 보장 */
+}

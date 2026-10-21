@@ -3,6 +3,7 @@ import test from "node:test"; // 기본 회귀 검사 도구
 import { readFileSync } from "node:fs"; // 실제 화면 코드 읽기
 import vm from "node:vm"; // 독립 브라우저 실행 영역
 import { MessageFeed } from "../frontend/message-feed.mjs"; // 실제 메시지 상태 관리
+import { ServerManager } from "../frontend/server-manager.mjs"; // 실제 서버 소속 상태
 const source = readFileSync(new URL("../frontend/app.js", import.meta.url), "utf8"); // 검사 대상 원본
 const noChange = () => undefined; // 상태 변화 없는 브라우저 경계
 function element() // 브라우저 요소의 외부 경계
@@ -25,7 +26,7 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
         }
     }
     const context = vm.createContext({ // 독립 화면 전역 준비
-        MessageFeed: BrowserFeed, AbortController, URLSearchParams, Date, console, // 표준 브라우저 도구
+        MessageFeed: BrowserFeed, ServerManager, AbortController, URLSearchParams, Date, console, // 실제 상태 모듈과 표준 도구
         window: { matchMedia: () => ({ matches: false }), setTimeout: setTimer, clearTimeout: clearTimer }, // 화면 크기와 시계 경계
         document: { getElementById: (id) => // 식별자별 동일 요소 반환
         {
@@ -45,7 +46,7 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
     }); // 독립 전역 준비 끝
     const boot = source.indexOf('byId("retry-channels").addEventListener'); // 화면 이벤트 등록 경계
     assert.ok(boot > 0); // 실제 화면 초기화 지점 확인
-    vm.runInContext(source.slice(0, boot).replace(/^import .*;.*$/m, ""), context); // 원본 함수와 상태 실행
+    vm.runInContext(source.slice(0, boot).replace(/^import .*;.*$/gm, ""), context); // 원본 함수와 상태 실행
     vm.runInContext(` // 실제 로그인 화면 자료 준비
         authInitializing = false; // 초기화 완료 상태
         currentUser = { id: "1", username: "user_a" }; // 화면에 로그인한 A 계정

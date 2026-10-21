@@ -1,5 +1,7 @@
 "use strict"; // 엄격한 자바스크립트 검사
 import { MessageFeed } from "/message-feed.mjs"; // 채널 기록과 자동 갱신 수명 관리
+import { ServerManager } from "/server-manager.mjs"; // 실제 서버 소속 상태
+import { mountServerUI } from "/server-ui.mjs"; // 명시적 관리 화면
 const byId = (id) => document.getElementById(id); // 화면 요소 조회
 let channels = Object.create(null); // 서버에서 확인한 채널별 화면 자료
 const messageInput = byId("message-input"); // 메시지 작성 필드
@@ -25,6 +27,19 @@ let channelError = ""; // 소속 채널 조회 실패 안내
 let channelLoadVersion = 0; // 늦은 채널 조회 응답 구분
 let sendRequest = null; // 현재 메시지 전송 요청
 let savedDrafts = null; // 만료된 같은 계정의 미전송 초안
+let serverUI = null; // 초기화한 관리 화면 연결
+const serverManager = new ServerManager({ request: requestEndpoint, getUser: () => currentUser, storage: selectionStorage(), onChange: () => serverUI?.render() }); // 계정별 서버 관리 수명
+function selectionStorage() // 차단될 수 있는 선택 저장소
+{
+    try // 비공개 창과 저장소 권한 경계
+    {
+        return window.localStorage; // ID 선택에만 사용하는 저장소
+    }
+    catch // 저장소 제한
+    {
+        return null; // 메모리 선택으로 계속 사용
+    }
+}
 function pauseMessageFeeds() // 계정과 채널 전환 전 조회 중단
 {
     Object.values(channels).forEach((channel) => channel.feed?.pause()); // 예약과 진행 중 요청 취소
@@ -169,11 +184,12 @@ function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
     const feedback = containsNull ? "지원하지 않는 빈 문자를 제거하세요." : count > 2000 ? "메시지는 2,000자까지 입력할 수 있습니다." : !currentUser ? "로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다." : channelLoading ? "참여 중인 채널을 확인하는 중입니다." : channelError ? channelError : !channel ? "참여 중인 채널이 없습니다. 서버 참여 후 사용할 수 있습니다." : !csrfToken ? "화면 보호 정보를 확인하지 못했습니다. 다시 로그인하세요." : channel.feedback || "대화는 DB에 저장되며 새 메시지를 자동으로 확인합니다."; // 확인된 기능 범위와 오류 안내
     byId("composer-feedback").textContent = feedback; // 안전한 상태 문구 출력
     byId("composer-feedback").classList.toggle("error", count > 2000 || containsNull || Boolean(channel?.error) || Boolean(channelError)); // 실패 상태 색상
+    serverUI?.render(); // 전송 중 서버 관리 조작도 잠금
 }
 function renderChannels() // 실제 소속 채널 목록 생성
 {
     const list = byId("channel-list"); // 동적 채널 버튼 영역
-    const items = Object.entries(channels).map(([id, channel]) => // 소속 채널 순서 유지
+    const items = Object.entries(channels).filter(([, channel]) => !serverManager.identity || channel.serverId === serverManager.selected).map(([id, channel]) => // 선택한 서버의 채널 순서
     {
         const button = document.createElement("button"); // 키보드 접근 가능한 채널 버튼
         button.type = "button"; // 폼 제출 방지
@@ -189,7 +205,7 @@ function renderChannels() // 실제 소속 채널 목록 생성
     list.replaceChildren(...items); // 이전 계정 목록 제거 후 교체
     byId("channel-count").textContent = String(items.length).padStart(2, "0"); // 실제 채널 수
     byId("channel-status").hidden = items.length > 0 && !channelLoading && !channelError; // 비어 있거나 실패한 목록 안내
-    byId("channel-status").textContent = !currentUser ? "로그인 후 참여 채널이 표시됩니다." : channelLoading ? "채널을 확인하는 중입니다." : channelError || "참여 중인 채널이 없습니다. 서버 참여 후 사용할 수 있습니다."; // 실제 참여 상태 안내
+    byId("channel-status").textContent = !currentUser ? "로그인 후 참여 채널이 표시됩니다." : channelLoading ? "채널을 확인하는 중입니다." : channelError || (serverManager.selected ? "이 서버에는 채널이 없습니다. 관리자의 채널 준비를 기다려주세요." : "서버를 만들거나 초대 코드로 참여하세요."); // 빈 서버와 미소속 구분
     byId("retry-channels").hidden = !currentUser || !channelError; // 조회 실패 시 재시도 제공
     byId("retry-channels").disabled = channelLoading || authBusy; // 중복 조회 차단
 }
@@ -197,8 +213,8 @@ function renderEmptyConversation() // 선택 가능한 채널 없는 화면
 {
     byId("channel-title").textContent = "채널 선택"; // 미확인 채널 제목 제거
     byId("channel-description").textContent = "참여 중인 채널에서 대화를 시작하세요"; // 실제 이용 조건
-    byId("welcome-title").textContent = currentUser ? "참여 채널을 확인하세요" : "로그인하고 대화를 시작하세요"; // 사용자별 빈 상태 제목
-    byId("welcome-description").textContent = currentUser ? channelError || "참여 중인 채널이 없습니다. 서버 참여 후 사용할 수 있습니다." : "계정으로 로그인하면 참여 중인 채널을 확인할 수 있습니다."; // 가짜 대화 없는 빈 상태
+    byId("welcome-title").textContent = currentUser ? serverManager.selected ? "이 서버에는 채널이 없습니다" : "서버를 만들거나 참여하세요" : "로그인하고 대화를 시작하세요"; // 사용자별 빈 상태 제목
+    byId("welcome-description").textContent = currentUser ? channelError || (serverManager.selected ? "관리자가 채널을 준비하면 목록을 다시 확인하세요." : "서버 만들기 또는 초대로 참여 버튼으로 시작하세요.") : "계정으로 로그인하면 참여 중인 채널을 확인할 수 있습니다."; // 빈 상태의 실제 다음 조작
     byId("message-label").textContent = "메시지 작성"; // 기본 입력 레이블
     messageInput.placeholder = currentUser ? "참여 중인 채널을 선택하세요" : "로그인 후 메시지를 작성하세요"; // 실제 입력 조건
     messages.replaceChildren(); // 이전 대화 표시 제거
@@ -219,6 +235,7 @@ function selectChannel(channelId) // 실제 소속 채널 전환
         channels[activeChannel].draft = messageInput.value; // 이동 직전 초안 보관
     }
     activeChannel = channelId; // 문자열 채널 식별자 유지
+    serverManager.rememberChannel(channelId); // 현재 계정의 실제 채널 선택 저장
     const channel = channels[channelId]; // 선택한 채널 자료
     byId("channel-title").textContent = channel.title; // 실제 채널 이름
     byId("channel-description").textContent = channel.serverName; // 실제 소속 서버 이름
@@ -270,6 +287,7 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
     updateComposer(); // 조회 중 전송 차단
     try // 실제 소속 채널과 응답 계약 확인
     {
+        await serverManager.sync(); // 채널이 없는 소속 서버도 먼저 확인
         const data = await requestEndpoint("/api/get_channels.php"); // 쿼리 없는 실제 조회 요청
         if (generation !== authGeneration || version !== channelLoadVersion || currentUser?.id !== userId) // 늦은 이전 계정 응답 여부
         {
@@ -287,13 +305,16 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
             const channel = previous && !previous.feed?.blocked ? previous : { messages: [], draft: previous?.draft || recovered, scroll: null, unread: 0, feedback: "", error: false }; // 권한이 유지된 기존 기록만 재사용
             channel.title = item.name; // 현재 채널 이름
             channel.serverName = item.server_name; // 현재 소속 서버 이름
+            channel.serverId = item.server_id; // 서버별 독립 탐색 조건
             channel.feed ??= createChannelFeed(item.id, channel, userId); // 계정과 채널별 독립 기록 상태
             nextChannels[item.id] = channel; // 확인한 소속 채널 보관
         }); // 소속 채널 준비 끝
         savedDrafts = null; // 확인 후 만료 전 초안 참조 제거
         channels = nextChannels; // 확인한 소속 채널만 유지
         channelLoading = false; // 채널 조회 완료
-        const selected = channels[activeChannel] ? activeChannel : data.channels[0]?.id || null; // 실제 응답의 첫 채널 선택
+        const candidates = data.channels.filter((item) => item.server_id === serverManager.selected); // 선택 서버의 확인한 채널
+        const preferred = serverManager.channel || activeChannel; // 새로고침 전 또는 현재 선택
+        const selected = candidates.some((item) => item.id === preferred) ? preferred : candidates[0]?.id || null; // 유효한 선택 또는 첫 채널
         activeChannel = null; // 이전 선택의 초안 덮어쓰기 방지
         if (selected) // 참여 채널 존재 여부
         {
@@ -540,6 +561,7 @@ function validateAuthForm() // 실제 API 계약에 맞는 입력 검사
 }
 function renderAuthState() // 실제 사용자 상태 표시
 {
+    serverUI?.render(); // 현재 계정의 관리 버튼 상태
     byId("current-user").textContent = currentUser ? currentUser.username : "게스트"; // 본인 사용자명 안전한 출력
     byId("user-avatar").textContent = currentUser ? Array.from(currentUser.username)[0].toUpperCase() : "G"; // 현재 사용자 이니셜
     byId("session-state").textContent = sessionNotice; // 실제 인증 확인 범위 안내
@@ -655,6 +677,8 @@ async function refreshCsrf(generation = authGeneration) // 실제 세션 보호 
 function clearSessionView(preserveDrafts = false) // 종료된 계정 자료 정리
 {
     pauseMessageFeeds(); // 종료된 계정의 조회와 예약 제거
+    serverUI?.clear(); // 이전 초대 코드와 관리 입력 폐기
+    serverManager.reset(); // 서버·영구 선택·진행 결과 수명 제거
     savedDrafts = preserveDrafts && currentUser ? { userId: currentUser.id, values: Object.fromEntries(Object.entries(channels).map(([id, channel]) => [id, channel.draft])) } : null; // 같은 계정 재로그인용 초안
     currentUser = null; // 이전 사용자 제거
     csrfToken = null; // 이전 보호 정보 제거
@@ -915,7 +939,46 @@ async function checkConnections() // 최초 세션과 실제 연결 확인
     }
     await health; // 실제 데이터베이스 확인 종료 대기
 }
+async function serverFailure(error) // 관리 요청의 기존 인증 복구 연결
+{
+    if (error.code === "STALE_RESPONSE") // 정리된 계정의 늦은 응답
+    {
+        return "로그인 상태를 다시 확인하세요."; // 이전 자료 표시 중단
+    }
+    if (error.status === 401 || error.code === "SESSION_CHANGED") // 실제 계정 종료
+    {
+        await expireMessageSession(error.code === "SESSION_CHANGED"); // 기존 계정 화면 정리
+        return "현재 계정으로 다시 로그인하세요."; // 수동 재확인 안내
+    }
+    if (error.code === "CSRF_INVALID") // 계정 확인을 포함한 토큰 복구
+    {
+        try // 자동 변경 재전송 없는 복구
+        {
+            await refreshCsrf(); // 기존 계정 일치 검사
+            return "화면 보호 정보를 갱신했습니다. 내용을 확인하고 다시 제출하세요."; // 명시적 재제출
+        }
+        catch (recovery) // 복구 중 계정 변경
+        {
+            return serverFailure(recovery); // 동일한 인증 종료 경계
+        }
+    }
+    if ([403, 404].includes(error.status)) // 소속 또는 자원 상실
+    {
+        serverUI?.clear(); // 이전 초대와 입력 제거
+        byId("server-dialog").close(); // 접근하지 못하는 관리 화면 종료
+        await loadChannels(); // 실제 서버·채널 목록 재확인
+    }
+    return error.status === 429 ? `요청이 많습니다. ${error.retryAfter || 600}초 후 다시 시도하세요.` : error.message; // 실제 오류와 제한 안내
+}
 byId("retry-channels").addEventListener("click", loadChannels); // 소속 채널 조회 재시도
+serverUI = mountServerUI({ manager: serverManager, byId, onReload: loadChannels, onSelect: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 실제 관리 화면 연결
+document.addEventListener("visibilitychange", () => // 빈 서버를 포함한 창 복귀 갱신
+{
+    if (document.visibilityState === "visible" && currentUser && !authInitializing && !serverManager.busy && !channelLoading) // 안정된 로그인 화면
+    {
+        loadChannels(); // 서버 목록의 별도 폴링 없는 재확인
+    }
+}); // 창 복귀 연결 끝
 byId("load-older").addEventListener("click", () => channels[activeChannel]?.feed.older()); // 현재 채널의 이전 기록 추가
 byId("retry-messages").addEventListener("click", () => channels[activeChannel]?.feed.activate()); // 확인하지 못한 대화 수동 재조회
 window.addEventListener("pagehide", pauseMessageFeeds); // 화면 종료 시 폴링과 진행 요청 정리

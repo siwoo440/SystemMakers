@@ -14,6 +14,7 @@
         <aside class="server-rail" aria-label="작업 공간"> <!-- 서버 선택 영역 -->
             <div class="server-mark" title="SystemMakers" aria-label="SystemMakers">SM</div> <!-- 현재 서버 표시 -->
             <div class="rail-line" aria-hidden="true"></div> <!-- 서버 구분선 -->
+            <div id="server-list" class="server-list"></div> <!-- 채널 없는 서버도 포함한 실제 목록 -->
             <span class="rail-caption" aria-hidden="true">TEAM<br>SPACE</span> <!-- 공간 장식 문구 -->
             <span class="rail-bottom" aria-hidden="true">S.</span> <!-- 하단 브랜드 장식 -->
         </aside> <!-- 서버 영역 끝 -->
@@ -22,6 +23,12 @@
                 <div class="eyebrow">YOUR WORKSPACE</div> <!-- 작업 공간 보조 제목 -->
                 <h1>SystemMakers<span class="workspace-dot" aria-hidden="true"></span></h1> <!-- 서비스 이름 -->
             </header> <!-- 작업 공간 제목 끝 -->
+            <section class="server-tools" aria-label="서버 관리"> <!-- 실제 소속 관리 -->
+                <strong id="selected-server">참여 서버 없음</strong> <!-- 현재 서버 이름 -->
+                <p id="server-status" role="status">로그인 후 서버를 확인합니다.</p> <!-- 소속과 역할 -->
+                <div class="server-actions"><button type="button" id="create-server" disabled>서버 만들기</button><button type="button" id="join-server" disabled>초대로 참여</button><button type="button" id="refresh-servers" disabled>목록 다시 확인</button></div> <!-- 신규 회원의 진입 경로 -->
+                <div class="server-actions"><button type="button" id="invite-server" hidden>초대 관리</button><button type="button" id="leave-server" hidden>탈퇴</button><button type="button" id="delete-server" hidden>서버 삭제</button></div> <!-- 실제 역할별 관리 버튼 -->
+            </section> <!-- 서버 관리 끝 -->
             <nav class="channel-navigation" aria-label="텍스트 채널"> <!-- 채널 탐색 -->
                 <p class="section-label">텍스트 채널 <span id="channel-count">00</span></p> <!-- 실제 참여 채널 수 -->
                 <div id="channel-list"></div> <!-- 실제 소속 채널 버튼 목록 -->
@@ -74,5 +81,17 @@
         </form> <!-- 인증 요청 폼 끝 -->
         <p class="auth-switch"><span id="auth-switch-prompt">계정이 없으신가요?</span><button type="button" id="switch-auth">회원가입</button></p> <!-- 로그인과 가입 화면 전환 -->
     </dialog> <!-- 인증 화면 대화상자 끝 -->
+    <dialog id="server-dialog" class="server-dialog" aria-labelledby="server-title" aria-describedby="server-help"> <!-- 명시적 관리 확인 -->
+        <form id="server-form"> <!-- 서버 변경 한 번 제출 -->
+            <h2 id="server-title">서버 관리</h2> <!-- 작업 제목 -->
+            <p id="server-help"></p> <!-- 사용자 작업 안내 -->
+            <p id="server-impact" role="status"></p> <!-- 현재 대상과 삭제 영향 -->
+            <div id="server-input-row"><label id="server-value-label" for="server-value">서버 이름</label><input id="server-value" name="value" autocomplete="off" maxlength="1000"></div> <!-- 필수 입력 레이블 -->
+            <div id="invite-panel" hidden><label for="invite-code">이번에 발급한 초대 코드</label><input id="invite-code" readonly autocomplete="off"><div class="server-actions"><button type="button" id="copy-invite" disabled>코드 복사</button><button type="button" id="revoke-invite">초대 폐기</button></div></div> <!-- 원문 한 번 표시와 복사 -->
+            <label id="server-check-row" hidden><input type="checkbox" id="server-check">이전 코드를 무효화하고 새 코드를 발급합니다.</label> <!-- 재발급 영향 확인 -->
+            <p id="server-error" role="alert"></p> <!-- 실제 실패와 처리 안내 -->
+            <div class="server-actions"><button type="button" id="server-close">취소·닫기</button><button type="submit" id="server-submit">확인</button></div> <!-- 최종 명시적 변경 -->
+        </form> <!-- 관리 폼 끝 -->
+    </dialog> <!-- 서버 관리 대화상자 끝 -->
 </body> <!-- 화면 끝 -->
 </html> <!-- 한국어 문서 끝 -->

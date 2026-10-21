@@ -1,11 +1,11 @@
 ---
 # SystemMakers API 명세
 
-작성일: 2026-10-21 · 계약 버전: 0.5 · 구현 담당: B·C · 연동 대상: A
+작성일: 2026-10-21 · 계약 버전: 0.6 · 구현 담당: B·C · 연동 대상: A
 
 회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 0.4에서는 전체 인수 검증과 기대 사용자 헤더에 의한 계정 변경 차단을 추가했다. 서버·채널·프로필 관리 API 구현은 C의 담당이다.
 
-0.5는 [7단계 확정 규칙·화면](PHASE-7-RULES.md)에 따른 **신규 관리 API의 설계 계약**을 9절에 추가한다. 1~8절은 현재 구현 기준이며 9절 API는 아직 라우터·PHP·웹 화면에 구현하지 않았다. 신규 PATCH 프로필을 포함한 상태 변경 보호는 구현 시 함께 적용한다.
+0.5에서 [7단계 규칙](PHASE-7-RULES.md)을 설계했고 0.6에서 9.2의 서버 관리 API 9개를 라우터·PHP·웹 화면에 구현했다. 기존 9개와 합계 18개 경로다. 9.4의 채널 생성/수정/삭제와 GET/PATCH 프로필은 구현 전이다. 실제 결과는 [8단계 검증](PHASE-8-VERIFICATION.md)에 기록했다.
 
 ---
 ## 1. 공통 규칙
@@ -98,6 +98,15 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 | GET | `/api/health.php` | 불필요 | 불필요 | 200 |
 | POST | `/api/send_message.php` | 필요 | 필요 | 201 |
 | GET | `/api/get_messages.php` | 필요 | 불필요 | 200 |
+| GET | `/api/list_servers.php` | 필요 | 불필요 | 200 |
+| POST | `/api/create_server.php` | 필요 | 필요 | 201 |
+| GET | `/api/get_server_invite.php` | 소유자 | 불필요 | 200 |
+| POST | `/api/create_server_invite.php` | 소유자 | 필요 | 201 |
+| POST | `/api/revoke_server_invite.php` | 소유자 | 필요 | 200 |
+| POST | `/api/join_server.php` | 필요 | 필요 | 201 / 200 |
+| POST | `/api/leave_server.php` | 소유자 제외 소속 | 필요 | 200 |
+| GET | `/api/get_deletion_preview.php` | 대상 관리 권한 | 불필요 | 200 |
+| POST | `/api/delete_server.php` | 소유자 | 필요 | 200 |
 
 ---
 ## 4. 회원 API
@@ -356,9 +365,9 @@ C는 서버 생성과 생성자 owner 멤버십 등록을 하나의 트랜잭션
 초기 DB·공통 계층·회원 인증·메시지 저장·조회를 연결한 공개 API 전체 흐름과 기대 계정 보호·전송 거절의 기록 정리를 검증했다. 최신 결과는 [PHASE-6-VERIFICATION.md](PHASE-6-VERIFICATION.md), 조회 상세는 [PHASE-5-VERIFICATION.md](PHASE-5-VERIFICATION.md), 저장 상세는 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 인증 상세는 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다.
 
 ---
-## 9. 7단계 관리 API 확정 계약 — 구현 전
+## 9. 7단계 관리 API 확정 계약 — 단계별 구현 상태
 
-아래 계약은 8~10단계 구현 대상이다. 현재 호출하면 라우터의 404 NOT_FOUND이며 아래 정상 응답을 아직 제공하지 않는다. 기존 get_channels.php를 계속 사용하고 list_channels.php는 새로 만들지 않는다. 기존 팀 API 초안의 profile.php GET/PATCH는 아래대로 고정한다.
+9.2와 삭제 미리보기는 8단계에서 구현·검증했다. 9.4의 신규 채널 관리·프로필은 아직 호출 시 404 NOT_FOUND다. 기존 get_channels.php를 계속 사용하고 list_channels.php는 만들지 않는다. profile.php GET/PATCH 설계 계약은 유지한다.
 
 ---
 ### 9.1 공통 요청·응답과 공개 객체
@@ -435,7 +444,7 @@ confirm_name은 이름 입력 화면의 확인 값이다. 생성 이름과 같�
 | 409 | USERNAME_TAKEN | 다른 계정의 사용자명과 중복 |
 | 429 | RATE_LIMITED | 초대 발급·참여 제한, Retry-After 포함 |
 
-나머지 오류는 기존 공통 계약과 같다. 존재·역할·원자성·초대 경계·중복·삭제와 전송 경합·응답 유실·다른 탭 계정 변경을 [7단계 인수 확인표](PHASE-7-RULES.md#6-역할별-인수-확인표) R01~R12에 따라 검증한다. 이 절의 정상 응답·DB 변경은 아직 실행 검증하지 않았다.
+나머지 오류는 기존 공통 계약과 같다. [7단계 인수 확인표](PHASE-7-RULES.md#6-역할별-인수-확인표)의 8단계 해당 항목을 검증했다. 채널 관리 역할의 R05 일부·프로필 R10은 후속 단계다. 최신 전체 110개 및 실제 화면 근거는 [8단계 결과](PHASE-8-VERIFICATION.md)에 있다.
 
 ---
 ## 검색 참고

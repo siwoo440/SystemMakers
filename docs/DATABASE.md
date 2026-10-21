@@ -1,11 +1,11 @@
 ---
 # SystemMakers 데이터베이스 구조
 
-작성일: 2026-10-21 · 계약 버전: 0.2 · 구조 담당: B · 서버·채널 기능 담당: C
+작성일: 2026-10-21 · 계약 버전: 0.3 · 구조 담당: B · 서버·채널 기능 담당: C
 
 회원·서버·멤버십·채널·메시지의 관계와 API 구현 규칙을 정의한다. [schema.sql](../backend/sql/schema.sql)을 MySQL 8.4.13에 적용했으며 PHP 인증·메시지 저장·조회와 연결한 6단계 전체 인수 검증을 완료했다. 스키마의 최초 15개 검증 기록은 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 최신 전체 90개 결과는 [PHASE-6-VERIFICATION.md](PHASE-6-VERIFICATION.md)에 있다. API 필드·인증·검증 규칙은 [API.md](API.md)와 함께 사용한다.
 
-0.2의 8절은 [7단계 확정 규칙](PHASE-7-RULES.md)의 관리 기능 저장 설계다. 현재 적용된 테이블은 기존 6개이며 server_invites·management_rate_limits는 **설계 확정 / 미생성**이다. 이번 단계에서 schema.sql·DB·실행 코드를 변경하지 않았다.
+0.2에서 8절 설계를 확정했고 0.3에서 server_invites·management_rate_limits 변경 파일과 실행 도구를 구현·적용했다. 기존 초기 6개와 합계 8개 테이블이다. schema.sql은 유지하고 신규/기존 DB 모두 별도 001 변경 파일을 적용한다. 보존·전체 110개 검사 근거는 [8단계 결과](PHASE-8-VERIFICATION.md)에 있다. 채널 관리·프로필 API는 후속 구현이다.
 
 ---
 ## 1. 공통 설정
@@ -196,7 +196,7 @@ schema.sql의 생성 순서는 users → servers → server_members → channels
 테이블·고유 키·외래 키·삭제 정책·본문 길이·조회 쿼리·재적용 거절은 실제 MySQL에서 검증했다. 스키마 결과는 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 공통 계층은 [PHASE-2-VERIFICATION.md](PHASE-2-VERIFICATION.md), 인증은 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다. 실제 메시지 저장·동시 전송의 ID 발급/커밋 순서·멤버십 탈퇴 대기·시간 초과 재시도·개발 데이터 보존은 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 실제 조회·커서·현재 소속 검사는 [PHASE-5-VERIFICATION.md](PHASE-5-VERIFICATION.md)에 기록했다. 운영 배포 환경은 아직 확정하지 않았다.
 
 ---
-## 8. 7단계 관리 기능 저장 계약 — 구현 전
+## 8. 7단계 관리 기능 저장 계약 — 8단계 적용
 
 ---
 ### 8.1 기존 테이블에서 보장할 관리 규칙
@@ -270,9 +270,9 @@ invite_issue_user는 10회/600초, invite_join_user는 10회/600초, invite_join
 ---
 ### 8.5 마이그레이션·검증 계획
 
-8단계에서 기존 schema.sql을 덮어쓰거나 재적용하지 않고 backend/sql/migrations/001_server_invites_and_limits.sql을 새로 작성한다. 생성 순서는 server_invites → management_rate_limits다. 빈 DB는 기존 6개 테이블 생성 뒤 동일 변경 파일을 적용한다. 적용 전 백업·기존 이름 충돌·키·FK를 확인하며 이미 적용된 파일은 실행 기록으로 중복 적용을 거절한다. DDL의 부분 실패는 자동 전체 롤백으로 간주하지 않고 실제 생성 상태를 확인한다.
+8단계 변경 파일은 [001_server_invites_and_limits.sql](../backend/sql/migrations/001_server_invites_and_limits.sql)이다. 기존 schema.sql을 덮어쓰거나 재적용하지 않는다. 생성 순서는 server_invites → management_rate_limits다. 빈 DB는 기존 6개 테이블 생성 뒤 동일 변경 파일을 적용한다. scripts/migrate.php는 DB별 잠금·기존 구조·신규 이름 충돌을 확인하고 재적용/부분 적용을 거절하며 파일 해시를 출력한다. DDL의 부분 실패는 전체 롤백으로 간주하지 않고 실제 생성 상태를 확인한다.
 
-이번 단계는 변경 파일을 아직 생성하거나 실행하지 않았다. 후속 구현에서 별도 테스트 DB의 기존 users·servers·channels·messages 보존, 새 키·만료·코드 교체·중복 참여·소유자 불변식·CASCADE·동시 요청·횟수 제한 경계를 확인한다. 신규 테이블은 적용 후 총 8개가 되며 현재 실제 테이블 수와 혼동하지 않는다. 실행 순서·검증 근거는 변경 파일과 함께 README 및 단계별 결과에 기록한다.
+별도 검사 DB에서 변경 적용·재실행 거절·기존 사용자 보존·강제 실패 롤백·만료·중복 역할 보존·CASCADE·잠금 경합·횟수 제한을 확인했다. 개발 DB는 백업 후 적용하여 기존 사용자 1·서버 1·채널 3·대화 3을 보존했고 테이블 수는 8개다. 실행 순서·확인 범위는 README와 8단계 결과에 기록했다. 운영 배포의 백업 복원·부하 검증은 후속 범위다.
 
 ---
 ## 검색 참고
