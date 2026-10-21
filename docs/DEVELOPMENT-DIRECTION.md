@@ -3,7 +3,7 @@
 
 작성일: 2026-10-21
 
-상태: 구현 순서 1의 API·DB 계약 초안 작성. PHP API·SQL·화면은 아직 구현하지 않음. 구체적인 필드·검증·인증·삭제 규칙은 [API.md](API.md)와 [DATABASE.md](DATABASE.md)를 우선하며 이 문서는 개발 범위를 설명한다.
+상태: DB 구현 1단계 완료. schema.sql과 DB 통합 테스트를 구현하고 UI 시안 이미지를 제작했다. 실제 MySQL에서 전체 테스트 15개가 통과했다. PHP API·프론트엔드 코드는 후속 단계다. 구체적인 필드·검증·인증·삭제 규칙은 [API.md](API.md)와 [DATABASE.md](DATABASE.md)를 우선하며 이 문서는 개발 범위를 설명한다.
 
 ---
 ## 1. 확인 결과와 목표
@@ -11,9 +11,9 @@
 - 첨부 지시서 기준 기술: HTML, CSS, JavaScript, PHP, MySQL.
 - 상위 저장소는 별개인 DEVFORGE 홈페이지용 Next.js 프로젝트.
 - 사용자 결정에 따라 상위 작업 폴더 아래 discord-chat 폴더에서 별도 프로젝트로 진행.
-- PHP, mysql, mariadb, docker 명령은 현재 PATH에서 확인되지 않음. 설치 여부와 별도 서버 유무는 확인 필요.
+- PHP, mysql, mariadb, docker 명령은 시스템 PATH에 등록되지 않았음. 프로젝트 내부 검증용 MySQL 8.4.13 ZIP을 준비해 스키마 테스트를 실행했으며 PHP 실행 환경은 후속 단계에서 준비.
 - 작업 대상 GitHub 저장소는 [siwoo440/SystemMakers](https://github.com/siwoo440/SystemMakers). DEVFORGE 저장소의 원격 주소를 변경하지 않으며 discord-chat을 별도 Git 저장소로 연결.
-- 이번 단계의 결과물은 API.md·DATABASE.md 초안과 개발 방향 정리. PHP API·DB·화면은 아직 구현하지 않음.
+- 현재 결과물은 API·DB 명세, 초기 스키마·DB 통합 테스트·검증 기록, 채팅·인증 UI 시안 이미지. PHP API와 실제 프론트엔드 화면은 아직 구현하지 않음.
 - 성공 기준: 팀원 A가 fetch로 회원가입·로그인·채널별 채팅을 연동하고, 팀원 C가 공통 DB와 인증 코드를 재사용할 수 있는 상태.
 
 ---
@@ -23,7 +23,7 @@
 
 메시지는 짧은 주기의 HTTP 폴링으로 구현한다. WebSocket 도입은 이번 MVP 범위에서 제외한다.
 
-예정 경로는 다음과 같다. 현재는 docs 문서와 프로젝트 소개만 존재한다.
+예정 경로는 다음과 같다. 현재 구현된 경로는 backend/sql/schema.sql과 tests/schema.test.mjs이며 UI 이미지는 docs/assets/ui에 보관한다.
 
 | 경로 | 역할 |
 |---|---|
@@ -45,7 +45,7 @@
 ---
 ## 3. 데이터베이스 초안
 
-모든 테이블은 InnoDB와 utf8mb4를 사용한다. ID 및 외래 키의 자료형을 통일하고, 시간은 UTC로 저장한다. 테이블별 상세 자료형은 실행할 MySQL 버전을 확인한 뒤 schema.sql에 확정한다.
+모든 테이블은 InnoDB와 utf8mb4를 사용한다. ID 및 외래 키는 BIGINT UNSIGNED로 통일하고, 시간은 UTC로 저장한다. 테이블별 상세 자료형은 MySQL 8.4 기준 schema.sql에 구현했다.
 
 | 테이블 | 주요 열과 제약 |
 |---|---|
