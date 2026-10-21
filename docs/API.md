@@ -1,9 +1,11 @@
 ---
 # SystemMakers API 명세
 
-작성일: 2026-10-21 · 계약 버전: 0.4 · 구현 담당: B · 연동 대상: A·C
+작성일: 2026-10-21 · 계약 버전: 0.5 · 구현 담당: B·C · 연동 대상: A
 
 회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 0.4에서는 전체 인수 검증과 기대 사용자 헤더에 의한 계정 변경 차단을 추가했다. 서버·채널·프로필 관리 API 구현은 C의 담당이다.
+
+0.5는 [7단계 확정 규칙·화면](PHASE-7-RULES.md)에 따른 **신규 관리 API의 설계 계약**을 9절에 추가한다. 1~8절은 현재 구현 기준이며 9절 API는 아직 라우터·PHP·웹 화면에 구현하지 않았다. 신규 PATCH 프로필을 포함한 상태 변경 보호는 구현 시 함께 적용한다.
 
 ---
 ## 1. 공통 규칙
@@ -62,7 +64,7 @@
 } // 응답 객체 종료
 ```
 
-`error.fields`는 입력 오류에서만 선택적으로 반환한다. A는 `error.code`로 분기하고 문구의 정확한 일치에 의존하지 않는다. 비밀번호 해시, 세션 ID, SQL, 내부 경로는 응답에 포함하지 않는다. 이메일은 회원가입·로그인·현재 사용자 응답의 본인 정보에만 포함하며 메시지 응답에서는 제외한다.
+`error.fields`는 입력 오류에서만 선택적으로 반환한다. A는 `error.code`로 분기하고 문구의 정확한 일치에 의존하지 않는다. 비밀번호 해시, 세션 ID, SQL, 내부 경로는 응답에 포함하지 않는다. 이메일은 회원가입·로그인·현재 사용자 응답과 9절에서 설계한 본인 프로필 응답에만 포함하며 메시지 응답에서는 제외한다.
 
 ---
 ## 2. 인증과 CSRF 흐름
@@ -352,6 +354,88 @@ C는 서버 생성과 생성자 owner 멤버십 등록을 하나의 트랜잭션
 가입·중복·잘못된 비밀번호·세션 교체·로그아웃·세션 만료, 비로그인 401, CSRF 403, 다른 서버 접근 403, 없는 채널 404, 작성자 ID 위조 거절, 메시지 저장·채널 분리·이전 및 신규 커서·빈 결과·100개 초과 적체·동시 전송 순서·로그인 429를 검증한다.
 
 초기 DB·공통 계층·회원 인증·메시지 저장·조회를 연결한 공개 API 전체 흐름과 기대 계정 보호·전송 거절의 기록 정리를 검증했다. 최신 결과는 [PHASE-6-VERIFICATION.md](PHASE-6-VERIFICATION.md), 조회 상세는 [PHASE-5-VERIFICATION.md](PHASE-5-VERIFICATION.md), 저장 상세는 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 인증 상세는 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다.
+
+---
+## 9. 7단계 관리 API 확정 계약 — 구현 전
+
+아래 계약은 8~10단계 구현 대상이다. 현재 호출하면 라우터의 404 NOT_FOUND이며 아래 정상 응답을 아직 제공하지 않는다. 기존 get_channels.php를 계속 사용하고 list_channels.php는 새로 만들지 않는다. 기존 팀 API 초안의 profile.php GET/PATCH는 아래대로 고정한다.
+
+---
+### 9.1 공통 요청·응답과 공개 객체
+
+모든 신규 API는 로그인과 기존 X-Expected-User-Id 검사를 사용한다. POST·PATCH는 최대 32 KiB JSON 객체와 X-CSRF-Token을 요구한다. PATCH는 profile.php에만 도입하며 GET 본문은 없다. 미허용 필드는 변경 요청 422·GET 400으로 거절한다. 사용자·역할·소유자는 세션과 DB에서 결정한다. 아래 결과는 공통 success/data 응답의 data 내용이다. 숫자형 집계도 정밀도 유지를 위해 문자열로 반환하고 boolean은 실제 JSON 불리언을 쓴다.
+
+| 공개 객체 | 필드 |
+|---|---|
+| server | id, name, owner_id, role, created_at; role은 현재 사용자의 owner/admin/member |
+| channel | id, server_id, server_name, name; 기존 get_channels의 항목과 동일 |
+| user | id, username, email, created_at; 본인 프로필에서만 사용 |
+| invite | server_id, active, expires_at, revoked_at; 미발급의 날짜는 null, 원문·해시 제외 |
+
+ID는 기존 양의 uint64 문자열, 시각은 UTC ISO 8601이다. invite.active는 revoked_at이 null이고 현재 DB 시각이 expires_at 미만인 경우만 true다. 서버·채널 이름은 제어 문자(C0/C1)를 먼저 거절하고 앞뒤 유니코드 구분 공백 제거 후 1~100 코드 포인트다. 내부 공백과 대소문자는 보존한다. 같은 서버 채널명의 중복은 기존 DB 비교 규칙으로 409 CHANNEL_NAME_TAKEN이다. 사용자명 정규화는 기존 가입과 같다.
+
+검사 순서는 메서드 → 인증·기대 계정 → 크기·유형·JSON → CSRF → 필드/형식 → 자원 존재·소속·역할 → DB 동작이다. 초대 참여만 필드/형식 다음 요청 제한 → 초대 유효성 → 소속을 검사하고, 서버 정보를 코드 검증 전에 노출하지 않는다. 발급 제한은 소유자 확인 뒤 적용한다. 역할 없는 기존 자원은 403 FORBIDDEN, 자원 자체가 없으면 해당 404다. owner 정보 불일치는 500으로 변경을 중단한다.
+
+---
+### 9.2 8단계 서버·초대·참여 계약
+
+| 메서드·경로 | 허용 입력 | 권한 | 정상 data·상태 |
+|---|---|---|---|
+| GET /api/list_servers.php | 없음 | 로그인 본인 | servers: server[]; ID 오름차순, 소속 없으면 빈 배열; 200 |
+| POST /api/create_server.php | name | 로그인 본인 | server, channel; 소유자·일반 채널까지 원자적 생성; 201 |
+| GET /api/get_server_invite.php | server_id | 소유자 | invite; 미발급도 active=false·날짜 null; 200 |
+| POST /api/create_server_invite.php | server_id | 소유자 | server_id, code, expires_at; 매번 새 코드로 교체; 201 |
+| POST /api/revoke_server_invite.php | server_id | 소유자 | server_id, revoked: true; 미발급·기폐기도 동일; 200 |
+| POST /api/join_server.php | code | 로그인 본인 | server, already_member; 신규 201·기참여 200 |
+| POST /api/leave_server.php | server_id | 본인 소속·소유자 제외 | server_id, left: true; 200 |
+| GET /api/get_deletion_preview.php | resource_type, resource_id | server는 소유자, channel은 소유자·관리자 | 아래 삭제 미리보기; 200 |
+| POST /api/delete_server.php | server_id, confirm_name | 소유자 | server_id, deleted: true; 200 |
+
+list_servers는 채널과 독립하여 조회하고 채널이 0개인 서버도 반환한다. 서버명 중복은 허용한다. 생성은 서버·owner 소속·일반 채널 3개 삽입을 한 트랜잭션으로 처리하고 응답 유실 시 자동 재전송하지 않는다. 위 목록 API는 첫 버전에서 페이지·검색·필터 없이 전체 소속 목록을 반환한다.
+
+code는 32바이트 난수의 소문자 16진수 64자리이며 앞뒤 ASCII 공백만 제거한 뒤 검증한다. 형식 오류는 422, 정상 형식의 미존재·만료·폐기는 모두 400 INVALID_INVITE다. 만료는 발급 DB 시각 + 86,400초, 경계 시각은 만료다. 한 서버에 현재 코드 1개만 두며 재발급은 이전 코드를 즉시 무효화한다. 코드는 발급 응답에만 표시하고 GET·서버 목록·로그·URL·localStorage에 넣지 않는다.
+
+유효 코드로 재참여 요청 시 이미 회원이면 already_member=true, 기존 role·joined_at 유지, 200이다. 신규는 already_member=false·member 역할·201이다. 코드 폐기/재발급은 이미 가입한 멤버십을 제거하지 않는다. 폐기는 멱등적 200, 탈퇴·삭제는 이후 미참여 403·없는 자원 404로 바뀌므로 성공 응답 유실 후 목록부터 확인한다.
+
+초대 발급: 계정 10회/600초. 초대 참여: 계정 10회/600초·IP 100회/600초. 유효 형식의 허용 시도를 성공 여부와 무관하게 집계한다. 창은 첫 시도에 시작하고 성공 시 초기화하지 않는다. 제한된 요청은 카운터를 추가하지 않는다. 어느 한 버킷이 제한되면 429 RATE_LIMITED, Retry-After는 제한된 창들 중 가장 큰 남은 초다. 원격 주소는 현재 REMOTE_ADDR 기준이며 프록시 신뢰 설정은 운영 배포에서 별도 확정한다.
+
+---
+### 9.3 삭제 확인 계약
+
+get_deletion_preview의 resource_type은 server 또는 channel, resource_id는 문자열 ID다. data에는 resource_type, resource_id, name, message_count를 반환한다. server에는 channel_count, member_count도 포함한다. 집계는 조회 시점 문자열이며 이후 메시지/소속 변경을 잠그거나 삭제 범위를 예약하지 않는다. 소유자·관리자 여부는 삭제 API에서 다시 검사한다.
+
+confirm_name은 이름 입력 화면의 확인 값이다. 생성 이름과 같은 유효성·앞뒤 공백 처리를 적용한 뒤 DB 현재 이름과 코드 포인트 단위로 정확하게 비교한다. DB의 대소문자 무시 비교로 대체하지 않는다. 다르면 409 NAME_MISMATCH이며 새 미리보기를 표시한다. ID가 실제 삭제 대상을 결정한다. 서버 삭제는 멤버십·현재 초대·채널·대화를, 채널 삭제는 해당 메시지를 CASCADE로 정리한다. 계정과 다른 서버 자료는 보존한다. 응답에는 삭제된 원문 대화를 포함하지 않는다.
+
+---
+### 9.4 9~10단계 채널·프로필 계약
+
+| 메서드·경로 | 허용 입력 | 권한 | 정상 data·상태 |
+|---|---|---|---|
+| GET /api/get_channels.php | 없음 | 기존 본인 소속 | 기존 응답 유지; 200, 이미 구현 |
+| POST /api/create_channel.php | server_id, name | 소유자·관리자 | channel; 201 |
+| POST /api/update_channel.php | channel_id, name | 소유자·관리자 | channel; 200 |
+| POST /api/delete_channel.php | channel_id, confirm_name | 소유자·관리자 | channel_id, deleted: true; 200 |
+| GET /api/profile.php | 없음 | 로그인 본인 | user; 200 |
+| PATCH /api/profile.php | username | 로그인 본인 | user; 200 |
+
+일반 회원은 채널 관리 불가다. 마지막 채널 삭제는 허용하고 서버는 남긴다. profile.php는 현재 세션의 계정만 조회·수정하며 user_id·email·password·role 필드를 거절한다. 같은 정규화 username을 다시 저장해도 200, 다른 계정과 중복이면 409 USERNAME_TAKEN이다. 이메일은 본인에게만 제공하고 변경하지 않는다. 사용자 ID·기존 작성자 관계는 유지하며 과거 메시지 재조회 시 최신 username을 사용한다. 현재 탭은 본인 캐시 이름을 갱신하고 다른 탭은 새로고침/전체 재조회 때 반영한다.
+
+---
+### 9.5 신규 오류·후속 검증
+
+| HTTP | error.code | 조건 |
+|---|---|---|
+| 400 | INVALID_INVITE | 정상 형식 코드의 미존재·만료·폐기; 동일 안내 |
+| 403 | FORBIDDEN | 서버 미소속 또는 동작에 필요한 역할 없음 |
+| 404 | SERVER_NOT_FOUND | 서버가 존재하지 않음 |
+| 404 | CHANNEL_NOT_FOUND | 채널이 존재하지 않음; 기존 코드 재사용 |
+| 409 | OWNER_CANNOT_LEAVE | 현재 소유자의 탈퇴 요청 |
+| 409 | NAME_MISMATCH | 삭제 확인 이름과 현재 이름 불일치 |
+| 409 | CHANNEL_NAME_TAKEN | 같은 서버의 정규화 채널명 중복 |
+| 409 | USERNAME_TAKEN | 다른 계정의 사용자명과 중복 |
+| 429 | RATE_LIMITED | 초대 발급·참여 제한, Retry-After 포함 |
+
+나머지 오류는 기존 공통 계약과 같다. 존재·역할·원자성·초대 경계·중복·삭제와 전송 경합·응답 유실·다른 탭 계정 변경을 [7단계 인수 확인표](PHASE-7-RULES.md#6-역할별-인수-확인표) R01~R12에 따라 검증한다. 이 절의 정상 응답·DB 변경은 아직 실행 검증하지 않았다.
 
 ---
 ## 검색 참고

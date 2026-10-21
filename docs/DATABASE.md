@@ -1,9 +1,11 @@
 ---
 # SystemMakers 데이터베이스 구조
 
-작성일: 2026-10-21 · 계약 버전: 0.1 · 구조 담당: B · 서버·채널 기능 담당: C
+작성일: 2026-10-21 · 계약 버전: 0.2 · 구조 담당: B · 서버·채널 기능 담당: C
 
 회원·서버·멤버십·채널·메시지의 관계와 API 구현 규칙을 정의한다. [schema.sql](../backend/sql/schema.sql)을 MySQL 8.4.13에 적용했으며 PHP 인증·메시지 저장·조회와 연결한 6단계 전체 인수 검증을 완료했다. 스키마의 최초 15개 검증 기록은 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 최신 전체 90개 결과는 [PHASE-6-VERIFICATION.md](PHASE-6-VERIFICATION.md)에 있다. API 필드·인증·검증 규칙은 [API.md](API.md)와 함께 사용한다.
+
+0.2의 8절은 [7단계 확정 규칙](PHASE-7-RULES.md)의 관리 기능 저장 설계다. 현재 적용된 테이블은 기존 6개이며 server_invites·management_rate_limits는 **설계 확정 / 미생성**이다. 이번 단계에서 schema.sql·DB·실행 코드를 변경하지 않았다.
 
 ---
 ## 1. 공통 설정
@@ -192,6 +194,85 @@ schema.sql의 생성 순서는 users → servers → server_members → channels
 - 새 세션·동시 로그인 요청에서도 이메일·IP 제한 유지 확인.
 
 테이블·고유 키·외래 키·삭제 정책·본문 길이·조회 쿼리·재적용 거절은 실제 MySQL에서 검증했다. 스키마 결과는 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 공통 계층은 [PHASE-2-VERIFICATION.md](PHASE-2-VERIFICATION.md), 인증은 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다. 실제 메시지 저장·동시 전송의 ID 발급/커밋 순서·멤버십 탈퇴 대기·시간 초과 재시도·개발 데이터 보존은 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 실제 조회·커서·현재 소속 검사는 [PHASE-5-VERIFICATION.md](PHASE-5-VERIFICATION.md)에 기록했다. 운영 배포 환경은 아직 확정하지 않았다.
+
+---
+## 8. 7단계 관리 기능 저장 계약 — 구현 전
+
+---
+### 8.1 기존 테이블에서 보장할 관리 규칙
+
+- 서버 생성: servers → server_members(owner) → channels(일반)를 한 트랜잭션으로 삽입. 어떤 단계든 실패하면 전부 롤백.
+- 소유자: servers.owner_id와 유일한 owner 멤버십의 user_id 일치. 소유자 탈퇴는 차단하며 소유권 이전·역할 부여 API는 이번 범위 밖.
+- 초대 참여: 기본 member 삽입. 기존 복합 기본 키와 역할·joined_at을 유지하여 중복 참여의 승격/초기화를 차단.
+- 채널: 기존 uq_channels_server_name으로 같은 서버 이름 중복 거절. 마지막 채널 삭제 허용, 서버 행은 유지.
+- 탈퇴: 본인 server_members 한 행만 삭제, messages·users 유지. 삭제/탈퇴 커밋 이후 시작한 접근은 현재 소속으로 거절.
+- 프로필: users.username만 기존 가입 정규화·고유 키로 수정. 메시지 작성자 ID·이메일·password_hash 불변, 별도 닉네임·아바타 열 추가 없음.
+- 서버 삭제: 해당 소속·초대·채널·메시지 CASCADE, 계정 보존. 채널 삭제: 해당 메시지만 CASCADE.
+
+위 제약 중 owner 일치·역할·입력 형식·소유자 탈퇴는 외래 키로만 보장되지 않는다. 공통 검증과 트랜잭션에서 확인한다. 이름의 앞뒤 유니코드 구분 공백 제거·제어 문자 거절·길이 검사는 API 계층에서 수행한다. 삭제 confirm_name은 정규화 후 현재 이름과 정확히 비교하며 DB의 대소문자 무시 비교를 사용하지 않는다.
+
+---
+### 8.2 server_invites — 신규 설계 1
+
+한 서버당 현재 초대 상태 한 행을 보관한다. 재발급은 같은 행의 해시·시각을 바꾸며 이전 코드는 즉시 무효화한다. 별도 초대 이력·원문 복구 기능은 제공하지 않는다. 아래 열은 revoked_at 외 모두 NOT NULL이다.
+
+| 열 | 자료형·제약 | 의미 |
+|---|---|---|
+| server_id | BIGINT UNSIGNED, PRIMARY KEY, FK fk_invites_server | servers.id 참조, ON DELETE CASCADE·ON UPDATE RESTRICT |
+| token_hash | BINARY(32), UNIQUE uq_invites_token_hash | 32바이트 난수 코드의 SHA-256 바이너리 해시 |
+| created_by | BIGINT UNSIGNED, FK fk_invites_creator | users.id, DELETE/UPDATE RESTRICT, 발급 시 소유자 |
+| created_at | DATETIME | DB UTC 발급 시각, 매 재발급 갱신 |
+| expires_at | DATETIME | created_at + 86,400초 |
+| revoked_at | DATETIME NULL, 기본 NULL | 폐기 시각, 재발급 시 NULL |
+
+idx_invites_creator(created_by)를 둔다. expires_at > created_at CHECK를 추가하고 원문 난수는 저장하지 않는다. 유효성은 revoked_at IS NULL이고 DB 현재 시각 < expires_at이다. 만료 행은 원문 없이 남겨 GET 상태 조회에 사용한다. 미발급은 행 없음으로 구분하고 API에서 active=false·날짜 null을 구성한다.
+
+해시 충돌의 고유 키 위반이면 새 난수를 최대 3번 생성한 뒤 실패 시 전체 롤백한다. 코드 원문은 커밋 후 발급 응답에서만 한 번 반환한다. 실패/성공 로그·오류 응답·버킷 키에 원문 코드를 남기지 않는다. 응답 유실 시 자동 재발급하지 않고 사용자 확인 후 새 코드 발급을 수행한다.
+
+---
+### 8.3 management_rate_limits — 신규 설계 2
+
+기존 auth_rate_limits와 로그인 제한은 그대로 유지한다. 관리 요청용 버킷을 별도 테이블에 둔다. 모든 열은 NOT NULL이다.
+
+| 열 | 자료형·제약 | 의미 |
+|---|---|---|
+| bucket_key | CHAR(64) ASCII ascii_bin, PRIMARY KEY | 범위와 대상을 HMAC-SHA256으로 처리한 키 |
+| scope | ENUM('invite_issue_user','invite_join_user','invite_join_ip') | 제한 종류 |
+| attempts | INT UNSIGNED, 기본 0 | 현재 600초 창에서 허용한 시도 수 |
+| window_started_at | DATETIME | 첫 허용 시도 DB UTC 시각 |
+| updated_at | DATETIME | 마지막 상태 갱신 시각 |
+
+idx_management_limits_updated(updated_at)를 둔다. 키는 기존 AUTH_RATE_LIMIT_KEY를 사용하되 ‘management’·scope·정규 사용자 ID 또는 표준화 IP를 NUL 구분으로 결합하여 도메인을 분리한다. 키 길이 조건은 기존 32바이트 이상을 유지한다. 원문 IP·초대 코드를 저장하지 않는다. 사용자 대상은 이메일/사용자명 대신 불변 user ID를 사용한다.
+
+invite_issue_user는 10회/600초, invite_join_user는 10회/600초, invite_join_ip는 100회/600초다. 기존 로그인 제한과 별개로 유지한다. 여러 버킷은 bucket_key 문자열 오름차순으로 잠그고, 하나라도 제한이면 어느 버킷도 추가 집계하지 않는다. 허용 시 모두 증가 후 커밋한다. 성공한 참여나 발급도 집계에서 제거하지 않는다. 현재 시각이 창 시작 +600초 이상이면 새 창으로 초기화한다.
+
+카운터 커밋과 업무 트랜잭션은 분리한다. 이후 잘못된 초대·업무 실패·롤백이 발생해도 허용된 시도는 남긴다. 제한 시 Retry-After는 제한된 버킷 중 최대 남은 초다. 24시간 이상 갱신하지 않은 행은 별도 CLI 정리 작업에서 삭제 가능하다. 운영 스케줄 설치는 12단계 대상이다.
+
+---
+### 8.4 트랜잭션·권한 경계
+
+관리 트랜잭션의 공통 자원 잠금 순서는 servers → channels(ID 오름차순) → server_invites → server_members(user_id 오름차순)다. 해당 동작이 사용하지 않는 종류는 건너뛴다. 기존 메시지 저장·조회는 채널 → 멤버십 순서를 유지한다. 관리 요청도 서버 행의 현재 권한을 관련 소속 잠금 후 재검사하고 커밋 전까지 보호한다. PHP 세션 잠금은 기존대로 DB 작업 전에 해제한다.
+
+| 작업 | 핵심 잠금·원자성 |
+|---|---|
+| 초대 발급·폐기 | 발급만 별도 횟수 제한 처리 → 서버 FOR UPDATE → 현재 초대 FOR UPDATE → 소유자 소속 FOR SHARE → 권한 재확인 → 해시 교체/폐기; 폐기에는 발급 횟수 제한 미적용 |
+| 초대 참여 | 횟수 제한 먼저 커밋 → 해시로 서버 ID 후보 조회(아직 권한 미확정) → 서버 FOR UPDATE → 초대 FOR UPDATE → 본인 소속 잠금 → 최신 해시·폐기·만료 시각 재검사 → member 삽입/기존 유지 |
+| 본인 탈퇴 | 서버 FOR UPDATE → 본인 소속 FOR UPDATE → 소유자 여부 확인 → 소속만 삭제 |
+| 채널 생성 | 서버 FOR UPDATE → 본인 소속 FOR SHARE → 역할 재검사 → 채널 삽입 |
+| 채널 변경·삭제 | 채널에서 서버 ID 후보 확인 → 서버 FOR UPDATE → 채널 FOR UPDATE → 본인 소속 FOR SHARE → 현재 역할·이름 재검사 → 변경/삭제 |
+| 서버 삭제 | 서버 FOR UPDATE → 소속 채널 모두 ID순 FOR UPDATE → 현재 초대 FOR UPDATE → 소속 모두 user_id순 FOR UPDATE → 소유자·이름 재검사 → 서버 DELETE와 CASCADE |
+| 프로필 | 본인 users 행 UPDATE와 UNIQUE 제약, 다른 계정 ID는 입력 대상에서 배제 |
+
+후보 조회 뒤 자원 삭제·코드 교체·역할 변경이 있으면 잠금 후 현재 상태로 다시 판정한다. 초대 유효성의 DB 현재 시각은 모든 필요한 잠금을 얻은 뒤 읽는다. 초대/탈퇴/삭제 커밋 전에 시작해 이미 권한 잠금을 얻은 메시지는 먼저 커밋될 수 있으며, 삭제에는 그 메시지도 포함된다. 서버 삭제가 멤버십을 먼저 지워 진행 중 전송과 잠금 순서를 역전하지 않도록 채널을 선점한다. 삭제 미리보기의 집계는 삭제 잠금이나 승인 토큰을 대체하지 않는다. 미리보기 수치는 하나의 읽기 전용 일관된 스냅샷에서 집계한 뒤 응답 전에 트랜잭션을 종료한다.
+
+관리 업무의 교착·잠금 시간 초과는 전체 롤백 후 최대 3회 시도한다. 재시도마다 권한·현재 초대·현재 이름을 다시 읽는다. 커밋 뒤 응답만 유실된 경우 전체 업무를 재실행하지 않는다. 버킷 집계는 업무 재시도마다 중복 실행하지 않으며 독립된 한 HTTP 요청의 허용 시도 한 번만 반영한다.
+
+---
+### 8.5 마이그레이션·검증 계획
+
+8단계에서 기존 schema.sql을 덮어쓰거나 재적용하지 않고 backend/sql/migrations/001_server_invites_and_limits.sql을 새로 작성한다. 생성 순서는 server_invites → management_rate_limits다. 빈 DB는 기존 6개 테이블 생성 뒤 동일 변경 파일을 적용한다. 적용 전 백업·기존 이름 충돌·키·FK를 확인하며 이미 적용된 파일은 실행 기록으로 중복 적용을 거절한다. DDL의 부분 실패는 자동 전체 롤백으로 간주하지 않고 실제 생성 상태를 확인한다.
+
+이번 단계는 변경 파일을 아직 생성하거나 실행하지 않았다. 후속 구현에서 별도 테스트 DB의 기존 users·servers·channels·messages 보존, 새 키·만료·코드 교체·중복 참여·소유자 불변식·CASCADE·동시 요청·횟수 제한 경계를 확인한다. 신규 테이블은 적용 후 총 8개가 되며 현재 실제 테이블 수와 혼동하지 않는다. 실행 순서·검증 근거는 변경 파일과 함께 README 및 단계별 결과에 기록한다.
 
 ---
 ## 검색 참고
