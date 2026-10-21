@@ -1,0 +1,78 @@
+<!doctype html> <!-- HTML 문서 형식 -->
+<html lang="ko"> <!-- 한국어 문서 -->
+<head> <!-- 문서 설정 -->
+    <meta charset="UTF-8"> <!-- 한글 문자 설정 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- 모바일 화면 설정 -->
+    <meta name="theme-color" content="#171c25"> <!-- 브라우저 테마 색상 -->
+    <title>SystemMakers · 팀의 대화 공간</title> <!-- 브라우저 제목 -->
+    <link rel="stylesheet" href="/app.css"> <!-- 화면 스타일 연결 -->
+    <script src="/app.js" defer></script> <!-- 화면 동작 연결 -->
+</head> <!-- 문서 설정 끝 -->
+<body> <!-- 화면 시작 -->
+    <a class="skip-link" href="#message-input">메시지 입력으로 이동</a> <!-- 키보드 바로가기 -->
+    <div class="workspace"> <!-- 메신저 전체 배치 -->
+        <aside class="server-rail" aria-label="작업 공간"> <!-- 서버 선택 영역 -->
+            <div class="server-mark" title="SystemMakers" aria-label="SystemMakers">SM</div> <!-- 현재 서버 표시 -->
+            <div class="rail-line" aria-hidden="true"></div> <!-- 서버 구분선 -->
+            <span class="rail-caption" aria-hidden="true">TEAM<br>SPACE</span> <!-- 공간 장식 문구 -->
+            <span class="rail-bottom" aria-hidden="true">S.</span> <!-- 하단 브랜드 장식 -->
+        </aside> <!-- 서버 영역 끝 -->
+        <aside class="channel-sidebar" id="channel-sidebar" aria-label="채널 목록"> <!-- 채널 선택 영역 -->
+            <header class="workspace-heading"> <!-- 작업 공간 제목 -->
+                <div class="eyebrow">YOUR WORKSPACE</div> <!-- 작업 공간 보조 제목 -->
+                <h1>SystemMakers<span class="workspace-dot" aria-hidden="true"></span></h1> <!-- 서비스 이름 -->
+            </header> <!-- 작업 공간 제목 끝 -->
+            <nav class="channel-navigation" aria-label="텍스트 채널"> <!-- 채널 탐색 -->
+                <p class="section-label">텍스트 채널 <span>03</span></p> <!-- 채널 목록 제목 -->
+                <button type="button" class="channel-button active" data-channel="general" aria-pressed="true"><span class="hash" aria-hidden="true">#</span>일반<span class="channel-selected-dot" aria-hidden="true"></span></button> <!-- 일반 채널 선택 -->
+                <button type="button" class="channel-button" data-channel="dev" aria-pressed="false"><span class="hash" aria-hidden="true">#</span>개발</button> <!-- 개발 채널 선택 -->
+                <button type="button" class="channel-button" data-channel="notices" aria-pressed="false"><span class="hash" aria-hidden="true">#</span>공지</button> <!-- 공지 채널 선택 -->
+            </nav> <!-- 채널 탐색 끝 -->
+            <div class="connection-status" id="connection-status" role="status">연결 확인 중</div> <!-- 실제 연결 상태 -->
+            <footer class="user-panel"> <!-- 사용자 영역 -->
+                <div class="avatar guest-avatar" id="user-avatar" aria-hidden="true">G</div> <!-- 현재 사용자 이니셜 -->
+                <div class="user-details"><strong id="current-user">게스트</strong><span id="session-state">세션 확인 중</span></div> <!-- 사용자 상태 -->
+                <button type="button" class="login-button" id="open-auth">로그인</button> <!-- 인증 화면 열기 -->
+            </footer> <!-- 사용자 영역 끝 -->
+        </aside> <!-- 채널 영역 끝 -->
+        <main class="conversation"> <!-- 대화 영역 -->
+            <header class="conversation-header"> <!-- 현재 채널 제목 -->
+                <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-controls="channel-sidebar" aria-expanded="false" aria-label="채널 목록 열기">☰</button> <!-- 모바일 채널 열기 -->
+                <span class="header-hash" aria-hidden="true">#</span> <!-- 채널 기호 -->
+                <div class="channel-heading"><h2 id="channel-title">일반</h2><p id="channel-description">팀의 소식을 나누는 공간</p></div> <!-- 채널 제목과 설명 -->
+                <span class="header-tag">팀 프로젝트</span> <!-- 작업 공간 유형 -->
+            </header> <!-- 현재 채널 제목 끝 -->
+            <div class="preview-banner"><span class="preview-icon" aria-hidden="true">◈</span><p>화면 미리보기 <span aria-hidden="true">·</span> 대화는 새로고침하면 초기화됩니다</p><span class="preview-badge">PREVIEW</span></div> <!-- 지속적인 미리보기 안내 -->
+            <section class="message-scroll" id="message-scroll" aria-label="대화 내역" tabindex="0"> <!-- 스크롤 가능한 대화 -->
+                <div class="channel-welcome"><div class="welcome-hash" aria-hidden="true">#</div><p class="eyebrow">A PLACE FOR YOUR TEAM</p><h3 id="welcome-title">모든 대화의 시작, # 일반</h3><p id="welcome-description">안부부터 새로운 아이디어까지, 편하게 나눠보세요.</p></div> <!-- 채널 시작 안내 -->
+                <div class="date-divider"><span>2026년 10월 21일</span></div> <!-- 예시 대화 날짜 구분 -->
+                <div class="messages" id="messages" aria-label="채널 메시지"></div> <!-- 안전한 메시지 출력 -->
+            </section> <!-- 대화 스크롤 끝 -->
+            <div class="composer-region"> <!-- 메시지 작성 영역 -->
+                <button type="button" class="new-messages" id="new-messages" hidden>새 메시지 보기 ↓</button> <!-- 읽는 위치 유지 안내 -->
+                <form class="composer" id="message-form"> <!-- 미리보기 전송 폼 -->
+                    <label class="visually-hidden" for="message-input" id="message-label">일반 채널 메시지</label> <!-- 메시지 필드 레이블 -->
+                    <textarea id="message-input" rows="2" placeholder="# 일반에 메시지 보내기" aria-describedby="composer-help message-count composer-feedback"></textarea> <!-- 여러 줄 메시지 입력 -->
+                    <div class="composer-footer"><span class="message-count" id="message-count">0 / 2,000</span><span class="composer-help" id="composer-help">Enter 전송 <span>·</span> Shift+Enter 줄바꿈</span><button type="submit" class="send-button" id="send-button" disabled>전송 <span aria-hidden="true">↗</span></button></div> <!-- 입력 수와 전송 버튼 -->
+                </form> <!-- 미리보기 전송 폼 끝 -->
+                <p class="composer-feedback" id="composer-feedback" role="status">작성한 메시지는 이 화면에서만 표시됩니다.</p> <!-- 미리보기 저장 범위 -->
+            </div> <!-- 메시지 작성 영역 끝 -->
+        </main> <!-- 대화 영역 끝 -->
+    </div> <!-- 메신저 전체 배치 끝 -->
+    <button type="button" class="sidebar-backdrop" id="sidebar-backdrop" aria-label="채널 목록 닫기" hidden></button> <!-- 모바일 목록 배경 -->
+    <dialog class="auth-dialog" id="auth-dialog" aria-labelledby="auth-title" aria-describedby="auth-note"> <!-- 인증 화면 대화상자 -->
+        <button type="button" class="dialog-close" id="close-auth" aria-label="인증 화면 닫기">×</button> <!-- 인증 화면 닫기 -->
+        <div class="auth-brand"><span class="auth-mark">SM</span><strong>SystemMakers</strong></div> <!-- 인증 화면 브랜드 -->
+        <div class="auth-heading"><p class="eyebrow">YOUR TEAM, CONNECTED</p><h2 id="auth-title">다시 만나 반가워요</h2><p id="auth-description">팀의 대화를 이어가세요.</p></div> <!-- 인증 화면 제목 -->
+        <p class="auth-note" id="auth-note"><strong>회원 기능 준비 중</strong><span>입력 내용은 전송되거나 저장되지 않습니다.</span></p> <!-- 미구현 상태 안내 -->
+        <form id="auth-form"> <!-- 전송 없는 인증 미리보기 폼 -->
+            <div class="auth-field" id="username-field" hidden><label for="auth-username">사용자명</label><input id="auth-username" name="username" autocomplete="username" placeholder="사용자명을 입력하세요." pattern="[A-Za-z0-9_]{3,32}" aria-describedby="username-help"><small id="username-help">영문·숫자·밑줄 3~32자</small></div> <!-- 가입 사용자명 필드 -->
+            <div class="auth-field"><label for="auth-email">이메일</label><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="이메일을 입력하세요." maxlength="254" required></div> <!-- 이메일 필드 -->
+            <div class="auth-field"><label for="auth-password">비밀번호</label><input id="auth-password" name="password" type="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요." required aria-describedby="password-help"><small id="password-help" hidden>12~64자 · 최대 72바이트</small></div> <!-- 비밀번호 필드 -->
+            <p class="auth-feedback" id="auth-feedback" role="status"></p> <!-- 정직한 입력 확인 결과 -->
+            <button type="submit" class="auth-submit">준비 중 · 입력 확인</button> <!-- 계정 생성 없는 입력 검사 -->
+        </form> <!-- 인증 미리보기 폼 끝 -->
+        <p class="auth-switch"><span id="auth-switch-prompt">계정이 없으신가요?</span><button type="button" id="switch-auth">회원가입</button></p> <!-- 로그인과 가입 화면 전환 -->
+    </dialog> <!-- 인증 화면 대화상자 끝 -->
+</body> <!-- 화면 끝 -->
+</html> <!-- 한국어 문서 끝 -->

@@ -3,7 +3,7 @@
 
 Discord 스타일 웹 채팅 프로젝트. HTML·CSS·JavaScript 프론트엔드와 PHP·MySQL 백엔드를 사용한다.
 
-현재는 MySQL 초기 스키마와 통합 테스트를 구현하고 채팅·회원 인증 UI 시안 이미지를 제작한 상태다. PHP API와 실제 프론트엔드 화면은 아직 구현하지 않았다.
+현재는 MySQL 스키마, PHP 공통 처리와 실제 메신저 웹 화면을 구현했다. 웹 화면은 미리보기이며 회원가입·로그인 처리와 메시지 DB 저장·조회는 후속 단계다.
 
 팀원 A는 프론트엔드, 팀원 B는 DB·인증·메시지 API, 팀원 C는 서버·채널·프로필 관리 기능을 담당한다. 프론트엔드는 백엔드 연동 확인에 필요한 최소 화면부터 구성한다.
 
@@ -17,10 +17,27 @@ Discord 스타일 웹 채팅 프로젝트. HTML·CSS·JavaScript 프론트엔드
 - [스키마 검증 결과](docs/SCHEMA-VERIFICATION.md): 실제 MySQL 8.4.13에서 전체 테스트 15개 통과
 - [UI 시안](docs/UI-DIRECTION.md): 채팅 화면과 로그인·회원가입 이미지
 - [UI 생성 프롬프트](docs/UI-PROMPTS.md): 이미지 생성·수정 기록
+- [2단계 검증 결과](docs/PHASE-2-VERIFICATION.md): PHP·웹 통합 테스트 35개와 실제 화면 확인
+- [한국어 커밋 메시지](docs/COMMIT-MESSAGES.md): 기존 이력 변경과 이후 작성 규칙
+
+---
+## 로컬 웹사이트 실행
+
+현재 개발 환경은 [http://127.0.0.1:8088/](http://127.0.0.1:8088/)에서 실행한다. PHP와 MySQL 프로세스가 켜져 있어야 한다. 저장소 루트에서 다음 명령을 사용한다.
+
+```powershell
+.\scripts\start-dev.ps1 # 현재 로컬 설정으로 웹 서버 시작
+```
+
+다른 PHP 설치를 사용할 때는 -PhpPath, 다른 포트를 사용할 때는 -Port 인수를 지정한다. 사용 중인 포트가 있으면 기존 서버를 건드리지 않고 실행을 중단한다.
+
+PHP에는 pdo_mysql·mbstring이 필요하다. MySQL 8.4 DB에 초기 스키마를 별도로 적용하고 MYSQL_HOST·MYSQL_PORT·MYSQL_DATABASE·MYSQL_USER·MYSQL_PASSWORD 환경 변수를 모두 지정한다. 실제 비밀번호와 접속 정보는 Git에 올리지 않는다. 현재 컴퓨터의 .runtime/web-env.json과 PHP 설정·실행 도구는 Git에서 제외하며 새 체크아웃에는 포함되지 않는다. 로컬 HTTP에서는 APP_ENV=development와 SESSION_COOKIE_SECURE=0을 명시하고, 운영에서는 기본 Secure 설정과 HTTPS를 사용한다.
+
+개발 서버는 공개 정적 파일과 명시된 API만 제공한다. 운영 배포에는 PHP 웹 서버에서 같은 공개 범위와 비공개 파일 접근 차단을 별도로 설정해야 한다.
 
 ---
 ## 현재 진행 상태
 
-DB 구현 1단계를 완료했다. schema.sql은 빈 DB에 한 번 적용하며 DB 생성·삭제나 기존 데이터 초기화를 포함하지 않는다. 테스트는 임의 이름의 전용 DB에서 실행한다. 실행 방법은 스키마 검증 문서를 따른다. 다음 단계는 PHP DB 연결과 공통 인증·응답 처리다.
+1단계 DB 구조와 2단계 PHP 공통 처리를 완료했다. 실제 GET API는 csrf.php·get_current_user.php·health.php다. 인증 폼은 입력 형식만 확인하며 비밀번호를 전송·저장하지 않고, 미리보기 메시지는 새로고침하면 초기화된다. 다음 단계는 3단계 회원가입·로그인·로그아웃 처리와 화면 연동이다.
 
 작업 저장소는 [siwoo440/SystemMakers](https://github.com/siwoo440/SystemMakers), 팀원 B의 작업 브랜치는 codex/backend-auth-messages다. 공통 필드·응답 형식·삭제 정책을 바꾸면 API.md와 DATABASE.md를 같은 변경에서 갱신한다.

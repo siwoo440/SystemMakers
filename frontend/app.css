@@ -1,0 +1,876 @@
+:root /* 공통 색상과 글꼴 */
+{
+    color-scheme: dark; /* 어두운 기본 입력 요소 */
+    font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; /* 한국어 시스템 글꼴 */
+    color: #edf1f7; /* 기본 글자색 */
+    background: #171c25; /* 기본 배경색 */
+    font-synthesis: none; /* 가상 글꼴 변형 방지 */
+    --muted: #95a0b3; /* 보조 글자색 */
+    --line: #2c3442; /* 구분선 색상 */
+    --teal: #28d3c4; /* 강조 색상 */
+}
+* /* 전체 요소 기준 */
+{
+    box-sizing: border-box; /* 크기 계산 기준 */
+}
+body /* 전체 화면 바탕 */
+{
+    margin: 0; /* 바깥 여백 제거 */
+}
+button, input, textarea /* 폼 요소 공통 */
+{
+    font: inherit; /* 본문 글꼴 상속 */
+}
+button /* 버튼 공통 */
+{
+    cursor: pointer; /* 클릭 포인터 */
+}
+button, input, textarea, a, [tabindex] /* 키보드 포커스 대상 */
+{
+    outline-offset: 4px; /* 포커스 여백 */
+}
+:focus-visible /* 키보드 선택 표시 */
+{
+    outline: 2px solid #5bf2de; /* 선명한 포커스 테두리 */
+}
+button:disabled /* 비활성 버튼 */
+{
+    cursor: not-allowed; /* 사용 불가 포인터 */
+    opacity: .45; /* 비활성 투명도 */
+}
+[hidden] /* 숨김 속성 공통 */
+{
+    display: none !important; /* 숨김 상태 우선 적용 */
+}
+.workspace /* 메신저 전체 틀 */
+{
+    display: grid; /* 세 영역 격자 */
+    grid-template-columns: 76px 256px minmax(0, 1fr); /* 서버와 채널 너비 */
+    height: 100dvh; /* 화면 전체 높이 */
+    min-height: 480px; /* 최소 사용 높이 */
+    overflow: hidden; /* 화면 바깥 넘침 방지 */
+}
+.server-rail /* 서버 레일 */
+{
+    display: flex; /* 세로 요소 정렬 */
+    flex-direction: column; /* 세로 흐름 */
+    align-items: center; /* 가운데 정렬 */
+    padding: 24px 0 22px; /* 상하 여백 */
+    background: #10151d; /* 깊은 레일 배경 */
+    border-right: 1px solid #262e3b; /* 레일 구분선 */
+}
+.server-mark, .auth-mark /* 브랜드 타일 */
+{
+    display: grid; /* 이니셜 중앙 배치 */
+    place-items: center; /* 수평 수직 가운데 */
+    width: 48px; /* 브랜드 타일 너비 */
+    height: 48px; /* 브랜드 타일 높이 */
+    border-radius: 15px; /* 둥근 모서리 */
+    background: linear-gradient(140deg, #13b4aa, #047d86); /* 청록 브랜드 그라데이션 */
+    box-shadow: 0 6px 24px #00bfb41a, inset 0 1px #ffffff26; /* 부드러운 브랜드 입체감 */
+    color: #fff; /* 브랜드 글자색 */
+    font-size: 16px; /* 브랜드 글자 크기 */
+    font-weight: 800; /* 굵은 브랜드 이니셜 */
+}
+.server-mark::before /* 현재 공간 표시 */
+{
+    content: ""; /* 장식 요소 생성 */
+    position: absolute; /* 레일 옆 위치 */
+    left: 0; /* 왼쪽 끝 정렬 */
+    width: 3px; /* 선택 막대 너비 */
+    height: 26px; /* 선택 막대 높이 */
+    border-radius: 0 3px 3px 0; /* 선택 막대 모서리 */
+    background: var(--teal); /* 선택 막대 색상 */
+}
+.rail-line /* 레일 구분 장식 */
+{
+    width: 25px; /* 구분선 너비 */
+    height: 1px; /* 구분선 두께 */
+    background: #303746; /* 구분선 색상 */
+    margin: 22px 0; /* 구분선 바깥 여백 */
+}
+.rail-caption /* 레일 작은 문구 */
+{
+    color: #667387; /* 은은한 장식 색상 */
+    font-size: 9px; /* 작은 장식 글자 */
+    letter-spacing: 1.6px; /* 넓은 장식 자간 */
+    text-align: center; /* 가운데 문구 정렬 */
+    line-height: 1.8; /* 장식 줄간격 */
+}
+.rail-bottom /* 레일 하단 브랜드 */
+{
+    margin-top: auto; /* 하단 정렬 */
+    font-size: 20px; /* 하단 브랜드 크기 */
+    font-weight: 800; /* 하단 브랜드 굵기 */
+    color: #4d5d73; /* 하단 브랜드 색상 */
+}
+.channel-sidebar /* 채널 사이드바 */
+{
+    display: flex; /* 사이드바 세로 배치 */
+    flex-direction: column; /* 세로 흐름 */
+    min-height: 0; /* 작은 화면 넘침 방지 */
+    border-right: 1px solid var(--line); /* 채널 영역 구분선 */
+    background: #191f29; /* 채널 배경 */
+}
+.workspace-heading /* 작업 공간 소개 */
+{
+    padding: 27px 23px 24px; /* 제목 여백 */
+    border-bottom: 1px solid var(--line); /* 제목 아래 구분선 */
+}
+.eyebrow /* 작은 영문 보조 제목 */
+{
+    font-size: 9px; /* 보조 제목 크기 */
+    letter-spacing: 1.8px; /* 보조 제목 자간 */
+    font-weight: 700; /* 보조 제목 굵기 */
+    color: #748297; /* 보조 제목 색상 */
+}
+.workspace-heading h1 /* 작업 공간 이름 */
+{
+    display: flex; /* 이름과 장식 정렬 */
+    align-items: center; /* 수직 가운데 */
+    gap: 9px; /* 이름과 장식 간격 */
+    margin: 10px 0 7px; /* 이름 바깥 여백 */
+    font-size: 20px; /* 이름 글자 크기 */
+    letter-spacing: -.7px; /* 이름 자간 */
+}
+.workspace-dot /* 브랜드 이름 옆 장식 */
+{
+    width: 5px; /* 장식 점 너비 */
+    height: 5px; /* 장식 점 높이 */
+    border-radius: 50%; /* 원형 장식 */
+    background: var(--teal); /* 청록 장식 */
+}
+.channel-navigation /* 채널 탐색 여백 */
+{
+    padding: 24px 13px; /* 채널 목록 안쪽 여백 */
+}
+.section-label /* 채널 목록 소제목 */
+{
+    display: flex; /* 제목과 개수 배치 */
+    justify-content: space-between; /* 양끝 정렬 */
+    margin: 0 10px 14px; /* 소제목 여백 */
+    color: #8c98ab; /* 소제목 색상 */
+    font-size: 11px; /* 소제목 크기 */
+    font-weight: 700; /* 소제목 굵기 */
+}
+.section-label span /* 채널 개수 */
+{
+    font-size: 10px; /* 개수 글자 크기 */
+    color: #657185; /* 개수 색상 */
+}
+.channel-button /* 채널 선택 버튼 */
+{
+    display: flex; /* 채널 기호와 이름 배치 */
+    align-items: center; /* 수직 가운데 정렬 */
+    gap: 12px; /* 기호와 이름 간격 */
+    width: 100%; /* 사이드바 전체 너비 */
+    min-height: 44px; /* 터치 가능한 높이 */
+    padding: 8px 14px; /* 채널 버튼 여백 */
+    margin-bottom: 5px; /* 채널 간 간격 */
+    border: 1px solid transparent; /* 선택 상태 테두리 공간 */
+    border-radius: 7px; /* 채널 버튼 모서리 */
+    background: transparent; /* 기본 투명 배경 */
+    color: #9ba7ba; /* 기본 채널 글자 */
+    text-align: left; /* 채널 이름 왼쪽 정렬 */
+    font-size: 14px; /* 채널 이름 크기 */
+}
+.channel-button:hover /* 채널 버튼 마우스 상태 */
+{
+    background: #252d3a; /* 가벼운 강조 배경 */
+    color: #fff; /* 강조 글자색 */
+}
+.channel-button.active /* 선택한 채널 */
+{
+    background: linear-gradient(90deg, #087d7d, #086568); /* 청록 선택 배경 */
+    border-color: #0b8a89; /* 선택 테두리 */
+    color: #f1fffe; /* 선택 글자색 */
+    font-weight: 700; /* 선택 이름 강조 */
+}
+.hash /* 채널 목록 기호 */
+{
+    font-size: 23px; /* 기호 크기 */
+    font-weight: 400; /* 기호 기본 굵기 */
+    color: #8191a7; /* 기본 기호 색상 */
+}
+.active .hash /* 선택 채널 기호 */
+{
+    color: #8eebe1; /* 선택 기호 색상 */
+}
+.channel-selected-dot /* 선택 채널 장식 */
+{
+    width: 5px; /* 선택 점 너비 */
+    height: 5px; /* 선택 점 높이 */
+    margin-left: auto; /* 오른쪽 정렬 */
+    border-radius: 50%; /* 원형 선택 점 */
+    background: #7be5d9; /* 선택 점 색상 */
+}
+.connection-status /* 연결 상태 */
+{
+    margin: auto 23px 14px; /* 하단 연결 상태 여백 */
+    font-size: 10px; /* 상태 글자 크기 */
+    line-height: 1.7; /* 상태 줄간격 */
+    color: #93a2b6; /* 상태 색상 */
+}
+.user-panel /* 사용자 하단 패널 */
+{
+    display: flex; /* 아바타와 사용자 배치 */
+    align-items: center; /* 수직 가운데 */
+    gap: 10px; /* 사용자 요소 간격 */
+    padding: 18px 15px; /* 사용자 패널 여백 */
+    border-top: 1px solid var(--line); /* 패널 구분선 */
+    background: #151b24; /* 하단 패널 배경 */
+}
+.avatar /* 메시지 이니셜 아바타 */
+{
+    display: grid; /* 이니셜 가운데 배치 */
+    place-items: center; /* 수평 수직 가운데 */
+    width: 40px; /* 아바타 너비 */
+    height: 40px; /* 아바타 높이 */
+    flex: 0 0 40px; /* 아바타 크기 유지 */
+    border-radius: 14px; /* 아바타 둥근 모서리 */
+    font-size: 15px; /* 이니셜 크기 */
+    font-weight: 700; /* 이니셜 굵기 */
+    color: #fff; /* 이니셜 글자색 */
+    box-shadow: inset 0 1px #ffffff20; /* 은은한 아바타 입체감 */
+}
+.guest-avatar, .avatar-teal /* 게스트 아바타 */
+{
+    background: #297d80; /* 게스트 청록색 */
+}
+.avatar-pink /* 예시 사용자 분홍 아바타 */
+{
+    background: #ad4f85; /* 분홍 배경 */
+}
+.avatar-blue /* 예시 사용자 파랑 아바타 */
+{
+    background: #526fc4; /* 파랑 배경 */
+}
+.avatar-orange /* 예시 사용자 주황 아바타 */
+{
+    background: #b66d4c; /* 주황 배경 */
+}
+.user-panel .avatar /* 하단 사용자 아바타 */
+{
+    width: 33px; /* 작은 아바타 너비 */
+    height: 33px; /* 작은 아바타 높이 */
+    flex-basis: 33px; /* 작은 아바타 크기 유지 */
+    border-radius: 11px; /* 작은 아바타 모서리 */
+    font-size: 12px; /* 작은 이니셜 크기 */
+}
+.user-details /* 사용자명과 상태 */
+{
+    display: flex; /* 사용자 정보 세로 배치 */
+    flex-direction: column; /* 세로 흐름 */
+    gap: 4px; /* 이름과 상태 간격 */
+    min-width: 0; /* 긴 이름 줄임 허용 */
+}
+.user-details strong /* 현재 사용자명 */
+{
+    overflow: hidden; /* 긴 이름 숨김 */
+    text-overflow: ellipsis; /* 긴 이름 줄임표 */
+    white-space: nowrap; /* 사용자명 한 줄 */
+    font-size: 12px; /* 사용자명 크기 */
+}
+.user-details span /* 세션 상태 문구 */
+{
+    color: #8896aa; /* 상태 문구 색상 */
+    font-size: 10px; /* 상태 문구 크기 */
+}
+.login-button /* 로그인 진입 버튼 */
+{
+    margin-left: auto; /* 오른쪽 정렬 */
+    padding: 8px 0 8px 7px; /* 로그인 터치 여백 */
+    border: 0; /* 기본 테두리 제거 */
+    background: transparent; /* 투명 버튼 배경 */
+    color: #b5c3d5; /* 로그인 글자색 */
+    font-size: 11px; /* 로그인 글자 크기 */
+    white-space: nowrap; /* 버튼 문구 한 줄 */
+}
+.conversation /* 대화 메인 영역 */
+{
+    display: flex; /* 대화 세로 배치 */
+    flex-direction: column; /* 세로 흐름 */
+    min-width: 0; /* 긴 내용 너비 제한 */
+    min-height: 0; /* 내부 스크롤 허용 */
+    background: radial-gradient(ellipse at 75% 10%, #202835 0, transparent 60%), #1c222d; /* 은은한 대화 배경 */
+}
+.conversation-header /* 대화 상단 제목 */
+{
+    display: flex; /* 제목 가로 배치 */
+    align-items: center; /* 수직 가운데 */
+    gap: 14px; /* 제목 요소 간격 */
+    min-height: 88px; /* 헤더 높이 */
+    padding: 18px 32px; /* 헤더 여백 */
+    border-bottom: 1px solid var(--line); /* 헤더 구분선 */
+    background: #1b212b99; /* 반투명 헤더 배경 */
+}
+.header-hash /* 헤더 채널 기호 */
+{
+    color: #8391a6; /* 헤더 기호 색상 */
+    font-size: 30px; /* 헤더 기호 크기 */
+    font-weight: 300; /* 가벼운 헤더 기호 */
+}
+.channel-heading h2 /* 채널 이름 */
+{
+    margin: 0 0 6px; /* 이름 아래 간격 */
+    font-size: 18px; /* 채널 이름 크기 */
+    letter-spacing: -.4px; /* 채널 이름 자간 */
+}
+.channel-heading p /* 채널 설명 */
+{
+    margin: 0; /* 설명 기본 여백 제거 */
+    color: #919eb1; /* 채널 설명 색상 */
+    font-size: 11px; /* 채널 설명 크기 */
+}
+.header-tag /* 상단 팀 분류 */
+{
+    margin-left: auto; /* 오른쪽 정렬 */
+    padding: 6px 9px; /* 분류 안쪽 여백 */
+    border: 1px solid #344051; /* 분류 테두리 */
+    border-radius: 5px; /* 분류 모서리 */
+    font-size: 10px; /* 분류 글자 크기 */
+    color: #97a6ba; /* 분류 글자색 */
+    white-space: nowrap; /* 분류 한 줄 */
+}
+.preview-banner /* 지속적인 미리보기 상태 */
+{
+    display: flex; /* 안내 가로 배치 */
+    align-items: center; /* 안내 수직 가운데 */
+    gap: 10px; /* 안내 요소 간격 */
+    padding: 11px 32px; /* 안내 여백 */
+    background: #123236; /* 청록 안내 배경 */
+    border-bottom: 1px solid #225050; /* 안내 아래 구분선 */
+    color: #b3d9d7; /* 안내 글자색 */
+    font-size: 11px; /* 안내 글자 크기 */
+}
+.preview-banner p /* 미리보기 안내 문구 */
+{
+    margin: 0; /* 안내 기본 여백 제거 */
+    line-height: 1.8; /* 안내 줄간격 */
+}
+.preview-icon /* 안내 장식 */
+{
+    color: #52ccba; /* 안내 기호 색상 */
+    font-size: 17px; /* 안내 기호 크기 */
+}
+.preview-badge /* 미리보기 영문 배지 */
+{
+    margin-left: auto; /* 오른쪽 정렬 */
+    font-size: 8px; /* 배지 글자 크기 */
+    letter-spacing: 1.6px; /* 배지 자간 */
+    color: #6dada8; /* 배지 색상 */
+}
+.message-scroll /* 대화 스크롤 영역 */
+{
+    flex: 1; /* 남은 공간 전체 사용 */
+    min-height: 0; /* 스크롤 높이 제한 */
+    overflow-y: auto; /* 세로 대화 스크롤 */
+    overscroll-behavior: contain; /* 바깥 스크롤 전파 방지 */
+    padding: 28px 32px 14px; /* 대화 안쪽 여백 */
+    scrollbar-width: thin; /* 얇은 스크롤바 */
+    scrollbar-color: #3b4557 transparent; /* 스크롤바 색상 */
+    overflow-anchor: none; /* 메시지 추가 시 읽는 위치 유지 */
+}
+.channel-welcome /* 채널 시작 소개 */
+{
+    padding: 0 0 14px; /* 소개 아래 여백 */
+}
+.welcome-hash /* 채널 소개 기호 */
+{
+    display: grid; /* 기호 가운데 배치 */
+    place-items: center; /* 기호 가운데 정렬 */
+    width: 46px; /* 소개 기호 너비 */
+    height: 46px; /* 소개 기호 높이 */
+    border: 1px solid #35404f; /* 소개 기호 테두리 */
+    border-radius: 15px; /* 소개 기호 모서리 */
+    color: #9aa9bc; /* 소개 기호 색상 */
+    background: #252e3b; /* 소개 기호 배경 */
+    font-size: 29px; /* 소개 기호 크기 */
+}
+.channel-welcome .eyebrow /* 소개 영문 문구 */
+{
+    margin: 18px 0 8px; /* 소개 영문 여백 */
+}
+.channel-welcome h3 /* 소개 제목 */
+{
+    margin: 0 0 9px; /* 소개 제목 여백 */
+    font-size: 23px; /* 소개 제목 크기 */
+    letter-spacing: -.8px; /* 소개 제목 자간 */
+}
+.channel-welcome > p:last-child /* 소개 본문 */
+{
+    margin: 0; /* 본문 기본 여백 제거 */
+    color: #95a1b4; /* 소개 본문 색상 */
+    font-size: 12px; /* 소개 본문 크기 */
+    line-height: 1.8; /* 소개 본문 줄간격 */
+}
+.date-divider /* 날짜 구분선 */
+{
+    display: flex; /* 날짜 양옆 선 배치 */
+    align-items: center; /* 날짜 수직 가운데 */
+    gap: 16px; /* 선과 날짜 사이 간격 */
+    margin: 19px 0 24px; /* 날짜 구분 여백 */
+    color: #7e8ba0; /* 날짜 글자색 */
+    font-size: 10px; /* 날짜 글자 크기 */
+}
+.date-divider::before, .date-divider::after /* 날짜 양옆 장식 선 */
+{
+    content: ""; /* 장식 선 생성 */
+    height: 1px; /* 장식 선 두께 */
+    flex: 1; /* 남은 너비 채우기 */
+    background: #303949; /* 장식 선 색상 */
+}
+.message /* 개별 메시지 */
+{
+    display: flex; /* 아바타와 본문 가로 배치 */
+    align-items: flex-start; /* 위쪽 정렬 */
+    gap: 14px; /* 아바타와 본문 간격 */
+    padding: 0 0 25px; /* 메시지 아래 간격 */
+}
+.message-content /* 메시지 내용 영역 */
+{
+    min-width: 0; /* 긴 내용 줄바꿈 허용 */
+    flex: 1; /* 본문 남은 너비 사용 */
+}
+.message-meta /* 작성자와 시각 */
+{
+    display: flex; /* 작성 정보 가로 배치 */
+    align-items: center; /* 작성 정보 수직 정렬 */
+    gap: 10px; /* 이름과 시각 간격 */
+    margin: 1px 0 7px; /* 작성 정보 여백 */
+}
+.message-meta strong /* 메시지 작성자 */
+{
+    font-size: 13px; /* 작성자 이름 크기 */
+    overflow-wrap: anywhere; /* 긴 사용자명 줄바꿈 */
+}
+.message-meta time /* 메시지 작성 시각 */
+{
+    color: #7f8ca1; /* 시각 글자색 */
+    font-size: 10px; /* 시각 글자 크기 */
+    white-space: nowrap; /* 시각 한 줄 */
+}
+.message-body /* 메시지 본문 */
+{
+    margin: 0; /* 본문 기본 여백 제거 */
+    font-size: 13px; /* 읽기 편한 본문 크기 */
+    line-height: 1.9; /* 본문 줄간격 */
+    color: #cbd3df; /* 메시지 본문 색상 */
+    white-space: pre-wrap; /* 입력 줄바꿈 유지 */
+    overflow-wrap: anywhere; /* 긴 메시지 줄바꿈 */
+}
+.local-label /* 로컬 메시지 배지 */
+{
+    color: #78bcb4; /* 로컬 배지 색상 */
+    font-size: 9px; /* 로컬 배지 크기 */
+    white-space: nowrap; /* 배지 한 줄 */
+}
+.composer-region /* 입력 영역 배치 */
+{
+    position: relative; /* 새 메시지 버튼 기준 */
+    padding: 5px 26px 10px; /* 입력 영역 여백 */
+}
+.composer /* 메시지 입력 상자 */
+{
+    border: 1px solid #3b4657; /* 입력 상자 테두리 */
+    border-radius: 10px; /* 입력 상자 모서리 */
+    background: #252d3a; /* 입력 상자 배경 */
+    box-shadow: 0 5px 22px #10151b22, inset 0 1px #ffffff03; /* 입력 영역 입체감 */
+}
+.composer:focus-within /* 입력 중 상자 강조 */
+{
+    border-color: #428c89; /* 입력 중 청록 테두리 */
+}
+.composer textarea /* 메시지 작성 필드 */
+{
+    display: block; /* 입력 필드 블록 배치 */
+    width: 100%; /* 전체 입력 너비 */
+    min-height: 64px; /* 최소 작성 높이 */
+    max-height: 150px; /* 최대 작성 높이 */
+    padding: 17px 18px 8px; /* 작성 필드 여백 */
+    resize: vertical; /* 세로 크기 조절 */
+    background: transparent; /* 상자 배경 상속 */
+    border: 0; /* 내부 테두리 제거 */
+    outline: none; /* 부모 포커스 표시 사용 */
+    color: #edf3fa; /* 입력 글자색 */
+    font-size: 13px; /* 입력 글자 크기 */
+    line-height: 1.7; /* 입력 줄간격 */
+}
+.composer textarea::placeholder /* 작성 안내 문구 */
+{
+    color: #8c99ae; /* 안내 글자색 */
+}
+.composer-footer /* 작성 필드 하단 */
+{
+    display: flex; /* 글자 수와 버튼 정렬 */
+    align-items: center; /* 수직 가운데 */
+    gap: 14px; /* 하단 요소 간격 */
+    padding: 4px 10px 10px 18px; /* 하단 여백 */
+}
+.message-count /* 글자 수 표시 */
+{
+    color: #8896ab; /* 글자 수 색상 */
+    font-size: 10px; /* 글자 수 크기 */
+    white-space: nowrap; /* 글자 수 한 줄 */
+}
+.message-count.over-limit, .composer-feedback.error /* 입력 제한 오류 */
+{
+    color: #ff9e98; /* 오류 글자색 */
+}
+.composer-help /* 키보드 안내 */
+{
+    margin-left: auto; /* 오른쪽 정렬 */
+    color: #7c8ba1; /* 키보드 안내 색상 */
+    font-size: 10px; /* 키보드 안내 크기 */
+}
+.composer-help span /* 키보드 안내 구분점 */
+{
+    margin: 0 5px; /* 구분점 좌우 여백 */
+}
+.send-button, .auth-submit /* 청록 주요 버튼 */
+{
+    border: 1px solid #11a49b; /* 청록 버튼 테두리 */
+    border-radius: 6px; /* 주요 버튼 모서리 */
+    background: linear-gradient(135deg, #079c94, #087d83); /* 주요 버튼 배경 */
+    color: #fff; /* 주요 버튼 글자색 */
+    font-weight: 700; /* 주요 버튼 글자 굵기 */
+}
+.send-button /* 전송 버튼 */
+{
+    padding: 9px 15px; /* 전송 버튼 여백 */
+    font-size: 12px; /* 전송 버튼 크기 */
+    white-space: nowrap; /* 전송 문구 한 줄 */
+}
+.send-button span /* 전송 화살표 */
+{
+    margin-left: 8px; /* 전송 화살표 간격 */
+}
+.send-button:hover:not(:disabled), .auth-submit:hover /* 주요 버튼 마우스 강조 */
+{
+    filter: brightness(1.13); /* 버튼 밝기 강조 */
+}
+.composer-feedback /* 작성 결과 안내 */
+{
+    min-height: 15px; /* 결과 안내 공간 유지 */
+    margin: 8px 3px 0; /* 안내 여백 */
+    color: #8291a5; /* 안내 색상 */
+    font-size: 10px; /* 안내 글자 크기 */
+    line-height: 1.6; /* 안내 줄간격 */
+}
+.new-messages /* 읽지 않은 로컬 메시지 안내 */
+{
+    position: absolute; /* 입력 상자 위 배치 */
+    right: 30px; /* 오른쪽 위치 */
+    top: -38px; /* 입력 영역 위 위치 */
+    padding: 8px 13px; /* 새 메시지 버튼 여백 */
+    border: 1px solid #29a499; /* 안내 테두리 */
+    border-radius: 20px; /* 둥근 안내 버튼 */
+    background: #12645f; /* 안내 배경 */
+    color: #e8fffa; /* 안내 글자색 */
+    font-size: 11px; /* 안내 글자 크기 */
+}
+.sidebar-toggle, .sidebar-backdrop /* 데스크톱 숨김 요소 */
+{
+    display: none; /* 큰 화면 목록 제어 숨김 */
+}
+.auth-dialog /* 인증 대화상자 */
+{
+    width: min(480px, calc(100% - 32px)); /* 화면에 맞는 모달 너비 */
+    max-height: calc(100dvh - 32px); /* 모달 최대 높이 */
+    padding: 30px 38px; /* 모달 안쪽 여백 */
+    border: 1px solid #3a4656; /* 모달 테두리 */
+    border-radius: 14px; /* 모달 모서리 */
+    background: radial-gradient(ellipse at 90% 5%, #22313b, transparent 65%), #181f29; /* 인증 시안 배경 */
+    color: #f0f3f8; /* 모달 글자색 */
+    box-shadow: 0 30px 100px #0009; /* 모달 그림자 */
+}
+.auth-dialog::backdrop /* 모달 바깥 배경 */
+{
+    background: #090e17b8; /* 어두운 뒤쪽 화면 */
+    backdrop-filter: blur(6px); /* 뒤쪽 화면 흐림 */
+}
+.dialog-close /* 모달 닫기 버튼 */
+{
+    position: absolute; /* 오른쪽 위 배치 */
+    top: 12px; /* 위쪽 위치 */
+    right: 14px; /* 오른쪽 위치 */
+    width: 32px; /* 닫기 버튼 너비 */
+    height: 32px; /* 닫기 버튼 높이 */
+    border: 0; /* 닫기 테두리 제거 */
+    background: transparent; /* 닫기 투명 배경 */
+    color: #aebaca; /* 닫기 기호 색상 */
+    font-size: 26px; /* 닫기 기호 크기 */
+}
+.auth-brand /* 모달 브랜드 */
+{
+    display: flex; /* 브랜드 타일과 이름 배치 */
+    align-items: center; /* 수직 가운데 */
+    gap: 13px; /* 브랜드 요소 간격 */
+    font-size: 18px; /* 브랜드 이름 크기 */
+    letter-spacing: -.4px; /* 브랜드 이름 자간 */
+}
+.auth-mark /* 모달 브랜드 타일 */
+{
+    width: 37px; /* 작은 타일 너비 */
+    height: 37px; /* 작은 타일 높이 */
+    border-radius: 9px; /* 작은 타일 모서리 */
+    font-size: 13px; /* 작은 타일 이니셜 */
+}
+.auth-heading /* 인증 제목 */
+{
+    margin: 34px 0 22px; /* 인증 제목 여백 */
+}
+.auth-heading h2 /* 인증 제목 문구 */
+{
+    margin: 9px 0 10px; /* 인증 제목 간격 */
+    font-size: 29px; /* 인증 제목 크기 */
+    letter-spacing: -1px; /* 인증 제목 자간 */
+}
+.auth-heading > p:last-child /* 인증 설명 */
+{
+    color: #a6b5c9; /* 인증 설명 색상 */
+    font-size: 13px; /* 인증 설명 크기 */
+    margin: 0; /* 설명 기본 여백 제거 */
+}
+.auth-note /* 회원 기능 준비 안내 */
+{
+    display: flex; /* 안내 세로 배치 */
+    flex-direction: column; /* 제목과 설명 세로 흐름 */
+    gap: 7px; /* 안내 문구 간격 */
+    padding: 12px 14px; /* 안내 상자 여백 */
+    margin: 0 0 22px; /* 안내 아래 간격 */
+    border: 1px solid #275951; /* 안내 상자 테두리 */
+    border-radius: 6px; /* 안내 상자 모서리 */
+    background: #17363177; /* 안내 상자 배경 */
+    color: #9cd5c9; /* 안내 상자 글자색 */
+    font-size: 11px; /* 안내 글자 크기 */
+}
+.auth-note span /* 회원 기능 설명 */
+{
+    color: #a2bbb9; /* 설명 보조 색상 */
+    line-height: 1.6; /* 설명 줄간격 */
+}
+.auth-field /* 인증 입력 필드 묶음 */
+{
+    margin: 0 0 18px; /* 필드 간격 */
+}
+.auth-field label /* 인증 입력 레이블 */
+{
+    display: block; /* 레이블 별도 줄 */
+    margin-bottom: 8px; /* 레이블 아래 간격 */
+    font-size: 12px; /* 레이블 크기 */
+    font-weight: 700; /* 레이블 굵기 */
+}
+.auth-field input /* 인증 입력 상자 */
+{
+    width: 100%; /* 필드 전체 너비 */
+    height: 46px; /* 필드 높이 */
+    padding: 0 14px; /* 필드 좌우 여백 */
+    border: 1px solid #3b4b5f; /* 필드 테두리 */
+    border-radius: 6px; /* 필드 모서리 */
+    background: #242e3b; /* 필드 배경 */
+    color: #edf2f8; /* 필드 글자색 */
+    font-size: 13px; /* 필드 글자 크기 */
+}
+.auth-field input::placeholder /* 인증 입력 안내 */
+{
+    color: #91a3b9; /* 입력 안내 색상 */
+}
+.auth-field small /* 입력 규칙 설명 */
+{
+    display: block; /* 설명 별도 줄 */
+    margin-top: 8px; /* 설명 위 간격 */
+    color: #91a6bd; /* 규칙 설명 색상 */
+    font-size: 10px; /* 규칙 설명 크기 */
+}
+.auth-feedback /* 인증 입력 확인 안내 */
+{
+    color: #eabca0; /* 결과 안내 색상 */
+    font-size: 11px; /* 결과 안내 크기 */
+    line-height: 1.8; /* 결과 안내 줄간격 */
+    margin: 0 0 12px; /* 결과 안내 여백 */
+}
+.auth-submit /* 인증 미리보기 확인 버튼 */
+{
+    width: 100%; /* 버튼 전체 너비 */
+    padding: 13px; /* 버튼 안쪽 여백 */
+    font-size: 13px; /* 버튼 글자 크기 */
+}
+.auth-switch /* 인증 화면 전환 안내 */
+{
+    display: flex; /* 안내와 버튼 가로 배치 */
+    justify-content: center; /* 가운데 정렬 */
+    align-items: center; /* 수직 가운데 */
+    gap: 9px; /* 안내와 버튼 간격 */
+    margin: 20px 0 0; /* 전환 문구 여백 */
+    color: #a2b2c6; /* 전환 안내 색상 */
+    font-size: 12px; /* 전환 안내 크기 */
+}
+.auth-switch button /* 인증 화면 전환 버튼 */
+{
+    padding: 7px 0; /* 전환 터치 여백 */
+    border: 0; /* 전환 테두리 제거 */
+    background: transparent; /* 투명 전환 배경 */
+    color: #41dcca; /* 전환 링크 색상 */
+    font-size: 12px; /* 전환 글자 크기 */
+    font-weight: 700; /* 전환 글자 강조 */
+}
+.visually-hidden, .skip-link:not(:focus) /* 보조 기술 전용 안내 */
+{
+    position: absolute; /* 화면 흐름 제외 */
+    width: 1px; /* 숨긴 요소 최소 너비 */
+    height: 1px; /* 숨긴 요소 최소 높이 */
+    margin: -1px; /* 숨긴 요소 위치 보정 */
+    overflow: hidden; /* 숨긴 글자 잘라내기 */
+    clip-path: inset(50%); /* 화면에서만 숨김 */
+    white-space: nowrap; /* 숨긴 글자 줄바꿈 방지 */
+}
+.skip-link:focus /* 키보드 바로가기 노출 */
+{
+    position: fixed; /* 화면 위 고정 */
+    top: 10px; /* 위쪽 여백 */
+    left: 10px; /* 왼쪽 여백 */
+    z-index: 30; /* 가장 위 표시 */
+    padding: 12px; /* 바로가기 여백 */
+    color: #fff; /* 바로가기 글자색 */
+    background: #087d83; /* 바로가기 배경 */
+}
+@media (min-width: 1550px) /* 넓은 화면 간격 조정 */
+{
+    .workspace /* 넓은 화면 열 구성 */
+    {
+        grid-template-columns: 86px 290px minmax(0, 1fr); /* 넓은 채널 목록 */
+    }
+    .message-scroll /* 넓은 화면 대화 여백 */
+    {
+        padding: 35px 40px 20px; /* 여유 있는 메시지 여백 */
+    }
+    .message /* 넓은 화면 메시지 간격 */
+    {
+        padding-bottom: 29px; /* 메시지 세로 여백 */
+    }
+}
+@media (max-width: 760px) /* 모바일 화면 구성 */
+{
+    .workspace /* 모바일 단일 대화 열 */
+    {
+        grid-template-columns: minmax(0, 1fr); /* 대화 전체 너비 */
+        min-height: 0; /* 작은 화면 높이 허용 */
+    }
+    .server-rail /* 모바일 서버 레일 */
+    {
+        display: none; /* 서버 레일 접기 */
+    }
+    .channel-sidebar /* 모바일 접이식 목록 */
+    {
+        position: fixed; /* 화면 위 목록 배치 */
+        left: 0; /* 왼쪽 목록 정렬 */
+        top: 0; /* 위쪽 목록 정렬 */
+        bottom: 0; /* 전체 목록 높이 */
+        width: min(280px, 85vw); /* 모바일 목록 너비 */
+        z-index: 12; /* 배경보다 높은 목록 */
+        visibility: hidden; /* 접힌 목록 포커스 방지 */
+        transform: translateX(-100%); /* 접힌 목록 화면 밖 이동 */
+    }
+    body.sidebar-open .channel-sidebar /* 열린 모바일 목록 */
+    {
+        visibility: visible; /* 목록과 포커스 표시 */
+        transform: translateX(0); /* 목록 화면 안 배치 */
+    }
+    .sidebar-backdrop /* 모바일 목록 배경 */
+    {
+        display: block; /* 목록 배경 표시 */
+        position: fixed; /* 전체 화면 배경 */
+        inset: 0; /* 화면 전체 채우기 */
+        z-index: 11; /* 대화 위 배경 배치 */
+        border: 0; /* 배경 테두리 제거 */
+        background: #050a13a8; /* 어두운 목록 배경 */
+    }
+    .sidebar-toggle /* 모바일 목록 버튼 */
+    {
+        display: grid; /* 메뉴 기호 가운데 배치 */
+        place-items: center; /* 가운데 정렬 */
+        width: 34px; /* 모바일 버튼 너비 */
+        height: 34px; /* 모바일 버튼 높이 */
+        padding: 0; /* 기호 여백 제거 */
+        border: 1px solid #3d4858; /* 모바일 버튼 테두리 */
+        border-radius: 6px; /* 모바일 버튼 모서리 */
+        color: #b9c9d9; /* 모바일 버튼 색상 */
+        background: #242c38; /* 모바일 버튼 배경 */
+        font-size: 17px; /* 메뉴 기호 크기 */
+    }
+    .conversation-header /* 모바일 채널 제목 */
+    {
+        min-height: 76px; /* 모바일 제목 높이 */
+        padding: 14px 16px; /* 모바일 제목 여백 */
+        gap: 12px; /* 모바일 제목 간격 */
+    }
+    .header-hash, .header-tag, .preview-badge /* 모바일 보조 장식 */
+    {
+        display: none; /* 좁은 화면 장식 숨김 */
+    }
+    .preview-banner /* 모바일 미리보기 안내 */
+    {
+        padding: 10px 17px; /* 모바일 안내 여백 */
+        font-size: 10px; /* 모바일 안내 크기 */
+    }
+    .message-scroll /* 모바일 대화 여백 */
+    {
+        padding: 25px 18px 10px; /* 모바일 대화 안쪽 간격 */
+    }
+    .channel-welcome h3 /* 모바일 시작 제목 */
+    {
+        font-size: 20px; /* 모바일 시작 제목 크기 */
+    }
+    .message /* 모바일 메시지 간격 */
+    {
+        gap: 11px; /* 모바일 본문 간격 */
+    }
+    .avatar /* 모바일 메시지 아바타 */
+    {
+        width: 35px; /* 모바일 아바타 너비 */
+        height: 35px; /* 모바일 아바타 높이 */
+        flex-basis: 35px; /* 모바일 아바타 크기 유지 */
+        border-radius: 12px; /* 모바일 아바타 모서리 */
+    }
+    .composer-region /* 모바일 입력 여백 */
+    {
+        padding: 5px 12px max(10px, env(safe-area-inset-bottom)); /* 모바일 하단 안전 여백 */
+    }
+    .composer-help /* 모바일 키보드 안내 */
+    {
+        font-size: 8px; /* 작은 키보드 안내 */
+    }
+    .composer-footer /* 모바일 입력 하단 */
+    {
+        gap: 7px; /* 모바일 하단 간격 */
+        padding-left: 12px; /* 모바일 하단 왼쪽 여백 */
+    }
+    .send-button /* 모바일 전송 버튼 */
+    {
+        padding: 9px 12px; /* 모바일 전송 여백 */
+    }
+    .send-button span /* 모바일 전송 장식 */
+    {
+        display: none; /* 좁은 화면 화살표 숨김 */
+    }
+    .auth-dialog /* 모바일 인증 화면 */
+    {
+        padding: 27px 24px; /* 모바일 인증 여백 */
+    }
+    .auth-heading h2 /* 모바일 인증 제목 */
+    {
+        font-size: 26px; /* 모바일 인증 제목 크기 */
+    }
+}
+@media (max-width: 370px) /* 아주 좁은 화면 구성 */
+{
+    .composer-help /* 작은 화면 키보드 안내 */
+    {
+        display: none; /* 안내 숨김으로 버튼 공간 확보 */
+    }
+    .send-button /* 작은 화면 전송 버튼 */
+    {
+        margin-left: auto; /* 오른쪽 전송 정렬 */
+    }
+}
