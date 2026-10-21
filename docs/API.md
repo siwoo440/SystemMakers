@@ -1,9 +1,9 @@
 ---
 # SystemMakers API 명세 초안
 
-작성일: 2026-10-21 · 계약 버전: 0.1 · 구현 담당: B · 연동 대상: A·C
+작성일: 2026-10-21 · 계약 버전: 0.2 · 구현 담당: B · 연동 대상: A·C
 
-회원가입·로그인과 채널별 메시지 저장·조회를 위한 API 계약이다. 현재 GET csrf.php·get_current_user.php·health.php와 POST register.php·login.php·logout.php, 공통 처리 계층과 웹 인증 연동을 구현했다. 메시지 저장·조회 API는 후속 단계이며 아래 메시지 예시는 해당 구현의 기준이다. 서버·채널·프로필 관리 API 구현은 C의 담당이다.
+회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 메시지 조회·폴링 API는 5단계이며 아래 조회 예시는 해당 구현의 기준이다. 서버·채널·프로필 관리 API 구현은 C의 담당이다. 0.2에서는 소속 채널 조회 계약을 추가했다.
 
 ---
 ## 1. 공통 규칙
@@ -89,6 +89,7 @@
 | POST | `/api/login.php` | 불필요 | 필요 | 200 |
 | POST | `/api/logout.php` | 필요 | 필요 | 200 |
 | GET | `/api/get_current_user.php` | 필요 | 불필요 | 200 |
+| GET | `/api/get_channels.php` | 필요 | 불필요 | 200 |
 | GET | `/api/health.php` | 불필요 | 불필요 | 200 |
 | POST | `/api/send_message.php` | 필요 | 필요 | 201 |
 | GET | `/api/get_messages.php` | 필요 | 불필요 | 200 |
@@ -175,6 +176,22 @@
 ## 5. 메시지 API
 
 ---
+### 5.0 소속 채널 목록
+
+`GET /api/get_channels.php` · 쿼리 입력 없음 · 정상 200
+
+로그인 사용자의 server_members를 기준으로 소속 서버의 채널만 조회한다. 응답의 data.channels는 배열이며 참여 서버·채널이 없으면 빈 배열이다. 목록 조회가 멤버십이나 채널을 생성하지 않는다. 외부 user_id·server_id 등 쿼리는 400 INVALID_QUERY로 거절하고 비로그인은 먼저 401을 반환한다.
+
+| 채널 필드 | 형식·의미 |
+|---|---|
+| id | 실제 채널 ID 문자열 |
+| server_id | 소속 서버 ID 문자열 |
+| server_name | 소속 서버 이름 |
+| name | 채널 이름 |
+
+서버 ID·채널 ID 오름차순으로 반환한다. 같은 이름의 채널이 여러 서버에 있을 수 있으므로 화면에서 서버 이름도 표시한다. 목록은 화면 선택용이며 실제 전송은 현재 멤버십을 다시 검사한다. 서버·채널 생성·참여 관리 기능은 포함하지 않는다.
+
+---
 ### 5.1 메시지 전송
 
 `POST /api/send_message.php` · 정상 201
@@ -209,6 +226,8 @@
 ```
 
 저장 트랜잭션을 커밋한 뒤 201을 반환한다. 자동 재전송에 대한 중복 방지 키는 MVP에 포함하지 않는다. 네트워크 단절 시 이미 저장됐을 수 있으므로 A는 전송을 자동 반복하지 않고 조회로 확인한다.
+
+현재 4단계 화면은 확인된 저장 응답만 표시한다. 조회 API를 연결하기 전에는 응답 유실 시 저장 여부를 단정하지 않고 중복 가능성을 안내한다. CSRF 오류에서 토큰을 갱신하더라도 원래 POST는 자동 반복하지 않는다. 전송 중에는 중복 제출과 로그아웃을 막고, 채널을 이동해도 성공 응답은 원래 채널에만 반영한다.
 
 ---
 ### 5.2 메시지 조회와 커서
@@ -310,10 +329,13 @@ before_id와 after_id의 동시 사용은 400 `INVALID_QUERY`다. 커서는 범�
 | require_user(PDO): array | backend/includes/auth.php | 유효한 사용자 반환; 키는 id, username, email, created_at; 실패 시 공통 401 |
 | require_csrf(): void | backend/includes/csrf.php | 세션 토큰과 X-CSRF-Token 비교; 실패 시 공통 403 |
 | require_channel_member(PDO, string, string): array | backend/includes/permissions.php | 채널 ID·인증 사용자 ID로 권한 검사; id와 server_id를 문자열로 반환; 404·403 구분 |
+| store_message(PDO, string, string, string): array | backend/includes/messages.php | 검증된 채널 ID·세션 사용자 ID·원문을 채널·멤버십 잠금과 함께 저장하고 커밋된 공개 메시지 반환 |
 | respond_success(array, int): never | backend/includes/response.php | data와 HTTP 상태를 가진 공통 JSON 출력 |
 | respond_error(string, string, int, array): never | backend/includes/response.php | 오류 코드·문구·HTTP 상태·선택적 fields 출력 |
 
 require_channel_member의 전체 시그니처는 `require_channel_member(PDO $pdo, string $channel_id, string $user_id): array`다. user_id는 반드시 require_user가 반환한 값이며 요청 본문의 값을 전달하지 않는다.
+
+단순 require_channel_member 조회는 트랜잭션 안의 저장 권한 검사를 대체하지 않는다. 메시지 저장은 store_message의 채널 FOR UPDATE·멤버십 FOR SHARE·INSERT·COMMIT 순서를 따른다. 외부 입력 검증은 호출 전에 수행하며, 권한 오류는 롤백 후 공통 JSON으로 변환한다.
 
 세션을 시작·갱신하고 필요한 인증·CSRF 정보를 읽은 뒤 session_write_close로 잠금을 해제한다. 해제 이후 같은 요청에서 세션을 추가 수정하지 않도록 공통 처리 순서를 구성한다. [PHP 세션 잠금 문서](https://www.php.net/manual/en/function.session-write-close.php)
 
@@ -324,7 +346,7 @@ C는 서버 생성과 생성자 owner 멤버십 등록을 하나의 트랜잭션
 
 가입·중복·잘못된 비밀번호·세션 교체·로그아웃·세션 만료, 비로그인 401, CSRF 403, 다른 서버 접근 403, 없는 채널 404, 작성자 ID 위조 거절, 메시지 저장·채널 분리·이전 및 신규 커서·빈 결과·100개 초과 적체·동시 전송 순서·로그인 429를 검증한다.
 
-초기 DB와 2단계 공통 계층에 이어 3단계 회원 저장·인증·로그인 횟수 제한·웹 인증 연동을 검증한다. 최신 실행 결과와 범위는 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록한다. 메시지 저장·조회·폴링 HTTP API는 후속 단계다.
+초기 DB·공통 계층·회원 인증에 이어 실제 메시지 저장·소속 채널 조회·동시 전송·멤버십 잠금과 웹 전송을 검증했다. 최신 결과는 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md), 인증 상세는 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다. 메시지 조회·폴링 HTTP API는 후속 단계다.
 
 ---
 ## 검색 참고

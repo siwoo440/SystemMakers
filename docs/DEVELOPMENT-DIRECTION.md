@@ -3,7 +3,7 @@
 
 작성일: 2026-10-21
 
-상태: DB 구조 1단계, PHP 공통 처리 2단계와 회원 인증·웹 연동 3단계를 진행했다. 회원가입·로그인·로그아웃은 실제 DB·세션을 사용하며 메시지 저장·조회는 후속 단계다. 최신 검증 범위는 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록한다. 구체적인 필드·검증·인증·삭제 규칙은 [API.md](API.md)와 [DATABASE.md](DATABASE.md)를 우선하며 이 문서는 개발 범위를 설명한다.
+상태: DB 구조 1단계, 공통 처리 2단계, 회원 인증 3단계와 메시지 저장·웹 연동 4단계를 진행했다. 실제 소속 채널을 조회하고 로그인 사용자의 메시지를 DB에 저장한다. 이전 대화 조회·폴링은 5단계다. 최신 검증은 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md)에 기록했다. 세부 계약은 [API.md](API.md)와 [DATABASE.md](DATABASE.md)를 우선한다.
 
 ---
 ## 1. 확인 결과와 목표
@@ -13,7 +13,7 @@
 - 사용자 결정에 따라 상위 작업 폴더 아래 discord-chat 폴더에서 별도 프로젝트로 진행.
 - 시스템 PATH 변경 없이 프로젝트 내부의 PHP 8.4.26·MySQL 8.4.13으로 실제 API·DB 테스트와 로컬 웹사이트 실행 확인.
 - 작업 대상 GitHub 저장소는 [siwoo440/SystemMakers](https://github.com/siwoo440/SystemMakers). DEVFORGE 저장소의 원격 주소를 변경하지 않으며 discord-chat을 별도 Git 저장소로 연결.
-- 현재 결과물은 API·DB 명세, 초기 스키마·DB 통합 테스트, PHP 공통 계층·GET API 3개·회원 POST API 3개와 인증 화면. 메시지 DB 저장·조회 API는 다음 단계.
+- 현재 결과물은 API·DB 명세, 스키마·테스트, 공통 계층, 인증·소속 채널 조회·메시지 저장과 실제 웹 화면. 메시지 조회·폴링 API는 다음 단계.
 - 성공 기준: 팀원 A가 fetch로 회원가입·로그인·채널별 채팅을 연동하고, 팀원 C가 공통 DB와 인증 코드를 재사용할 수 있는 상태.
 
 ---
@@ -23,7 +23,7 @@
 
 메시지는 짧은 주기의 HTTP 폴링으로 구현한다. WebSocket 도입은 이번 MVP 범위에서 제외한다.
 
-프로젝트 경로는 다음과 같다. 공통 PHP·GET API 3개·회원 POST API 3개·스키마·테스트·웹 화면을 구현했으며 seed.dev.sql과 메시지 업무 API는 후속 단계다. UI 시안과 실제 웹 화면 이미지는 docs/assets/ui에 보관한다.
+프로젝트 경로는 다음과 같다. 공통 PHP·인증·채널 목록·메시지 저장·스키마·테스트·웹 화면과 CLI 개발 데이터 준비를 구현했다. 메시지 조회·폴링은 후속 단계다. UI 시안과 실제 실행 화면은 docs/assets/ui에 보관한다.
 
 | 경로 | 역할 |
 |---|---|
@@ -31,7 +31,7 @@
 | backend/config/database.php | 환경 설정 읽기와 PDO 연결 |
 | backend/includes/ | 인증, 권한, CSRF, 입력 검증, JSON 응답 공통 처리 |
 | backend/sql/schema.sql | 테이블·외래 키·인덱스 정의 |
-| backend/sql/seed.dev.sql | 개발·테스트 전용 서버·멤버·채널 샘플 |
+| scripts/seed-dev.php·seed-dev.ps1 | 기존 계정을 지정하는 개발 서버·멤버십·채널 준비 |
 | frontend/ | 팀원 A의 화면 파일 위치, 기존 파일이 전달되면 해당 구조 우선 |
 | docs/API.md | 팀원 A·C용 요청·응답 및 인증 계약 |
 | docs/DATABASE.md | 팀원 C용 테이블·관계·삭제 정책 |
@@ -40,7 +40,7 @@
 
 웹 서버는 프론트엔드와 API 경로만 공개하고 config, includes, sql, 비밀 설정 파일에 대한 외부 접근을 차단한다. 실제 자격 증명은 Git에서 제외하고 값이 없는 설정 예시만 공유한다.
 
-팀원 B는 인증·메시지 API와 공통 DB 구조를 담당한다. 사용자 지시에 따라 프론트는 실제 회원 인증 연동·채널 선택·메시지 미리보기를 구현했으며 메시지 업무 API 연동은 후속 단계다. 팀원 C의 서버·채널 생성 및 관리 API는 별도로 구현하지 않는다. 개발용 샘플 데이터는 팀원 C의 API 구현 전 통합 테스트에만 사용한다.
+팀원 B는 인증·메시지 API와 공통 DB 구조를 담당한다. 프론트는 실제 인증·소속 채널 선택·메시지 저장을 연결했다. C의 서버·채널 관리 API는 구현하지 않으며 현재 사용 가능한 채널은 읽기 전용 get_channels.php로 조회한다. C 기능 전 개발 데이터는 기존 계정을 지정하는 CLI에서 준비한다.
 
 ---
 ## 3. 데이터베이스 초안
@@ -77,6 +77,7 @@
 | POST login.php | email, password | 비밀번호 확인·세션 ID 재생성·사용자와 갱신된 CSRF 토큰 반환 |
 | POST logout.php | 없음 | 세션 데이터와 세션 쿠키 제거 |
 | GET get_current_user.php | 없음 | 현재 사용자 조회, 비로그인 시 401 |
+| GET get_channels.php | 없음 | 실제 소속 서버의 채널만 조회, 소속 없으면 빈 배열 |
 | POST send_message.php | channel_id, content | 인증·서버 멤버십 확인 후 세션 사용자로 저장 |
 | GET get_messages.php | channel_id, limit, before_id 또는 after_id | 최초·이전·신규 메시지 조회 |
 
@@ -121,7 +122,7 @@ HTTP 상태 코드 기준은 생성 201, 정상 조회·로그인·로그아웃 
 1. DB 구조·키·인덱스·삭제 정책 구현 및 검증 — 완료.
 2. PHP DB 연결·JSON 응답·세션·CSRF·권한 공통 처리와 웹 미리보기 — 완료.
 3. 회원가입·로그인·로그아웃 업무 API와 인증 화면 연동 — 3단계 검증 기록 참고.
-4. 채널 권한 확인을 포함한 메시지 저장 API.
+4. 채널 권한·동시 전송을 포함한 메시지 저장 API와 웹 연동 — 완료.
 5. 메시지 조회·이전 이력·신규 폴링 API와 웹 화면 연결.
 6. 회원·채널·메시지 전체 흐름 검증과 API·DB·실행 문서 확정.
 

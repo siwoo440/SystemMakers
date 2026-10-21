@@ -61,7 +61,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
         }); // API 검사 종료
         await context.test("회원 API 공개 경로와 POST 전용 처리", async () => // 인증 API 라우팅 누락 포착
         {
-            for (const file of ["register.php", "login.php", "logout.php"]) // 새 회원 API 목록
+            for (const file of ["register.php", "login.php", "logout.php", "send_message.php"]) // 상태 변경 API 목록
             {
                 const response = await fetch(origin + "/api/" + file); // 잘못된 GET 메서드 요청
                 assert.equal(response.status, 405, file); // 실제 회원 API의 메서드 검사 도달
@@ -71,7 +71,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
         }); // 회원 경로 검사 종료
         await context.test("SQL 설정 이력 실행 도구의 외부 접근 거절", async () => // 비공개 경로 보호
         {
-            for (const path of ["/backend/sql/schema.sql", "/backend/config/database.php", "/backend/includes/auth.php", "/.git/config", "/.runtime/php.ini", "/docs/API.md", "/%2e%2e/backend/sql/schema.sql"]) // 비공개 경로 목록
+            for (const path of ["/backend/sql/schema.sql", "/backend/config/database.php", "/backend/includes/auth.php", "/scripts/seed-dev.php", "/scripts/seed-dev.ps1", "/.git/config", "/.runtime/php.ini", "/docs/API.md", "/%2e%2e/backend/sql/schema.sql"]) // 비공개 경로 목록
             {
                 const response = await fetch(origin + path); // 비공개 자원 요청
                 assert.equal(response.status, 404, path); // 파일 미공개 확인

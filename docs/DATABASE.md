@@ -174,7 +174,9 @@ PHP 세션에는 user_id, 로그인 시각, 마지막 인증 활동 시각, csrf
 
 schema.sql의 생성 순서는 users → servers → server_members → channels → messages → auth_rate_limits다. 운영 데이터에 대한 DROP·TRUNCATE·초기화를 포함하지 않는다. DB를 별도로 선택한 상태에서 빈 DB에 한 번 적용한다. 이미 테이블이 있으면 오류로 중단하며 IF NOT EXISTS로 불일치 구조를 숨기지 않는다. MySQL DDL은 전체 파일 단위로 롤백되지 않으므로 중간 오류가 발생하면 생성된 테이블을 확인하고 후속 작업을 결정한다. 스키마 변경은 이미 적용된 파일을 조용히 덮어쓰는 방식 대신 별도 마이그레이션으로 관리한다.
 
-개발용 seed.dev.sql은 schema.sql과 분리한다. 테스트는 두 사용자·두 서버·서버별 채널·서로 다른 멤버십을 준비하여 정상 접근과 다른 서버 접근을 함께 검사한다. 개발용 계정은 해시만 저장하며 비밀번호 원문을 운영 데이터로 배포하지 않는다. 단순 회원가입 직후에는 소속 서버가 없으므로 C의 가입 기능 또는 개발용 멤버십 데이터가 있어야 메시지를 전송할 수 있다.
+개발용 데이터 준비는 schema.sql과 분리한 scripts/seed-dev.php와 PowerShell 진입점 scripts/seed-dev.ps1에서 수행한다. 이미 가입한 소유자·멤버 사용자명을 지정하며 새 사용자나 비밀번호를 생성하지 않는다. development·test 환경의 CLI에서만 실행하고 기존 대화·채널·사용자와 일반 멤버의 관리 역할을 보존한다. 같은 소유자의 개발 공간 준비는 재실행할 수 있다. 단순 회원가입 직후에는 소속 서버가 없으므로 C의 가입 기능 또는 명시적인 개발 멤버십 준비가 있어야 메시지를 전송할 수 있다.
+
+테스트는 임의 DB에 두 사용자·두 서버·서로 다른 멤버십을 준비하여 정상 접근과 타인 서버 접근을 함께 검사한다. 개발 데이터 준비 스크립트도 별도 테스트 DB에서 검증하며 운영 데이터를 초기화하지 않는다.
 
 ---
 ## 7. 구현 완료 판정
@@ -187,7 +189,7 @@ schema.sql의 생성 순서는 users → servers → server_members → channels
 - 두 연결에서 같은 채널에 동시 전송하여 ID 커서 누락 방지 확인.
 - 새 세션·동시 로그인 요청에서도 이메일·IP 제한 유지 확인.
 
-테이블·고유 키·외래 키·삭제 정책·본문 길이·조회 쿼리·재적용 거절은 실제 MySQL에서 검증했다. 스키마 결과는 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), PHP 공통 계층은 [PHASE-2-VERIFICATION.md](PHASE-2-VERIFICATION.md), 회원 인증·세션·로그인 횟수 제한과 웹 연동은 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록한다. 두 연결의 메시지 동시 전송은 후속 메시지 API 단계에서 검증한다. 운영 배포 환경은 아직 확정하지 않았다.
+테이블·고유 키·외래 키·삭제 정책·본문 길이·조회 쿼리·재적용 거절은 실제 MySQL에서 검증했다. 스키마 결과는 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 공통 계층은 [PHASE-2-VERIFICATION.md](PHASE-2-VERIFICATION.md), 인증은 [PHASE-3-VERIFICATION.md](PHASE-3-VERIFICATION.md)에 기록했다. 실제 메시지 저장·동시 전송의 ID 발급/커밋 순서·멤버십 탈퇴 대기·시간 초과 재시도·개발 데이터 보존은 [PHASE-4-VERIFICATION.md](PHASE-4-VERIFICATION.md)에 기록했다. 운영 배포 환경은 아직 확정하지 않았다.
 
 ---
 ## 검색 참고

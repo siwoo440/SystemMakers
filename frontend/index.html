@@ -17,16 +17,16 @@
             <span class="rail-caption" aria-hidden="true">TEAM<br>SPACE</span> <!-- 공간 장식 문구 -->
             <span class="rail-bottom" aria-hidden="true">S.</span> <!-- 하단 브랜드 장식 -->
         </aside> <!-- 서버 영역 끝 -->
-        <aside class="channel-sidebar" id="channel-sidebar" aria-label="채널 목록"> <!-- 채널 선택 영역 -->
+        <aside class="channel-sidebar" id="channel-sidebar" aria-label="채널 목록" tabindex="-1"> <!-- 채널 선택 영역 -->
             <header class="workspace-heading"> <!-- 작업 공간 제목 -->
                 <div class="eyebrow">YOUR WORKSPACE</div> <!-- 작업 공간 보조 제목 -->
                 <h1>SystemMakers<span class="workspace-dot" aria-hidden="true"></span></h1> <!-- 서비스 이름 -->
             </header> <!-- 작업 공간 제목 끝 -->
             <nav class="channel-navigation" aria-label="텍스트 채널"> <!-- 채널 탐색 -->
-                <p class="section-label">텍스트 채널 <span>03</span></p> <!-- 채널 목록 제목 -->
-                <button type="button" class="channel-button active" data-channel="general" aria-pressed="true"><span class="hash" aria-hidden="true">#</span>일반<span class="channel-selected-dot" aria-hidden="true"></span></button> <!-- 일반 채널 선택 -->
-                <button type="button" class="channel-button" data-channel="dev" aria-pressed="false"><span class="hash" aria-hidden="true">#</span>개발</button> <!-- 개발 채널 선택 -->
-                <button type="button" class="channel-button" data-channel="notices" aria-pressed="false"><span class="hash" aria-hidden="true">#</span>공지</button> <!-- 공지 채널 선택 -->
+                <p class="section-label">텍스트 채널 <span id="channel-count">00</span></p> <!-- 실제 참여 채널 수 -->
+                <div id="channel-list"></div> <!-- 실제 소속 채널 버튼 목록 -->
+                <p class="channel-status" id="channel-status" role="status">로그인 후 참여 채널이 표시됩니다.</p> <!-- 빈 목록과 조회 상태 -->
+                <button type="button" class="channel-retry" id="retry-channels" hidden>채널 목록 다시 확인</button> <!-- 실패한 실제 조회 재시도 -->
             </nav> <!-- 채널 탐색 끝 -->
             <div class="connection-status" id="connection-status" role="status">연결 확인 중</div> <!-- 실제 연결 상태 -->
             <footer class="user-panel"> <!-- 사용자 영역 -->
@@ -39,23 +39,22 @@
             <header class="conversation-header"> <!-- 현재 채널 제목 -->
                 <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-controls="channel-sidebar" aria-expanded="false" aria-label="채널 목록 열기">☰</button> <!-- 모바일 채널 열기 -->
                 <span class="header-hash" aria-hidden="true">#</span> <!-- 채널 기호 -->
-                <div class="channel-heading"><h2 id="channel-title">일반</h2><p id="channel-description">팀의 소식을 나누는 공간</p></div> <!-- 채널 제목과 설명 -->
+                <div class="channel-heading"><h2 id="channel-title">채널 선택</h2><p id="channel-description">참여 중인 채널에서 대화를 시작하세요</p></div> <!-- 채널 제목과 설명 -->
                 <span class="header-tag">팀 프로젝트</span> <!-- 작업 공간 유형 -->
             </header> <!-- 현재 채널 제목 끝 -->
-            <div class="preview-banner"><span class="preview-icon" aria-hidden="true">◈</span><p>대화 미리보기 <span aria-hidden="true">·</span> 회원 기능은 실제 연결되며, 대화는 저장되지 않습니다</p><span class="preview-badge">PREVIEW</span></div> <!-- 실제 인증과 대화 미리보기 범위 -->
+            <div class="preview-banner"><span class="preview-icon" aria-hidden="true">◈</span><p>메시지 DB 저장 <span aria-hidden="true">·</span> 이전 대화 조회·자동 갱신은 다음 단계</p><span class="preview-badge">DB SAVE</span></div> <!-- 실제 메시지 저장과 후속 조회 범위 -->
             <section class="message-scroll" id="message-scroll" aria-label="대화 내역" tabindex="0"> <!-- 스크롤 가능한 대화 -->
-                <div class="channel-welcome"><div class="welcome-hash" aria-hidden="true">#</div><p class="eyebrow">A PLACE FOR YOUR TEAM</p><h3 id="welcome-title">모든 대화의 시작, # 일반</h3><p id="welcome-description">안부부터 새로운 아이디어까지, 편하게 나눠보세요.</p></div> <!-- 채널 시작 안내 -->
-                <div class="date-divider"><span>2026년 10월 21일</span></div> <!-- 예시 대화 날짜 구분 -->
+                <div class="channel-welcome"><div class="welcome-hash" aria-hidden="true">#</div><p class="eyebrow">A PLACE FOR YOUR TEAM</p><h3 id="welcome-title">로그인하고 대화를 시작하세요</h3><p id="welcome-description">계정으로 로그인하면 참여 중인 채널을 확인할 수 있습니다.</p></div> <!-- 채널 시작 안내 -->
                 <div class="messages" id="messages" aria-label="채널 메시지"></div> <!-- 안전한 메시지 출력 -->
             </section> <!-- 대화 스크롤 끝 -->
             <div class="composer-region"> <!-- 메시지 작성 영역 -->
                 <button type="button" class="new-messages" id="new-messages" hidden>새 메시지 보기 ↓</button> <!-- 읽는 위치 유지 안내 -->
-                <form class="composer" id="message-form"> <!-- 미리보기 전송 폼 -->
-                    <label class="visually-hidden" for="message-input" id="message-label">일반 채널 메시지</label> <!-- 메시지 필드 레이블 -->
-                    <textarea id="message-input" rows="2" placeholder="# 일반에 메시지 보내기" aria-describedby="composer-help message-count composer-feedback"></textarea> <!-- 여러 줄 메시지 입력 -->
+                <form class="composer" id="message-form"> <!-- 실제 메시지 저장 폼 -->
+                    <label class="visually-hidden" for="message-input" id="message-label">메시지 작성</label> <!-- 메시지 필드 레이블 -->
+                    <textarea id="message-input" rows="2" placeholder="로그인 후 메시지를 작성하세요" disabled aria-describedby="composer-help message-count composer-feedback"></textarea> <!-- 여러 줄 메시지 입력 -->
                     <div class="composer-footer"><span class="message-count" id="message-count">0 / 2,000</span><span class="composer-help" id="composer-help">Enter 전송 <span>·</span> Shift+Enter 줄바꿈</span><button type="submit" class="send-button" id="send-button" disabled>전송 <span aria-hidden="true">↗</span></button></div> <!-- 입력 수와 전송 버튼 -->
-                </form> <!-- 미리보기 전송 폼 끝 -->
-                <p class="composer-feedback" id="composer-feedback" role="status">작성한 메시지는 이 화면에서만 표시됩니다.</p> <!-- 미리보기 저장 범위 -->
+                </form> <!-- 실제 메시지 저장 폼 끝 -->
+                <p class="composer-feedback" id="composer-feedback" role="status">로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다.</p> <!-- 실제 전송 조건 안내 -->
             </div> <!-- 메시지 작성 영역 끝 -->
         </main> <!-- 대화 영역 끝 -->
     </div> <!-- 메신저 전체 배치 끝 -->
@@ -64,7 +63,7 @@
         <button type="button" class="dialog-close" id="close-auth" aria-label="인증 화면 닫기">×</button> <!-- 인증 화면 닫기 -->
         <div class="auth-brand"><span class="auth-mark">SM</span><strong>SystemMakers</strong></div> <!-- 인증 화면 브랜드 -->
         <div class="auth-heading"><p class="eyebrow">YOUR TEAM, CONNECTED</p><h2 id="auth-title">다시 만나 반가워요</h2><p id="auth-description">팀의 대화를 이어가세요.</p></div> <!-- 인증 화면 제목 -->
-        <p class="auth-note" id="auth-note"><strong>계정으로 함께 시작하세요</strong><span>회원가입 후 로그인하세요. 대화는 현재 화면의 미리보기입니다.</span></p> <!-- 계정과 대화 기능 범위 -->
+        <p class="auth-note" id="auth-note"><strong>계정으로 함께 시작하세요</strong><span>회원가입 후 로그인하세요. 참여 중인 채널에 메시지를 저장할 수 있습니다.</span></p> <!-- 계정과 대화 기능 범위 -->
         <form id="auth-form" method="post" novalidate> <!-- 주소에 비밀번호를 남기지 않는 실제 인증 요청 폼 -->
             <div class="auth-field" id="username-field" hidden><label for="auth-username">사용자명</label><input id="auth-username" name="username" autocomplete="username" placeholder="사용자명을 입력하세요." pattern="[A-Za-z0-9_]{3,32}" aria-describedby="username-help username-error"><small id="username-help">영문·숫자·밑줄 3~32자 · 소문자로 저장</small><small class="field-error" id="username-error"></small></div> <!-- 가입 사용자명과 오류 안내 -->
             <div class="auth-field"><label for="auth-email">이메일</label><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="이메일을 입력하세요." required aria-describedby="email-error"><small class="field-error" id="email-error"></small></div> <!-- 이메일과 오류 안내 -->

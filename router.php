@@ -12,6 +12,8 @@ $apiFiles = // 공개 API 허용 목록
     '/api/login.php' => 'login.php', // 로그인 API
     '/api/logout.php' => 'logout.php', // 로그아웃 API
     '/api/get_current_user.php' => 'get_current_user.php', // 로그인 상태 API
+    '/api/get_channels.php' => 'get_channels.php', // 소속 채널 목록 API
+    '/api/send_message.php' => 'send_message.php', // 채널 메시지 저장 API
     '/api/health.php' => 'health.php', // DB 연결 확인 API
 ]; // API 목록 종료
 if (isset($apiFiles[$path])) // 허용한 API 여부
