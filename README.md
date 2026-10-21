@@ -40,4 +40,4 @@ PHP에는 pdo_mysql·mbstring이 필요하다. MySQL 8.4 DB에 초기 스키마�
 
 1단계 DB 구조와 2단계 PHP 공통 처리를 완료했다. 실제 GET API는 csrf.php·get_current_user.php·health.php다. 인증 폼은 입력 형식만 확인하며 비밀번호를 전송·저장하지 않고, 미리보기 메시지는 새로고침하면 초기화된다. 다음 단계는 3단계 회원가입·로그인·로그아웃 처리와 화면 연동이다.
 
-작업 저장소는 [siwoo440/SystemMakers](https://github.com/siwoo440/SystemMakers), 팀원 B의 작업 브랜치는 codex/backend-auth-messages다. 공통 필드·응답 형식·삭제 정책을 바꾸면 API.md와 DATABASE.md를 같은 변경에서 갱신한다.
+작업 저장소는 [siwoo440/SystemMakers](https://github.com/siwoo440/SystemMakers)다. 사용자 지시에 따라 기존 개발 커밋 전체를 main에 통합했으며 이후 작업·커밋·푸시도 main에서 진행한다. 공통 필드·응답 형식·삭제 정책을 바꾸면 API.md와 DATABASE.md를 같은 변경에서 갱신한다.

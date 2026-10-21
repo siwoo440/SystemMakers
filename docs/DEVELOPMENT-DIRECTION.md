@@ -113,7 +113,7 @@ HTTP 상태 코드 기준은 생성 201, 정상 조회·로그인·로그아웃 
 - 팀원 A는 메시지 본문을 textContent 등 일반 텍스트로 표시.
 - 팀원 C는 공통 인증·멤버십 검사 함수를 재사용.
 - PHP 코드에는 Allman 스타일과 줄마다 짧은 한글 명사형 주석 적용.
-- 작업 브랜치는 codex/backend-auth-messages. 사용자가 지정한 SystemMakers 저장소에 문서 변경을 커밋·푸시하고 이후 같은 저장소에서 작업.
+- 사용자 지시에 따라 기존 codex/backend-auth-messages의 개발 커밋 전체를 main에 통합. 이후 SystemMakers의 main에서 작업·커밋·푸시 진행.
 
 ---
 ## 6. 구현 순서와 완료 기준
