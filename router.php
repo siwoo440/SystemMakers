@@ -8,6 +8,9 @@ $path = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_
 $apiFiles = // 공개 API 허용 목록
 [ // API 경로 목록 시작
     '/api/csrf.php' => 'csrf.php', // CSRF 발급 API
+    '/api/register.php' => 'register.php', // 회원가입 API
+    '/api/login.php' => 'login.php', // 로그인 API
+    '/api/logout.php' => 'logout.php', // 로그아웃 API
     '/api/get_current_user.php' => 'get_current_user.php', // 로그인 상태 API
     '/api/health.php' => 'health.php', // DB 연결 확인 API
 ]; // API 목록 종료

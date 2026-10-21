@@ -10,7 +10,7 @@ const messageInput = byId("message-input"); // 메시지 작성 필드
 const messageScroll = byId("message-scroll"); // 대화 스크롤 영역
 const messages = byId("messages"); // 메시지 목록
 const authDialog = byId("auth-dialog"); // 인증 대화상자
-const authForm = byId("auth-form"); // 인증 미리보기 폼
+const authForm = byId("auth-form"); // 실제 인증 요청 폼
 const passwordInput = byId("auth-password"); // 비밀번호 입력 필드
 const mobileQuery = window.matchMedia("(max-width: 760px)"); // 모바일 화면 판별
 let activeChannel = "general"; // 선택한 채널
@@ -19,6 +19,11 @@ let currentUser = null; // 실제 확인된 사용자
 let csrfToken = null; // 메모리에만 유지하는 보호 토큰
 let sidebarOpen = false; // 모바일 목록 열림 상태
 let lastAuthTrigger = null; // 인증 화면 이전 포커스
+let authBusy = false; // 인증 요청 진행 상태
+let authInitializing = true; // 최초 세션 확인 진행 상태
+let authGeneration = 0; // 이전 세션 응답 구분 번호
+let sessionNotice = "세션 확인 중"; // 사용자 영역 상태 안내
+let databaseReady = false; // 실제 데이터베이스 연결 확인 결과
 function nearBottom() // 대화 하단 여부 확인
 {
     return messageScroll.scrollHeight - messageScroll.clientHeight - messageScroll.scrollTop < 45; // 하단 근처 거리 판별
@@ -163,34 +168,44 @@ function setSidebar(open) // 모바일 목록 표시 설정
 }
 function switchAuth(mode) // 인증 화면 유형 전환
 {
+    if (authBusy) // 진행 중인 요청 보호
+    {
+        return; // 요청 중 화면 전환 중단
+    }
     authMode = mode; // 현재 인증 유형 변경
     const register = mode === "register"; // 가입 화면 여부
     authForm.reset(); // 이전 입력과 비밀번호 초기화
-    passwordInput.setCustomValidity(""); // 이전 입력 오류 제거
+    clearAuthErrors(); // 이전 입력 오류 제거
     byId("username-field").hidden = !register; // 가입 사용자명 필드 표시
     byId("auth-username").required = register; // 가입 시 사용자명 필수
     byId("auth-username").disabled = !register; // 로그인에서 사용자명 검사 제외
-    byId("password-help").hidden = false; // 공통 비밀번호 규칙 표시
     passwordInput.autocomplete = register ? "new-password" : "current-password"; // 화면별 비밀번호 입력 안내
     byId("auth-title").textContent = register ? "함께 시작해요" : "다시 만나 반가워요"; // 인증 제목 전환
-    byId("auth-description").textContent = register ? "새 계정을 위한 화면을 미리 살펴보세요." : "팀의 대화를 이어가세요."; // 인증 설명 전환
+    byId("auth-description").textContent = register ? "새 계정을 만들고 로그인하세요." : "등록한 계정으로 로그인하세요."; // 실제 인증 설명
     byId("auth-switch-prompt").textContent = register ? "이미 계정이 있으신가요?" : "계정이 없으신가요?"; // 전환 안내 문구
     byId("switch-auth").textContent = register ? "로그인" : "회원가입"; // 전환 버튼 문구
-    byId("auth-feedback").textContent = ""; // 이전 입력 확인 안내 제거
+    byId("auth-submit").textContent = register ? "회원가입" : "로그인"; // 실제 요청 버튼 문구
     if (authDialog.open) // 열린 대화상자 여부
     {
         byId(register ? "auth-username" : "auth-email").focus(); // 새 화면 첫 필드 포커스
     }
 }
-function openAuth() // 인증 미리보기 열기
+function openAuth() // 실제 로그인 화면 열기
 {
+    if (authBusy || authInitializing) // 중복 처리 또는 초기 확인 여부
+    {
+        return; // 요청 상태 확정 전 열기 중단
+    }
     lastAuthTrigger = byId("open-auth"); // 닫은 뒤 복원할 버튼
     if (sidebarOpen) // 모바일 목록 열림 여부
     {
         setSidebar(false); // 인증 화면 전에 목록 접기
     }
     switchAuth("login"); // 로그인 화면으로 시작
-    authDialog.showModal(); // 기본 포커스 제한 대화상자 열기
+    if (!authDialog.open) // 중복 대화상자 열기 방지
+    {
+        authDialog.showModal(); // 기본 포커스 제한 대화상자 열기
+    }
     byId("auth-email").focus(); // 이메일 필드 포커스
 }
 function validatePassword() // 공통 비밀번호 규칙 검사
@@ -206,52 +221,370 @@ function validatePassword() // 공통 비밀번호 규칙 검사
         }
     }
 }
-async function readEndpoint(path) // 공통 읽기 전용 요청
+function clearAuthErrors() // 인증 입력 오류와 안내 초기화
 {
-    const response = await fetch(path, { method: "GET", credentials: "same-origin", headers: { Accept: "application/json" }, cache: "no-store" }); // 같은 출처 세션으로 실제 상태 확인
-    if (response.status === 401) // 정상 비로그인 응답 여부
+    ["username", "email", "password"].forEach((field) => // 인증 입력 필드 순회
     {
-        return { guest: true }; // 비로그인 상태 반환
-    }
-    if (!response.ok) // 실패 응답 여부
-    {
-        throw new Error("연결 확인 실패"); // 내부 정보 없는 요청 실패
-    }
-    const payload = await response.json(); // 서버 JSON 응답 읽기
-    if (payload.success !== true || !payload.data) // 합의된 응답 구조 확인
-    {
-        throw new Error("응답 확인 필요"); // 예상 밖 응답 처리
-    }
-    return payload.data; // 실제 확인된 자료 반환
+        byId(`auth-${field}`).setCustomValidity(""); // 브라우저 입력 오류 초기화
+        byId(`auth-${field}`).removeAttribute("aria-invalid"); // 이전 오류 접근성 상태 제거
+        byId(`${field}-error`).textContent = ""; // 필드 오류 안전한 초기화
+    }); // 인증 입력 필드 순회 끝
+    byId("auth-feedback").textContent = ""; // 이전 처리 결과 초기화
+    byId("auth-feedback").classList.remove("success"); // 성공 안내 색상 초기화
 }
-async function checkConnections() // 실제 공통 연결 상태 확인
+function showAuthError(message, fields = {}) // 실제 실패와 필드 오류 표시
 {
-    const [csrf] = await Promise.allSettled([readEndpoint("/api/csrf.php")]); // 첫 세션 쿠키와 보호 토큰 발급
-    if (csrf.status === "fulfilled" && typeof csrf.value.csrf_token === "string") // 실제 보호 토큰 응답 여부
+    let firstInvalid = null; // 첫 오류 필드 보관
+    ["username", "email", "password"].forEach((field) => // 허용된 필드만 검사
     {
-        csrfToken = csrf.value.csrf_token; // 브라우저 메모리에만 토큰 보관
-    }
-    const [session, health] = await Promise.allSettled([readEndpoint("/api/get_current_user.php"), readEndpoint("/api/health.php")]); // 세션 쿠키 설정 이후 상태 확인
-    if (session.status === "fulfilled" && session.value.guest) // 실제 비로그인 응답 확인
+        if (typeof fields[field] === "string" && !byId(`auth-${field}`).disabled) // 현재 화면의 실제 오류 여부
+        {
+            byId(`${field}-error`).textContent = fields[field]; // HTML 실행 없는 오류 출력
+            byId(`auth-${field}`).setAttribute("aria-invalid", "true"); // 오류 접근성 상태 표시
+            firstInvalid = firstInvalid || byId(`auth-${field}`); // 첫 오류 필드 선택
+        }
+    }); // 오류 필드 처리 끝
+    byId("auth-feedback").textContent = message; // 실제 실패 안내 안전한 출력
+    byId("auth-feedback").classList.remove("success"); // 오류 안내 색상 복원
+    if (authDialog.open) // 인증 대화상자 표시 여부
     {
-        byId("current-user").textContent = "게스트"; // 비로그인 사용자 표시
-        byId("session-state").textContent = "로그인 전 · 미리보기"; // 정상 게스트 상태 안내
+        (firstInvalid || byId("auth-feedback")).focus(); // 오류 필드 또는 안내로 이동
     }
-    else if (session.status === "fulfilled" && session.value.user && typeof session.value.user.username === "string" && session.value.user.username.length > 0) // 실제 세션 사용자 자료 여부
+}
+function validateAuthForm() // 실제 API 계약에 맞는 입력 검사
+{
+    clearAuthErrors(); // 이전 오류 상태 초기화
+    const username = byId("auth-username"); // 가입 사용자명 입력
+    const email = byId("auth-email"); // 공통 이메일 입력
+    username.value = username.value.trim().toLowerCase(); // 사용자명 공백 제거와 소문자 정규화
+    email.value = email.value.trim().toLowerCase(); // 이메일 공백 제거와 소문자 정규화
+    if (authMode === "register" && !/^[a-z0-9_]{3,32}$/.test(username.value)) // 사용자명 허용 범위 확인
     {
-        currentUser = session.value.user; // 실제 사용자 자료 보관
-        byId("current-user").textContent = currentUser.username; // 실제 사용자명 안전한 출력
-        byId("user-avatar").textContent = Array.from(currentUser.username)[0].toUpperCase(); // 실제 사용자 이니셜 출력
-        byId("session-state").textContent = "세션 확인됨 · 미리보기"; // 확인한 세션 범위 안내
-        byId("open-auth").hidden = true; // 확인한 세션의 로그인 버튼 숨김
+        username.setCustomValidity("사용자명은 영문·숫자·밑줄 3~32자로 입력하세요."); // 사용자명 입력 규칙 안내
     }
-    else // 세션 상태 확인 실패
+    if (email.value.length > 254 || /[^\x00-\x7F]/.test(email.value)) // 이메일 ASCII와 길이 확인
     {
-        byId("session-state").textContent = "세션 확인 필요"; // 인증 성공 추정 없는 안내
+        email.setCustomValidity("이메일은 영문 주소 기준 최대 254자로 입력하세요."); // 계약에 맞는 이메일 제한 안내
     }
-    const databaseReady = health.status === "fulfilled" && health.value.status === "ok"; // 실제 DB 연결 확인 결과
-    const protectionReady = csrfToken !== null; // 보호 토큰 발급 확인 결과
-    byId("connection-status").textContent = `${databaseReady ? "DB 연결 확인됨" : "DB 연결 확인 필요"} · ${protectionReady ? "화면 보호 준비됨" : "화면 보호 확인 필요"}`; // 제한된 실제 연결 범위 안내
+    validatePassword(); // 원문 비밀번호 글자 수와 바이트 검사
+    return authForm.reportValidity(); // 첫 오류 안내와 최종 입력 확인
+}
+function renderAuthState() // 실제 사용자 상태 표시
+{
+    byId("current-user").textContent = currentUser ? currentUser.username : "게스트"; // 본인 사용자명 안전한 출력
+    byId("user-avatar").textContent = currentUser ? Array.from(currentUser.username)[0].toUpperCase() : "G"; // 현재 사용자 이니셜
+    byId("session-state").textContent = sessionNotice; // 실제 인증 확인 범위 안내
+    byId("open-auth").textContent = authBusy ? "처리 중…" : currentUser ? "로그아웃" : "로그인"; // 인증 상태별 버튼 문구
+    byId("open-auth").disabled = authBusy || authInitializing; // 중복 요청과 초기 확인 중 클릭 차단
+    byId("connection-status").textContent = `${databaseReady ? "DB 연결 확인됨" : "DB 연결 확인 필요"} · ${csrfToken ? "화면 보호 준비됨" : "화면 보호 확인 필요"}`; // 실제 확인한 공통 연결 범위
+}
+function setAuthBusy(busy) // 인증 요청 중 화면 보호
+{
+    authBusy = busy; // 현재 요청 진행 상태 보관
+    authForm.setAttribute("aria-busy", String(busy)); // 보조 기기 처리 상태 안내
+    byId("auth-username").disabled = busy || authMode !== "register"; // 사용자명 변경과 숨긴 입력 차단
+    byId("auth-email").disabled = busy; // 요청 중 이메일 변경 차단
+    passwordInput.disabled = busy; // 요청 중 비밀번호 변경 차단
+    byId("auth-submit").disabled = busy; // 중복 제출 차단
+    byId("auth-submit").textContent = busy ? "처리 중…" : authMode === "register" ? "회원가입" : "로그인"; // 처리 상태 버튼 안내
+    byId("switch-auth").disabled = busy; // 요청 중 인증 화면 전환 차단
+    byId("close-auth").disabled = busy; // 요청 중 모달 닫기 차단
+    renderAuthState(); // 사용자 버튼 상태 갱신
+}
+function validUser(user) // 실제 사용자 응답 기본 검사
+{
+    return user && typeof user.id === "string" && typeof user.username === "string" && user.username.length > 0; // 렌더링에 필요한 사용자 자료 검사
+}
+function requestError(message, status = 0, code = "", fields = {}, retryAfter = null) // 안전한 요청 오류 생성
+{
+    const error = new Error(message); // 사용자 안내 오류 객체
+    Object.assign(error, { status, code, fields, retryAfter }); // HTTP 상태와 계약 오류 정보 보관
+    return error; // 화면 처리용 오류 반환
+}
+function ignoreConnectionFailure() // 선택적 연결 확인 실패 처리
+{
+    return undefined; // 확인하지 못한 상태 유지
+}
+async function requestEndpoint(path, body = null) // 동일 출처 JSON API 요청
+{
+    const controller = new AbortController(); // 오래 걸리는 요청 취소 도구
+    const timeout = window.setTimeout(() => controller.abort(), 15000); // 연결 확인 대기 시간 제한
+    const headers = { Accept: "application/json" }; // JSON 응답 요청
+    if (body !== null) // 실제 상태 변경 요청 여부
+    {
+        headers["Content-Type"] = "application/json"; // 표준 JSON 요청 형식
+        headers["X-CSRF-Token"] = csrfToken; // 메모리의 최신 보호 토큰
+    }
+    try // 응답과 실패 정보 확인
+    {
+        const response = await fetch(path, { method: body === null ? "GET" : "POST", credentials: "same-origin", headers, body: body === null ? undefined : JSON.stringify(body), cache: "no-store", signal: controller.signal }); // 세션 쿠키를 사용한 실제 API 호출
+        const payload = await response.json(); // 표준 JSON 응답 읽기
+        if (!response.ok || payload.success !== true) // 서버 실패 응답 여부
+        {
+            const failure = payload.error || {}; // 합의된 오류 정보
+            throw requestError(typeof failure.message === "string" ? failure.message : "요청을 처리하지 못했습니다.", response.status, failure.code, failure.fields, response.headers.get("Retry-After")); // 안전한 계약 오류 전달
+        }
+        if (!payload.data || typeof payload.data !== "object") // 성공 응답 자료 확인
+        {
+            throw requestError("서버 응답을 확인하지 못했습니다. 처리 여부를 확인한 뒤 다시 시도하세요."); // 불확실한 처리 결과 안내
+        }
+        return payload.data; // 실제 응답 자료 반환
+    }
+    catch (error) // 통신 또는 계약 오류 처리
+    {
+        if (typeof error.status === "number") // 이미 확인한 API 오류 여부
+        {
+            throw error; // 서버 오류 정보 유지
+        }
+        throw requestError(body === null ? "연결 상태를 확인하지 못했습니다. 잠시 후 다시 시도하세요." : "응답을 확인하지 못했습니다. 처리되었을 수 있으니 계정 상태를 확인한 뒤 다시 시도하세요."); // 통신 실패의 불확실성 안내
+    }
+    finally // 요청 자원 정리
+    {
+        window.clearTimeout(timeout); // 완료한 요청의 대기 제한 제거
+    }
+}
+async function refreshCsrf() // 실제 세션 보호 토큰 재조회
+{
+    csrfToken = null; // 이전 토큰 사용 중단
+    const data = await requestEndpoint("/api/csrf.php"); // 현재 세션의 보호 토큰 조회
+    if (typeof data.csrf_token !== "string" || !/^[a-f0-9]{64}$/.test(data.csrf_token)) // 보호 토큰 계약 확인
+    {
+        throw requestError("화면 보호 정보를 확인하지 못했습니다. 다시 시도하세요."); // 유효하지 않은 토큰 거절
+    }
+    csrfToken = data.csrf_token; // 브라우저 메모리에만 새 토큰 보관
+    renderAuthState(); // 보호 준비 상태 갱신
+}
+function clearSessionView() // 종료된 계정의 화면 자료 정리
+{
+    currentUser = null; // 사용자 정보 제거
+    csrfToken = null; // 이전 세션 보호 토큰 제거
+    Object.values(channels).forEach((channel) => // 채널별 미리보기 자료 순회
+    {
+        channel.messages = []; // 이전 계정의 화면 대화 제거
+        channel.draft = ""; // 이전 계정의 초안 제거
+        channel.scroll = null; // 이전 읽는 위치 제거
+        channel.unread = 0; // 새 메시지 안내 초기화
+    }); // 채널 자료 정리 끝
+    authForm.reset(); // 남은 인증 입력 제거
+    clearAuthErrors(); // 이전 인증 오류 제거
+    selectChannel(activeChannel); // 비운 대화와 초안 표시
+    renderAuthState(); // 게스트 사용자 상태 표시
+}
+async function restoreCurrentUser(generation) // 실제 로그인 세션 복원
+{
+    try // 현재 사용자 응답 확인
+    {
+        const data = await requestEndpoint("/api/get_current_user.php"); // 실제 로그인 세션 조회
+        if (generation !== authGeneration) // 최신 인증 상태와 조회 순서 비교
+        {
+            return; // 이전 상태의 늦은 응답 무시
+        }
+        if (!validUser(data.user)) // 사용자 응답 자료 확인
+        {
+            throw requestError("사용자 정보를 확인하지 못했습니다."); // 잘못된 인증 자료 거절
+        }
+        currentUser = data.user; // 실제 사용자 자료 보관
+        sessionNotice = "로그인됨 · 대화 미리보기"; // 확인된 로그인 안내
+    }
+    catch (error) // 비로그인과 연결 실패 구분
+    {
+        if (generation !== authGeneration) // 최신 인증 상태와 조회 순서 비교
+        {
+            return; // 이전 상태의 늦은 실패 무시
+        }
+        if (error.status === 401) // 실제 비로그인 확인
+        {
+            currentUser = null; // 미확인 사용자 정보 제거
+            sessionNotice = "로그인 전 · 대화 미리보기"; // 확인된 게스트 상태
+            await refreshCsrf(); // 만료로 교체된 세션의 토큰 갱신
+        }
+        else // 통신 또는 응답 실패
+        {
+            sessionNotice = "세션 확인 필요"; // 인증 성공 추정 없는 상태
+            throw error; // 호출 화면에 실패 전달
+        }
+    }
+    renderAuthState(); // 확인된 세션 상태 출력
+}
+async function handleAuthFailure(error) // 실제 인증 실패 안내 구성
+{
+    if (error.code === "CSRF_INVALID") // 세션 보호 토큰 만료 또는 불일치
+    {
+        try // 새 보호 토큰 확인
+        {
+            await refreshCsrf(); // 사용자의 다음 요청을 위한 재발급
+            return "화면 보호 정보를 갱신했습니다. 입력을 확인하고 다시 제출하세요."; // 자동 재전송 없는 명시적 안내
+        }
+        catch // 보호 토큰 재발급 실패
+        {
+            return "화면 보호 정보를 갱신하지 못했습니다. 연결을 확인하고 다시 시도하세요."; // 복구 실패 안내
+        }
+    }
+    if (error.status === 429) // 실제 로그인 시도 제한
+    {
+        const seconds = /^\d+$/.test(error.retryAfter || "") ? Number(error.retryAfter) : null; // 유효한 재시도 대기 시간
+        return seconds === null ? "로그인 시도가 많습니다. 잠시 후 다시 시도하세요." : `로그인 시도가 많습니다. ${seconds.toLocaleString("ko-KR")}초 후 다시 시도하세요.`; // 접근 가능한 제한 안내
+    }
+    return error.message; // 서버에서 확인한 일반 오류
+}
+async function submitAuth(event) // 실제 가입 또는 로그인 처리
+{
+    event.preventDefault(); // 기본 폼 이동 차단
+    if (authBusy || authInitializing || !validateAuthForm()) // 중복 요청과 입력 오류 확인
+    {
+        return; // 처리할 수 없는 제출 중단
+    }
+    const mode = authMode; // 요청 시작 시 인증 유형 보관
+    const body = { email: byId("auth-email").value, password: passwordInput.value }; // 실제 인증 입력 자료
+    if (mode === "register") // 가입 요청 여부
+    {
+        body.username = byId("auth-username").value; // 가입용 정규화 사용자명 추가
+    }
+    authGeneration += 1; // 이전 세션 확인 응답 무효화
+    setAuthBusy(true); // 요청 중 중복 입력과 화면 전환 차단
+    byId("auth-feedback").textContent = mode === "register" ? "계정을 만드는 중입니다." : "로그인 정보를 확인하는 중입니다."; // 실제 진행 상태 안내
+    let registrationEmail = null; // 성공 후 로그인 이메일 보관
+    let loginSucceeded = false; // 실제 로그인 성공 여부
+    let failure = null; // 잠금 해제 후 표시할 오류
+    try // 보호 토큰과 실제 인증 응답 확인
+    {
+        if (!csrfToken) // 사용할 보호 토큰 존재 여부
+        {
+            await refreshCsrf(); // 다음 요청의 실제 보호 토큰 발급
+        }
+        const data = await requestEndpoint(`/api/${mode}.php`, body); // 실제 가입 또는 로그인 POST
+        if (!validUser(data.user) || (mode === "login" && !/^[a-f0-9]{64}$/.test(data.csrf_token || ""))) // 성공 응답의 사용자와 새 토큰 확인
+        {
+            throw requestError("서버 응답을 확인하지 못했습니다. 계정 상태를 확인한 뒤 다시 시도하세요."); // 불완전한 응답의 성공 추정 방지
+        }
+        if (mode === "register") // 실제 가입 성공 여부
+        {
+            registrationEmail = body.email; // 별도 로그인을 위한 이메일 보관
+        }
+        else // 실제 로그인 성공
+        {
+            currentUser = data.user; // 실제 로그인한 사용자 보관
+            csrfToken = data.csrf_token; // 로그인 후 교체된 보호 토큰 보관
+            sessionNotice = "로그인됨 · 대화 미리보기"; // 실제 로그인 결과 안내
+            loginSucceeded = true; // 성공 응답 확인 표시
+        }
+    }
+    catch (error) // 실제 인증 실패 또는 불확실한 응답
+    {
+        const message = await handleAuthFailure(error); // 토큰 복구 또는 시도 제한 안내
+        failure = { message, fields: error.fields || {} }; // 잠금 해제 후 안전한 실패 표시 자료
+        if (error.code === "ALREADY_AUTHENTICATED") // 다른 화면에서 이미 로그인한 세션
+        {
+            csrfToken = null; // 다른 화면에서 교체되었을 이전 토큰 제거
+            try // 현재 사용자와 보호 토큰의 실제 복구 확인
+            {
+                await restoreCurrentUser(authGeneration); // 현재 실제 세션 사용자 재확인
+                if (!validUser(currentUser)) // 확인된 로그인 사용자 존재 여부
+                {
+                    throw requestError("현재 로그인 정보를 확인하지 못했습니다. 다시 로그인하세요."); // 게스트 또는 확인 실패의 성공 추정 방지
+                }
+                await refreshCsrf(); // 복원한 사용자 세션의 최신 보호 토큰 조회
+                loginSucceeded = true; // 사용자와 보호 토큰이 모두 확인된 복구
+                failure = null; // 실제 복구된 인증 충돌 안내 제거
+            }
+            catch (recoveryError) // 사용자 또는 보호 정보 복구 실패
+            {
+                failure = { message: recoveryError.message, fields: {} }; // 실제 확인 실패의 안전한 안내
+            }
+        }
+    }
+    finally // 요청 종료 후 자격 증명과 입력 잠금 정리
+    {
+        body.password = ""; // 요청 자료의 비밀번호 참조 정리
+        passwordInput.value = ""; // 화면에 남은 비밀번호 제거
+        setAuthBusy(false); // 입력과 화면 전환 복구
+    }
+    if (registrationEmail !== null) // 실제 가입 완료 확인
+    {
+        switchAuth("login"); // 자동 로그인 없이 로그인 화면 전환
+        byId("auth-email").value = registrationEmail; // 가입한 이메일만 미리 입력
+        byId("auth-feedback").textContent = "회원가입이 완료되었습니다. 비밀번호를 입력하고 로그인하세요."; // 실제 가입 성공 안내
+        byId("auth-feedback").classList.add("success"); // 성공 안내 색상 적용
+        passwordInput.focus(); // 별도 로그인 비밀번호로 이동
+    }
+    else if (loginSucceeded) // 실제 로그인 성공 확인
+    {
+        authDialog.close(); // 로그인 완료 후 인증 화면 닫기
+    }
+    else if (failure) // 실제 실패 안내 존재 여부
+    {
+        showAuthError(failure.message, failure.fields); // 안전한 오류 출력과 포커스 이동
+    }
+}
+async function logout() // 실제 로그인 세션 종료
+{
+    if (authBusy || authInitializing || !currentUser) // 중복 요청과 인증 상태 확인
+    {
+        return; // 처리할 수 없는 로그아웃 중단
+    }
+    authGeneration += 1; // 이전 사용자 조회 응답 무효화
+    setAuthBusy(true); // 중복 로그아웃 요청 차단
+    sessionNotice = "로그아웃 중…"; // 실제 요청 진행 안내
+    renderAuthState(); // 사용자 영역 상태 갱신
+    let expired = false; // 서버에서 확인한 세션 만료 여부
+    try // 서버 로그아웃 응답 확인
+    {
+        if (!csrfToken) // 보호 토큰 존재 여부
+        {
+            await refreshCsrf(); // 누락된 토큰 재발급
+        }
+        await requestEndpoint("/api/logout.php", {}); // 빈 JSON 객체로 실제 로그아웃
+        sessionNotice = "로그아웃됨 · 대화 미리보기"; // 실제 세션 종료 안내
+        clearSessionView(); // 이전 사용자와 대화 및 초안 제거
+        await refreshCsrf().catch(ignoreConnectionFailure); // 새 게스트 세션 보호 토큰 발급 시도
+    }
+    catch (error) // 로그아웃 실패 또는 세션 만료
+    {
+        if (error.status === 401) // 서버에서 실제 세션 만료 확인
+        {
+            sessionNotice = "세션 만료 · 다시 로그인하세요"; // 다시 로그인할 상태 안내
+            clearSessionView(); // 만료된 사용자 화면 자료 제거
+            await refreshCsrf().catch(ignoreConnectionFailure); // 로그인 전 새 보호 토큰 발급 시도
+            expired = true; // 로그인 화면 재표시 준비
+        }
+        else // 실제 종료를 확인하지 못한 경우
+        {
+            sessionNotice = await handleAuthFailure(error); // 사용자 상태 유지와 실제 실패 안내
+        }
+    }
+    finally // 로그아웃 요청 잠금 해제
+    {
+        setAuthBusy(false); // 실제 상태에 맞는 버튼 복구
+    }
+    if (expired) // 서버에서 세션 만료가 확인된 경우
+    {
+        openAuth(); // 다시 로그인할 화면 표시
+        showAuthError("세션이 만료되었습니다. 다시 로그인하세요."); // 만료 이유 접근성 안내
+    }
+}
+async function checkConnections() // 최초 세션과 실제 연결 확인
+{
+    const generation = authGeneration; // 최초 확인 요청의 상태 번호
+    await refreshCsrf().catch(ignoreConnectionFailure); // 병렬 조회 전 최초 세션 쿠키 발급 시도
+    const health = requestEndpoint("/api/health.php").then((data) => // 독립적인 데이터베이스 상태 확인
+    {
+        databaseReady = data.status === "ok"; // 실제 연결 성공 여부 보관
+        renderAuthState(); // 확인한 연결 상태 표시
+    }).catch(ignoreConnectionFailure); // 연결 실패의 준비 완료 추정 방지
+    try // 세션 쿠키 발급 후 인증 상태 확인
+    {
+        await restoreCurrentUser(generation); // 실제 현재 사용자 확인
+    }
+    catch // 초기 세션 조회 또는 보호 정보 확인 실패
+    {
+        sessionNotice = "세션 확인 필요 · 로그인으로 다시 확인"; // 연결 실패를 인증 성공으로 표시하지 않는 안내
+    }
+    finally // 첫 세션 확인 종료
+    {
+        authInitializing = false; // 사용자의 실제 인증 요청 허용
+        renderAuthState(); // 확인한 사용자와 로그인 버튼 표시
+    }
+    await health; // 실제 데이터베이스 확인 종료 대기
 }
 document.querySelectorAll("[data-channel]").forEach((button) => button.addEventListener("click", () => selectChannel(button.dataset.channel))); // 채널 선택 연결
 messageInput.addEventListener("input", updateComposer); // 입력 수 실시간 갱신
@@ -299,24 +632,31 @@ document.addEventListener("keydown", (event) => // 모바일 목록 키보드 �
         }
     }
 }); // 모바일 목록 키보드 제어 끝
-byId("open-auth").addEventListener("click", openAuth); // 인증 화면 열기 연결
-byId("close-auth").addEventListener("click", () => authDialog.close()); // 인증 화면 닫기 연결
+byId("open-auth").addEventListener("click", () => currentUser ? logout() : openAuth()); // 현재 인증 상태별 로그인과 로그아웃 연결
+byId("close-auth").addEventListener("click", () => authDialog.close()); // 요청 대기 중 비활성화된 닫기 버튼 연결
 byId("switch-auth").addEventListener("click", () => switchAuth(authMode === "login" ? "register" : "login")); // 인증 화면 전환 연결
-passwordInput.addEventListener("input", validatePassword); // 가입 비밀번호 규칙 갱신
-authForm.addEventListener("submit", (event) => // 전송 없는 인증 입력 확인
+authForm.addEventListener("input", (event) => // 수정한 필드의 이전 오류 정리
 {
-    event.preventDefault(); // 자격 증명 네트워크 전송 차단
-    validatePassword(); // 현재 비밀번호 규칙 확인
-    if (authForm.reportValidity()) // 실제 필드 유효성 확인
+    const field = event.target.name; // 수정한 인증 입력 이름
+    if (["username", "email", "password"].includes(field)) // 허용된 인증 필드 여부
     {
-        byId("auth-feedback").textContent = "입력 형식을 확인했습니다. 회원 기능 준비 중으로 로그인·가입은 진행되지 않습니다."; // 가짜 인증 성공 없는 결과 안내
-        passwordInput.value = ""; // 확인한 비밀번호 즉시 제거
+        event.target.setCustomValidity(""); // 수정 전 입력 오류 제거
+        event.target.removeAttribute("aria-invalid"); // 수정 전 접근성 오류 상태 제거
+        byId(`${field}-error`).textContent = ""; // 수정한 필드의 오류 문구 제거
     }
-}); // 인증 입력 확인 끝
+}); // 인증 입력 오류 정리 끝
+authForm.addEventListener("submit", submitAuth); // 실제 가입과 로그인 제출 연결
+authDialog.addEventListener("cancel", (event) => // 요청 중 Escape 닫기 제어
+{
+    if (authBusy) // 실제 요청 진행 여부
+    {
+        event.preventDefault(); // 응답 처리 전 모달 닫기 차단
+    }
+}); // 요청 중 Escape 닫기 제어 끝
 authDialog.addEventListener("close", () => // 인증 화면 닫힌 뒤 정리
 {
     authForm.reset(); // 입력한 자격 증명 제거
-    passwordInput.setCustomValidity(""); // 입력 오류 상태 제거
+    clearAuthErrors(); // 입력 오류 상태 제거
     if (mobileQuery.matches) // 모바일 닫기 포커스 위치
     {
         byId("sidebar-toggle").focus(); // 숨겨지지 않은 메뉴 버튼 포커스
@@ -329,7 +669,7 @@ authDialog.addEventListener("close", () => // 인증 화면 닫힌 뒤 정리
 authDialog.addEventListener("click", (event) => // 모달 바깥 클릭 처리
 {
     const bounds = authDialog.getBoundingClientRect(); // 모달 실제 화면 위치
-    if (event.target === authDialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) // 모달 외부 배경 클릭 여부
+    if (!authBusy && event.target === authDialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) // 요청 대기 외 모달 배경 클릭 여부
     {
         authDialog.close(); // 인증 화면 닫기
     }

@@ -263,6 +263,7 @@ button:disabled /* 비활성 버튼 */
     flex-direction: column; /* 세로 흐름 */
     gap: 4px; /* 이름과 상태 간격 */
     min-width: 0; /* 긴 이름 줄임 허용 */
+    flex: 1; /* 사용자 정보의 남은 너비 사용 */
 }
 .user-details strong /* 현재 사용자명 */
 {
@@ -275,6 +276,8 @@ button:disabled /* 비활성 버튼 */
 {
     color: #8896aa; /* 상태 문구 색상 */
     font-size: 10px; /* 상태 문구 크기 */
+    line-height: 1.6; /* 인증 결과 안내 줄간격 */
+    overflow-wrap: anywhere; /* 긴 인증 오류의 영역 넘침 방지 */
 }
 .login-button /* 로그인 진입 버튼 */
 {
@@ -632,7 +635,7 @@ button:disabled /* 비활성 버튼 */
     font-size: 13px; /* 인증 설명 크기 */
     margin: 0; /* 설명 기본 여백 제거 */
 }
-.auth-note /* 회원 기능 준비 안내 */
+.auth-note /* 실제 회원 기능과 대화 범위 안내 */
 {
     display: flex; /* 안내 세로 배치 */
     flex-direction: column; /* 제목과 설명 세로 흐름 */
@@ -683,6 +686,19 @@ button:disabled /* 비활성 버튼 */
     color: #91a6bd; /* 규칙 설명 색상 */
     font-size: 10px; /* 규칙 설명 크기 */
 }
+.auth-field .field-error /* 실제 인증 필드 오류 */
+{
+    color: #f0b398; /* 입력 오류 강조 색상 */
+    line-height: 1.6; /* 오류 안내 줄간격 */
+}
+.field-error:empty /* 오류 없는 필드 안내 */
+{
+    display: none; /* 빈 오류 영역 숨김 */
+}
+.auth-field input[aria-invalid="true"] /* 오류가 확인된 인증 입력 */
+{
+    border-color: #f0b398; /* 잘못된 입력 테두리 강조 */
+}
 .auth-feedback /* 인증 입력 확인 안내 */
 {
     color: #eabca0; /* 결과 안내 색상 */
@@ -690,11 +706,20 @@ button:disabled /* 비활성 버튼 */
     line-height: 1.8; /* 결과 안내 줄간격 */
     margin: 0 0 12px; /* 결과 안내 여백 */
 }
-.auth-submit /* 인증 미리보기 확인 버튼 */
+.auth-feedback.success /* 실제 가입 성공 안내 */
+{
+    color: #8fe1c8; /* 확인된 가입 성공 색상 */
+}
+.auth-submit /* 실제 인증 요청 버튼 */
 {
     width: 100%; /* 버튼 전체 너비 */
     padding: 13px; /* 버튼 안쪽 여백 */
     font-size: 13px; /* 버튼 글자 크기 */
+}
+.auth-submit:disabled, .login-button:disabled, .auth-switch button:disabled, .dialog-close:disabled /* 요청 처리 중 인증 버튼 */
+{
+    opacity: 0.55; /* 비활성화된 버튼 구분 */
+    cursor: wait; /* 실제 요청 대기 커서 */
 }
 .auth-switch /* 인증 화면 전환 안내 */
 {

@@ -31,8 +31,8 @@
             <div class="connection-status" id="connection-status" role="status">연결 확인 중</div> <!-- 실제 연결 상태 -->
             <footer class="user-panel"> <!-- 사용자 영역 -->
                 <div class="avatar guest-avatar" id="user-avatar" aria-hidden="true">G</div> <!-- 현재 사용자 이니셜 -->
-                <div class="user-details"><strong id="current-user">게스트</strong><span id="session-state">세션 확인 중</span></div> <!-- 사용자 상태 -->
-                <button type="button" class="login-button" id="open-auth">로그인</button> <!-- 인증 화면 열기 -->
+                <div class="user-details"><strong id="current-user">게스트</strong><span id="session-state" role="status" aria-live="polite">세션 확인 중</span></div> <!-- 사용자 상태와 인증 결과 안내 -->
+                <button type="button" class="login-button" id="open-auth" disabled>로그인</button> <!-- 실제 인증 상태별 로그인과 로그아웃 -->
             </footer> <!-- 사용자 영역 끝 -->
         </aside> <!-- 채널 영역 끝 -->
         <main class="conversation"> <!-- 대화 영역 -->
@@ -42,7 +42,7 @@
                 <div class="channel-heading"><h2 id="channel-title">일반</h2><p id="channel-description">팀의 소식을 나누는 공간</p></div> <!-- 채널 제목과 설명 -->
                 <span class="header-tag">팀 프로젝트</span> <!-- 작업 공간 유형 -->
             </header> <!-- 현재 채널 제목 끝 -->
-            <div class="preview-banner"><span class="preview-icon" aria-hidden="true">◈</span><p>화면 미리보기 <span aria-hidden="true">·</span> 대화는 새로고침하면 초기화됩니다</p><span class="preview-badge">PREVIEW</span></div> <!-- 지속적인 미리보기 안내 -->
+            <div class="preview-banner"><span class="preview-icon" aria-hidden="true">◈</span><p>대화 미리보기 <span aria-hidden="true">·</span> 회원 기능은 실제 연결되며, 대화는 저장되지 않습니다</p><span class="preview-badge">PREVIEW</span></div> <!-- 실제 인증과 대화 미리보기 범위 -->
             <section class="message-scroll" id="message-scroll" aria-label="대화 내역" tabindex="0"> <!-- 스크롤 가능한 대화 -->
                 <div class="channel-welcome"><div class="welcome-hash" aria-hidden="true">#</div><p class="eyebrow">A PLACE FOR YOUR TEAM</p><h3 id="welcome-title">모든 대화의 시작, # 일반</h3><p id="welcome-description">안부부터 새로운 아이디어까지, 편하게 나눠보세요.</p></div> <!-- 채널 시작 안내 -->
                 <div class="date-divider"><span>2026년 10월 21일</span></div> <!-- 예시 대화 날짜 구분 -->
@@ -64,14 +64,14 @@
         <button type="button" class="dialog-close" id="close-auth" aria-label="인증 화면 닫기">×</button> <!-- 인증 화면 닫기 -->
         <div class="auth-brand"><span class="auth-mark">SM</span><strong>SystemMakers</strong></div> <!-- 인증 화면 브랜드 -->
         <div class="auth-heading"><p class="eyebrow">YOUR TEAM, CONNECTED</p><h2 id="auth-title">다시 만나 반가워요</h2><p id="auth-description">팀의 대화를 이어가세요.</p></div> <!-- 인증 화면 제목 -->
-        <p class="auth-note" id="auth-note"><strong>회원 기능 준비 중</strong><span>입력 내용은 전송되거나 저장되지 않습니다.</span></p> <!-- 미구현 상태 안내 -->
-        <form id="auth-form"> <!-- 전송 없는 인증 미리보기 폼 -->
-            <div class="auth-field" id="username-field" hidden><label for="auth-username">사용자명</label><input id="auth-username" name="username" autocomplete="username" placeholder="사용자명을 입력하세요." pattern="[A-Za-z0-9_]{3,32}" aria-describedby="username-help"><small id="username-help">영문·숫자·밑줄 3~32자</small></div> <!-- 가입 사용자명 필드 -->
-            <div class="auth-field"><label for="auth-email">이메일</label><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="이메일을 입력하세요." maxlength="254" required></div> <!-- 이메일 필드 -->
-            <div class="auth-field"><label for="auth-password">비밀번호</label><input id="auth-password" name="password" type="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요." required aria-describedby="password-help"><small id="password-help" hidden>12~64자 · 최대 72바이트</small></div> <!-- 비밀번호 필드 -->
-            <p class="auth-feedback" id="auth-feedback" role="status"></p> <!-- 정직한 입력 확인 결과 -->
-            <button type="submit" class="auth-submit">준비 중 · 입력 확인</button> <!-- 계정 생성 없는 입력 검사 -->
-        </form> <!-- 인증 미리보기 폼 끝 -->
+        <p class="auth-note" id="auth-note"><strong>계정으로 함께 시작하세요</strong><span>회원가입 후 로그인하세요. 대화는 현재 화면의 미리보기입니다.</span></p> <!-- 계정과 대화 기능 범위 -->
+        <form id="auth-form" method="post" novalidate> <!-- 주소에 비밀번호를 남기지 않는 실제 인증 요청 폼 -->
+            <div class="auth-field" id="username-field" hidden><label for="auth-username">사용자명</label><input id="auth-username" name="username" autocomplete="username" placeholder="사용자명을 입력하세요." pattern="[A-Za-z0-9_]{3,32}" aria-describedby="username-help username-error"><small id="username-help">영문·숫자·밑줄 3~32자 · 소문자로 저장</small><small class="field-error" id="username-error"></small></div> <!-- 가입 사용자명과 오류 안내 -->
+            <div class="auth-field"><label for="auth-email">이메일</label><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="이메일을 입력하세요." required aria-describedby="email-error"><small class="field-error" id="email-error"></small></div> <!-- 이메일과 오류 안내 -->
+            <div class="auth-field"><label for="auth-password">비밀번호</label><input id="auth-password" name="password" type="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요." required aria-describedby="password-help password-error"><small id="password-help">12~64자 · UTF-8 최대 72바이트</small><small class="field-error" id="password-error"></small></div> <!-- 코드 포인트 기준 비밀번호와 오류 안내 -->
+            <p class="auth-feedback" id="auth-feedback" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p> <!-- 실제 인증 처리 결과 -->
+            <button type="submit" class="auth-submit" id="auth-submit">로그인</button> <!-- 실제 인증 요청 -->
+        </form> <!-- 인증 요청 폼 끝 -->
         <p class="auth-switch"><span id="auth-switch-prompt">계정이 없으신가요?</span><button type="button" id="switch-auth">회원가입</button></p> <!-- 로그인과 가입 화면 전환 -->
     </dialog> <!-- 인증 화면 대화상자 끝 -->
 </body> <!-- 화면 끝 -->
