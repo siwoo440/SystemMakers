@@ -1,0 +1,13 @@
+# 프로젝트 내부 검증 도구와 DB 파일
+.runtime/
+# 개인 환경 설정과 접속 정보
+.env
+.env.*
+!.env.example
+config.local.php
+# 실행 로그와 임시 테스트 결과
+*.log
+test-results/
+# 운영체제 임시 파일
+.DS_Store
+Thumbs.db
