@@ -6,19 +6,14 @@ import net from "node:net"; // 임의 포트 확인
 import path from "node:path"; // 운영체제 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
 import test from "node:test"; // 기본 테스트 실행
+import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
 const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
 const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // 실제 PHP 경로
-const client = process.env.MYSQL_TEST_CLIENT || path.join(root, ".runtime/mysql/mysql-8.4.13-winx64/bin/mysql.exe"); // 실제 MySQL 경로
 const port = process.env.MYSQL_TEST_PORT || "33360"; // 테스트 MySQL 포트
 const database = "systemmakers_auth_test_" + randomBytes(6).toString("hex"); // 삭제 가능한 독립 DB
 function sql(statement, selected = true) // 실제 DB 요청
 {
-    const args = ["--no-defaults", "--protocol=TCP", "--host=127.0.0.1", "--port=" + port, "--user=root", "--batch", "--skip-column-names", "--default-character-set=utf8mb4"]; // 로컬 테스트 연결
-    if (selected) // 독립 DB 선택 조건
-    {
-        args.push(database); // 테스트 DB 지정
-    }
-    return execFileSync(client, args, { input: statement, encoding: "utf8", windowsHide: true }).trim(); // 실제 SQL 결과
+    return querySql(port, selected ? database : "", statement); // 실제 SQL 결과
 }
 async function vacantPort() // 임시 서버 포트 확보
 {

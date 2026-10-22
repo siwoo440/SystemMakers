@@ -6,19 +6,14 @@ import net from "node:net"; // 빈 로컬 포트 확인
 import path from "node:path"; // 운영체제 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
 import test from "node:test"; // 기본 테스트 도구
+import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
 const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
 const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // PHP 실행 파일
-const client = process.env.MYSQL_TEST_CLIENT || "mysql"; // MySQL 실행 파일
 const port = process.env.MYSQL_TEST_PORT || "33360"; // 격리 MySQL 포트
 const database = "systemmakers_backend_test_" + randomBytes(6).toString("hex"); // 전용 DB 이름
 function sql(statement, selectDatabase = true) // 실제 MySQL 요청
 {
-    const args = ["--no-defaults", "--protocol=TCP", "--host=127.0.0.1", "--port=" + port, "--user=root", "--batch", "--skip-column-names", "--default-character-set=utf8mb4"]; // 로컬 연결 설정
-    if (selectDatabase) // DB 선택 여부
-    {
-        args.push(database); // 격리 DB 지정
-    }
-    return execFileSync(client, args, { input: statement, encoding: "utf8", windowsHide: true }).trim(); // 실제 결과 반환
+    return querySql(port, selectDatabase ? database : "", statement); // 실제 결과 반환
 }
 async function vacantPort() // 빈 TCP 포트 확보
 {

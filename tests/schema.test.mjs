@@ -1,28 +1,16 @@
 import assert from "node:assert/strict"; // 검증 도구
-import { execFileSync } from "node:child_process"; // MySQL 명령 실행
+import { querySql } from "./helpers/sql-query.mjs"; // 실제 MySQL 조회
 import { randomBytes } from "node:crypto"; // 전용 DB 이름 생성
 import { existsSync, readFileSync } from "node:fs"; // 스키마 파일 읽기
 import { fileURLToPath } from "node:url"; // 로컬 파일 경로 변환
 import test from "node:test"; // 기본 테스트 도구
 const schemaPath = fileURLToPath(new URL("../backend/sql/schema.sql", import.meta.url)); // 검증할 스키마
-const client = process.env.MYSQL_TEST_CLIENT || "mysql"; // MySQL 클라이언트 경로
 const port = process.env.MYSQL_TEST_PORT || "33360"; // 격리된 테스트 포트
 const database = "systemmakers_test_" + randomBytes(6).toString("hex"); // 테스트 전용 DB
 const expectedTables = ["auth_rate_limits", "channels", "messages", "server_members", "servers", "users"]; // 계약 테이블
 function query(sql, useDatabase = true) // 실제 SQL 실행
 { // 실행 범위 시작
-    const args = ["--no-defaults", "--protocol=TCP", "--host=127.0.0.1", "--port=" + port, "--user=root", "--batch", "--skip-column-names", "--default-character-set=utf8mb4"]; // 로컬 전용 연결
-    if (useDatabase) // 선택 DB 사용 여부
-    { // DB 지정 시작
-        args.push(database); // 전용 DB 지정
-    } // DB 지정 종료
-    return execFileSync(client, args, // MySQL 실행
-    { // 실행 옵션 시작
-        input: "SET SESSION time_zone = '+00:00'; SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';\n" + sql, // UTC와 엄격한 입력 모드
-        encoding: "utf8", // UTF-8 결과
-        stdio: ["pipe", "pipe", "pipe"], // 입력과 오류 분리
-        windowsHide: true // 실행 창 숨김
-    }).replace(/\r\n/g, "\n").trim(); // 운영체제별 줄바꿈 통일
+    return querySql(port, useDatabase ? database : "", "SET SESSION time_zone = '+00:00'; SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';\n" + sql).replace(/\r\n/g, "\n"); // UTC·엄격한 모드·실제 SQL 결과
 } // 실행 범위 종료
 function rejectsSql(sql, code) // DB 거절 결과 확인
 { // 거절 검사 시작

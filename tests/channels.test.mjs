@@ -6,19 +6,14 @@ import net from "node:net"; // 빈 서버 포트 확인
 import path from "node:path"; // 운영체제 경로 조합
 import { fileURLToPath } from "node:url"; // 저장소 위치 변환
 import test from "node:test"; // 기본 테스트 실행
+import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
 const root = fileURLToPath(new URL("../", import.meta.url)); // 저장소 루트
 const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // PHP 실행 위치
-const client = process.env.MYSQL_TEST_CLIENT || path.join(root, ".runtime/mysql/mysql-8.4.13-winx64/bin/mysql.exe"); // 테스트 DB 도구
 const port = process.env.MYSQL_TEST_PORT || "33360"; // 프로젝트 전용 DB 포트
 const database = "systemmakers_channels_test_" + randomBytes(6).toString("hex"); // 삭제 대상 제한 이름
 function sql(statement, selected = true) // 실제 테스트 DB 요청
 {
-    const args = ["--no-defaults", "--protocol=TCP", "--host=127.0.0.1", "--port=" + port, "--user=root", "--batch", "--skip-column-names", "--default-character-set=utf8mb4"]; // 독립 로컬 연결
-    if (selected) // 테스트 DB 선택 여부
-    {
-        args.push(database); // 명시적인 테스트 DB
-    }
-    return execFileSync(client, args, { input: statement, encoding: "utf8", windowsHide: true }).trim().replaceAll("\r\n", "\n"); // 실제 결과와 줄바꿈 정규화
+    return querySql(port, selected ? database : "", statement).replaceAll("\r\n", "\n"); // 실제 결과와 줄바꿈 정규화
 }
 test("실제 채널 목록과 개발 데이터 준비", async (context) => // 사용자 소속 분리와 CLI 안전성 검증
 {

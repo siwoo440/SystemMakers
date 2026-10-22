@@ -6,6 +6,7 @@ import net from "node:net"; // 임시 HTTP 포트 확보
 import path from "node:path"; // 운영체제 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
 import test from "node:test"; // 기본 테스트 실행
+import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
 const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
 const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // 실제 PHP 실행 파일
 const client = process.env.MYSQL_TEST_CLIENT || path.join(root, ".runtime/mysql/mysql-8.4.13-winx64/bin/mysql.exe"); // 실제 MySQL 클라이언트
@@ -17,7 +18,7 @@ function mysqlArgs(selected = true) // 테스트 DB 전용 연결 인수
 }
 function sql(statement, selected = true) // 실제 SQL 실행
 {
-    return execFileSync(client, mysqlArgs(selected), { input: statement, encoding: "utf8", windowsHide: true }).trim(); // 실제 결과 반환
+    return querySql(port, selected ? database : "", statement); // 실제 결과 반환
 }
 async function waitUntil(predicate, description, timeout = 10000) // 관측 가능한 조건 대기
 {

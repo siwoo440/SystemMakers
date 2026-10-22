@@ -6,14 +6,14 @@ import { createServer } from "node:net"; // 빈 HTTP 포트 선택
 import path from "node:path"; // 실행 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
 import test from "node:test"; // 기본 테스트 도구
+import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
 const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
 const database = "systemmakers_history_test_" + randomBytes(6).toString("hex"); // 독립 테스트 DB
 const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // 실제 PHP 경로
-const client = process.env.MYSQL_TEST_CLIENT || "mysql"; // 실제 MySQL 접속 도구
 const port = process.env.MYSQL_TEST_PORT || "33361"; // 독립 테스트 서버 포트
 function sql(statement, selected = true) // 실제 테스트 DB 요청
 {
-    return execFileSync(client, ["--no-defaults", "--protocol=TCP", "--host=127.0.0.1", "--port=" + port, "--user=root", "--batch", "--skip-column-names", "--default-character-set=utf8mb4", ...(selected ? [database] : [])], { input: statement, encoding: "utf8", windowsHide: true }).trim(); // 실제 SQL 결과
+    return querySql(port, selected ? database : "", statement); // 실제 SQL 결과
 }
 test("실제 메시지 최초·이전·신규 HTTP 조회", async (context) => // 누락과 권한 노출 포착
 {

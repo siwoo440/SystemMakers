@@ -25,6 +25,10 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
             {
                 this.storage?.setItem("systemmakers.selection." + this.identity, JSON.stringify({ serverId: this.selected, channelId: this.channel })); // 최소 선택 값
             }
+            else if (this.identity) // 마지막 서버의 선택 종료
+            {
+                this.storage?.removeItem("systemmakers.selection." + this.identity); // 종료한 서버의 영구 ID 폐기
+            }
         }
         catch // 저장 실패 시 메모리 상태 유지
         {

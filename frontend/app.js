@@ -112,6 +112,27 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         }
         else if ([403, 404].includes(error.status)) // 현재 채널 소속 또는 존재 상실
         {
+            if (error.status === 403 && error.code === "FORBIDDEN" && channel.serverId) // 현재 계약의 서버 소속 상실
+            {
+                discardDepartedServer(channel.serverId); // 비활성 채널의 초안·대화도 함께 폐기
+                channelError = "서버에 접근할 수 없습니다. 참여 상태와 목록을 다시 확인하세요."; // 소속 종료 안내
+                renderChannels(); // 실제 목록 재확인 제공
+                renderEmptyConversation(); // 종료된 서버 기록 표시 제거
+                return; // 채널 하나만 정리하는 경로 사용 중단
+            }
+            channel.draft = ""; // 권한 없는 채널의 이전 초안 폐기
+            channel.scroll = null; // 이전 읽는 위치 제거
+            channel.unread = 0; // 접근할 수 없는 새 기록 안내 제거
+            if (savedDrafts?.values) // 만료 전 복원 자료 존재
+            {
+                delete savedDrafts.values[channelId]; // 재참여 때 이전 초안 복원 차단
+            }
+            if (activeChannel === channelId) // 화면에 표시 중인 접근 종료
+            {
+                messageInput.value = ""; // 이전 소속의 입력 원문 폐기
+                showNewMessages(); // 이전 기록 이동 버튼 정리
+            }
+            channelUI?.clear(); // 미확인 채널 관리 입력 폐기
             channel.feedback = "채널에 접근할 수 없습니다. 채널 목록을 다시 확인하세요."; // 실제 접근 오류 안내
             channel.error = true; // 접근 실패 표시
             channelError = channel.feedback; // 소속 목록 재확인 제공
@@ -286,6 +307,27 @@ async function expireMessageSession(changed = false) // 만료되거나 다른 �
         showAuthError(changed ? "로그인 계정이 변경되었습니다. 이전 초안은 자동 전송하지 않습니다. 현재 계정을 확인하세요." : "세션이 만료되었습니다. 다시 로그인하세요."); // 실제 종료 이유 안내
     }
 }
+function discardDepartedServer(id) // 탈퇴·서버 삭제 확정 자료의 즉시 폐기
+{
+    serverManager.servers = serverManager.servers.filter((server) => server.id !== id); // 종료 소속 목록 제거
+    if (serverManager.selected === id) // 선택 중인 종료 서버
+    {
+        serverUI?.clear(); // 종료 서버의 초대 원문과 확인 입력 폐기
+        byId("server-dialog").close(); // 접근할 수 없는 관리 화면 종료
+        channelUI?.clear(); // 종료 서버 채널 관리 대상 폐기
+        serverManager.selected = null; // 미확인 다른 서버 자동 선택 지연
+        serverManager.channel = null; // 종료 서버의 채널 선택 제거
+    }
+    serverManager.persist(); // 영구 선택도 종료 반영
+    for (const [channelId, channel] of Object.entries(channels)) // 확인된 같은 서버의 모든 채널
+    {
+        if (channel.serverId === id) // 종료한 소속 범위
+        {
+            discardDeletedChannel(channelId); // 기록·초안·예약·복원 자료 폐기
+        }
+    }
+    renderManagementUI(); // 소속 종료를 버튼과 제목에 반영
+}
 function discardDeletedChannel(id) // 삭제 확정 자료의 즉시 폐기
 {
     channels[id]?.feed.block(requestError("삭제된 채널입니다.")); // 기록·진행 조회·예약 종료
@@ -323,6 +365,18 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
     try // 실제 소속 채널과 응답 계약 확인
     {
         await serverManager.sync(); // 채널이 없는 소속 서버도 먼저 확인
+        if (generation !== authGeneration || version !== channelLoadVersion || currentUser?.id !== userId) // 소속 확인 중 계정 교체
+        {
+            return; // 새 계정 자료 정리와 후속 조회 중단
+        }
+        const serverIds = new Set(serverManager.servers.map((server) => server.id)); // 방금 확인한 현재 소속
+        for (const serverId of new Set(Object.values(channels).map((channel) => channel.serverId).filter(Boolean))) // 기존 채널의 부모 소속
+        {
+            if (!serverIds.has(serverId)) // 실제 소속 목록에서 종료 확인
+            {
+                discardDepartedServer(serverId); // 채널 조회 실패 전 종료 자료 폐기
+            }
+        }
         const data = await requestEndpoint("/api/get_channels.php"); // 쿼리 없는 실제 조회 요청
         if (generation !== authGeneration || version !== channelLoadVersion || currentUser?.id !== userId) // 늦은 이전 계정 응답 여부
         {
@@ -337,7 +391,7 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
         {
             const previous = channels[item.id]; // 같은 계정의 기존 채널 자료
             const recovered = savedDrafts?.userId === userId ? savedDrafts.values[item.id] || "" : ""; // 같은 계정의 만료 전 초안
-            const channel = previous && !previous.feed?.blocked ? previous : { messages: [], draft: previous?.draft || recovered, scroll: null, unread: 0, feedback: "", error: false }; // 권한이 유지된 기존 기록만 재사용
+            const channel = previous && !previous.feed?.blocked ? previous : { messages: [], draft: previous?.feed?.blocked ? "" : previous?.draft || recovered, scroll: null, unread: 0, feedback: "", error: false }; // 접근 종료 자료는 초안도 복원하지 않음
             channel.title = item.name; // 현재 채널 이름
             channel.serverName = item.server_name; // 현재 소속 서버 이름
             channel.serverId = item.server_id; // 서버별 독립 탐색 조건
@@ -440,10 +494,18 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
             try // 다음 수동 제출용 보호 정보 확인
             {
                 await refreshCsrf(request.generation); // 자동 전송 없는 최신 토큰 조회
+                if (request.generation !== authGeneration || currentUser?.id !== request.userId || channels[channelId] !== channel) // 복구 중 종료된 요청
+                {
+                    return; // 이전 복구의 안내 적용 중단
+                }
                 channel.feedback = "화면 보호 정보를 갱신했습니다. 초안을 확인하고 다시 전송하세요."; // 명시적 사용자 재제출 안내
             }
             catch (recoveryError) // 보호 정보 또는 계정 확인 실패
             {
+                if (request.generation !== authGeneration || currentUser?.id !== request.userId || channels[channelId] !== channel) // 이전 계정의 중첩 실패
+                {
+                    return; // 새 로그인 계정과 토큰 보존
+                }
                 if (recoveryError.status === 401 || recoveryError.code === "SESSION_CHANGED") // 복구 중 세션 만료나 다른 계정 확인
                 {
                     await expireMessageSession(recoveryError.code === "SESSION_CHANGED"); // 새 계정으로 이전 초안 전달 차단
@@ -1020,7 +1082,7 @@ async function serverFailure(error, generation = authGeneration, userId = curren
     return error.status === 429 ? `요청이 많습니다. ${error.retryAfter || 600}초 후 다시 시도하세요.` : error.message; // 실제 오류와 제한 안내
 }
 byId("retry-channels").addEventListener("click", loadChannels); // 소속 채널 조회 재시도
-serverUI = mountServerUI({ manager: serverManager, byId, onReload: loadChannels, onSelect: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 실제 관리 화면 연결
+serverUI = mountServerUI({ manager: serverManager, byId, onDeparted: discardDepartedServer, onReload: loadChannels, onSelect: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 실제 관리 화면 연결
 channelUI = mountChannelUI({ manager: serverManager, byId, getChannel: () => activeChannel && channels[activeChannel] ? { ...channels[activeChannel], id: activeChannel } : null, hasChannel: (id) => Boolean(channels[id]), onDeleted: discardDeletedChannel, onReload: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest && !channelLoading && !channelError) }); // 실제 채널과 권한별 관리 연결
 profileUI = mountProfileUI({ manager: serverManager, byId, getUser: () => currentUser, onUser: applyProfile, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 기존 인증·요청 수명으로 본인 프로필 연결
 document.addEventListener("visibilitychange", () => // 빈 서버를 포함한 창 복귀 갱신

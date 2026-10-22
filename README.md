@@ -26,6 +26,7 @@ Discord 스타일 웹 채팅 프로젝트. HTML·CSS·JavaScript 프론트엔드
 - [8단계 서버·소속 검증](docs/PHASE-8-VERIFICATION.md): 웹 서버 생성·초대·참여·탈퇴·삭제와 실제 동시성·110개 검사
 - [9단계 채널 관리 검증](docs/PHASE-9-VERIFICATION.md): 채널 생성·이름 변경·삭제·빈 서버 재생성과 전체 130개 검사
 - [10단계 프로필 검증](docs/PHASE-10-VERIFICATION.md): 본인 조회·사용자명 변경·작성 관계 보존과 전체 150개 검사
+- [11단계 로컬 통합 검증](docs/PHASE-11-VERIFICATION.md): 전체165개·두 브라우저·다중 탭·접근 종료 수정과 남은 실제 기기 확인
 - [한국어 커밋 메시지](docs/COMMIT-MESSAGES.md): 기존 이력 변경과 이후 작성 규칙
 
 ---
@@ -66,9 +67,9 @@ APP_ENV가 development 또는 test인 CLI에서만 실행한다. 기존 사용�
 
 브라우저는 확인한 사용자 ID를 X-Expected-User-Id 헤더로 보내고 서버는 현재 세션과 다르면 자료 조회·저장·로그아웃 전에 SESSION_CHANGED로 거절한다. 다른 탭의 계정 변경 시 이전 계정 기록·초안을 화면에서 지우고 재확인을 안내한다. 같은 계정의 CSRF 교체는 초안을 보존하며 자동 재전송하지 않는다. 조회 또는 전송에서 채널 권한 상실을 확인하면 해당 기록을 지우고 조회·전송을 차단한다.
 
-6단계까지 기존 B 담당 API와 웹 연동을 검증했고 8단계 서버·초대·소속, 9단계 채널 관리, 10단계 본인 프로필까지 확장했다. 다음은 11단계 전체 연결·실제 기기 검증과 12단계 운영 호스팅·HTTPS·프록시·부하 검증이다. 상세 범위는 최신 10단계 결과를 따른다.
+6단계까지 기존 B 담당 API와 웹 연동을 검증했고 8단계 서버·초대·소속, 9단계 채널 관리, 10단계 본인 프로필까지 확장했다. 2026-10-22에 11단계 로컬 전체 연결·다중 탭·앱 내 브라우저/Chrome을 검증하고 접근 종료 후 초안·기록과 오래된 인증 복구 문제를 수정했다. 실제 휴대폰·Safari·Firefox는 미검증이므로11단계 전체 완료 판정은 남아 있다. 이후12단계 운영 환경·HTTPS·백업 복원·성능을 검증한다. 상세 근거와 역할별 남은 작업은 최신11단계 결과와 개발 방향을 따른다.
 
-7단계 규칙에 따라 서버·채널 관리와 본인 프로필을 실제 API와 웹에 연결했다. API는 0.8·공개 경로 22개, DB 문서 계약은 0.5·테이블은 기존 8개다. 9~10단계 추가 스키마 변경은 없다. 초대 원문은 발급 시만 표시하며 24시간 유효·재발급 시 이전 코드 무효화, 소유자만 초대·서버 삭제 가능하다. 일반 탈퇴는 대화를 보존한다.
+7단계 규칙에 따라 서버·채널 관리와 본인 프로필을 실제 API와 웹에 연결했다. API 문서는0.9·공개 경로22개, DB 문서는0.5·테이블8개다. 0.9는 접근 종료·늦은 응답의 화면 정리 계약 명확화이며 새 API나9~11단계 추가 스키마 변경은 없다. 초대 원문은 발급 시만 표시하며24시간 유효·재발급 시 이전 코드 무효화, 소유자만 초대·서버 삭제 가능하다. 일반 탈퇴는 대화를 보존한다.
 
 채널 관리는 해당 서버의 소유자·관리자만 허용한다. 이름 변경은 ID·대화를 보존하고 같은 서버의 중복 이름을 거절한다. 삭제는 현재 영향과 정확한 이름을 확인하며 해당 채널 대화만 제거한다. 마지막 채널이 없어도 서버는 남고 관리자가 새 채널을 만들 수 있다. 삭제 성공 뒤 목록 통신이 실패해도 기존 기록·초안·선택을 복원하지 않는다.
 
@@ -79,11 +80,12 @@ APP_ENV가 development 또는 test인 CLI에서만 실행한다. 기존 사용�
 ---
 ## 전체 검사 실행
 
-실제 PHP 8.4와 MySQL 8.4가 필요하다. PHP_TEST_BIN·MYSQL_TEST_CLIENT·MYSQL_TEST_PORT에 실행 도구와 전용 검사 DB 포트를 지정한다. 기존 통합 검사는 로컬 root·빈 비밀번호를 사용하는 별도 테스트 MySQL 인스턴스에서 실행한다. 개발용 33360 포트와 분리한 33361 포트를 사용할 수 있다. 검사마다 무작위 DB를 생성하고 해당 DB만 정리한다. 실제 웹 라우터 검사에는 MYSQL_HOST·MYSQL_PORT·MYSQL_DATABASE·MYSQL_USER·MYSQL_PASSWORD·APP_ENV·SESSION_COOKIE_SECURE 환경 변수도 필요하다. .runtime/php.ini에는 pdo_mysql·mbstring과 세션 저장 위치를 설정한다.
+실제 PHP8.4와 MySQL8.4가 필요하다. PHP_TEST_BIN·MYSQL_TEST_CLIENT에 실행 도구를, MYSQL_TEST_PORT에33361을 지정한다. 로컬 root·빈 비밀번호의 별도 검사 인스턴스를 사용하고 개발 DB33360과 분리한다. 동기 SQL은 실제 PHP PDO 도구가33361과 무작위 DB 이름을 검사한 뒤 실행하며 재시도하지 않는다. MYSQL_TEST_CLIENT는 실제 대화형 잠금 경합 검사에 사용한다. 검사마다 무작위 DB를 생성하고 해당 DB만 정리한다. 실제 웹 라우터 검사에는 MYSQL_HOST·MYSQL_PORT·MYSQL_DATABASE·MYSQL_USER·MYSQL_PASSWORD·APP_ENV·SESSION_COOKIE_SECURE 환경 변수도 필요하다. .runtime/php.ini에는 pdo_mysql·mbstring과 세션 저장 위치를 설정한다.
 
 ```powershell
 node --test # 기존 인증·저장과 신규 조회 전체 검사
 node --test tests/acceptance.test.mjs # 실제 공개 API 전체 인수 검사
+node --test tests/integration-flow.test.mjs # 가입부터 서버·채널·프로필·대화·탈퇴·삭제 연결 검사
 node --test tests/app-session.test.mjs tests/message-feed.test.mjs # 계정 변경과 조회 수명 회귀 검사
 node --check frontend/app.js # 실제 화면 스크립트 문법 검사
 node --check frontend/message-feed.mjs # 조회 상태 모듈 문법 검사
@@ -91,6 +93,6 @@ node --check frontend/message-feed.mjs # 조회 상태 모듈 문법 검사
 
 다른 컴퓨터에서는 Git에서 제외된 PHP·MySQL 실행 도구·DB·개인 설정을 별도로 준비한다. 이번 컴퓨터의 .runtime/start-local.ps1은 이미 구성한 DB와 웹을 다시 시작하는 개인 실행 도구이며 저장소에는 포함하지 않는다.
 
-현재 검증 기준은 전체 150개 통과다. 기존 가입 계정의 seed-dev 인수 검사와 별도로 8~10단계 검사는 실제 공개 라우터에서 서버·초대·소속·채널·프로필 관리와 잠금 경합을 실행하고 무작위 DB만 정리한다. 화면 회귀는 실제 app.js·MessageFeed·ServerManager·각 관리 화면을 실행하며 DOM·네트워크·시계·선택 저장소 경계만 대체한다. PHP 문법 41개·JS 문법 6개도 통과했다. 운영·실제 휴대폰 검사는 이 숫자에 포함하지 않는다.
+현재 검증 기준은 전체165개 통과다. 기존 seed-dev 인수 검사와 별도로11단계는 seed 없는 공개 API의 전체 가입·관리·대화·탈퇴 흐름을 검사한다. 8~10단계 역할·잠금 경합·요청 제한·자료 보존 검사도 유지한다. 화면 회귀는 실제 app.js·MessageFeed·ServerManager·각 관리 화면을 실행하며 DOM·네트워크·시계·선택 저장소 경계만 대체한다. PHP 문법42개(검사 도구1개 포함)·화면 JS 문법6개도 통과했다. 앱 내 브라우저·Chrome·390×844 화면을 확인했고 운영·실제 휴대폰 검사는 이 숫자에 포함하지 않는다. 검사 도구를 바꾼 근거와 초기 실패는11단계 보고서에 기록했다.
 
 작업 저장소는 [siwoo440/SystemMakers](https://github.com/siwoo440/SystemMakers)다. 사용자 지시에 따라 기존 개발 커밋 전체를 main에 통합했으며 이후 작업·커밋·푸시도 main에서 진행한다. 공통 필드·응답 형식·삭제 정책을 바꾸면 API.md와 DATABASE.md를 같은 변경에서 갱신한다.
