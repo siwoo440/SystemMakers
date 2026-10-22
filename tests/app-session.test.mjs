@@ -209,3 +209,80 @@ test("프로필 CSRF 복구의 늦은 실패는 새 로그인 계정 유지", as
     assert.equal(run.state().userId, "2"); // 새 계정 종료 차단
     assert.equal(run.evaluate("csrfToken"), "c".repeat(64)); // 새 보호 토큰 보존
 }); // 중첩 복구 검사 끝
+test("다른 탭 탈퇴·채널 삭제 확인은 초안까지 폐기", (context) => // 같은 계정 재참여의 이전 초안 복원 차단
+{
+    const run = setup(() => ({ status: 200, data: {} })); // 네트워크 없는 접근 종료 경계
+    context.after(run.stop); // 조회 예약 정리
+    run.evaluate('channels["1"].feed.block(requestError("접근 종료",403,"FORBIDDEN"))'); // 다른 탭 탈퇴 뒤 실제 조회 거절
+    assert.equal(run.state().draft, ""); // 현재 입력의 이전 소속 자료 제거
+    assert.equal(run.evaluate('channels["1"].draft'), ""); // 채널 초안 저장소도 제거
+    assert.equal(run.evaluate('channels["1"].feed.list().length'), 0); // 과거 대화 제거
+}); // 소속 상실 초안 검사 끝
+test("접근 차단 채널 재조회 성공도 이전 초안 복원 없음", async (context) => // 재참여와 목록 갱신 경계
+{
+    const run = setup((call) => call.url.includes("list_servers") ? { status: 200, data: { servers: [{ id:"1",name:"서버",owner_id:"2",role:"member",created_at:"2026-10-22T00:00:00Z" }] } } : call.url.includes("get_channels") ? { status:200,data:{ channels:[{id:"1",server_id:"1",server_name:"서버",name:"일반"}] } } : {status:200,data:{messages:[],pagination:{next_before_id:null,next_after_id:"0",has_more:false}}}); // 같은 서버 재참여 뒤 실제 목록
+    context.after(run.stop); // 수명 정리
+    run.evaluate('serverManager.identity="1"; serverManager.selected="1"; channels["1"].feed.block(requestError("채널 접근 종료",404,"CHANNEL_NOT_FOUND"));'); // 차단 상태
+    await run.evaluate("loadChannels()"); // 실제 소속 재확인
+    assert.equal(run.state().draft, ""); // 차단된 초안 복구 금지
+    assert.equal(run.evaluate('channels["1"].draft'), ""); // 새 채널 상태도 빈 초안
+}); // 재참여 초안 검사 끝
+test("서버 탈퇴·삭제 확정은 목록 실패 전에 모든 소속 채널 폐기", async (context) => // 조회 실패에도 접근 종료 자료 비노출
+{
+    const run = setup(() => ({status:500,code:"INTERNAL_ERROR"})); // 후속 서버 목록 실패
+    context.after(run.stop); // 조회 예약 정리
+    run.evaluate('channels["1"].serverId="1"; serverManager.identity="1"; serverManager.selected="1"; serverManager.channel="1"; serverManager.servers=[{id:"1",name:"종료",owner_id:"1",role:"owner"}]; globalThis.endedFeed=channels["1"].feed; discardDepartedServer("1");'); // 실제 성공 응답 경계
+    await run.evaluate("loadChannels()"); // 후속 통신 실패
+    assert.deepEqual(run.state(),{userId:"1",channelIds:[],draft:""}); // 이전 소속 자료 전체 폐기
+    assert.equal(run.evaluate("serverManager.selected"),null); // 종료된 서버 선택 제거
+    assert.equal(run.evaluate("serverManager.channel"),null); // 종료된 채널 선택 제거
+    assert.equal(run.evaluate("endedFeed.list().length"),0); // 참조가 남아도 기록 제거
+    assert.equal(run.evaluate("endedFeed.active"),false); // 조회 수명 종료
+}); // 소속 종료 확정 검사 끝
+test("전송 CSRF 복구의 늦은 실패는 새 계정·토큰 보존", async (context) => // 관리 복구 밖의 전송 인증 경계
+{
+    let release; // 오래된 계정 확인 응답
+    let entered; // 요청 진입 신호
+    const waiting=new Promise((resolve)=>entered=resolve); // 실제 비동기 복구 대기
+    const run=setup((call)=> // 실제 전송·토큰·계정 조회 연결
+    {
+        if(call.url==="/api/send_message.php") // 처음 제출
+        {
+            return {status:403,code:"CSRF_INVALID"}; // 토큰 복구 시작
+        }
+        if(call.url==="/api/csrf.php") // 새 토큰
+        {
+            return {status:200,data:{csrf_token:"b".repeat(64)}}; // 현재 계정 확인 전 대기
+        }
+        entered(); // 계정 조회 도착
+        return new Promise((resolve)=>release=resolve); // 늦은 401
+    });
+    context.after(run.stop); // 수명 정리
+    const pending=run.send(); // 실제 전송 복구
+    await waiting; // 원래 요청 대기 상태
+    run.evaluate('authGeneration++; clearSessionView(); currentUser={id:"2",username:"user_b"}; csrfToken="c".repeat(64);'); // 다른 로그인 완료
+    release({status:401,code:"UNAUTHORIZED"}); // 이전 복구의 늦은 실패
+    await pending; // 실제 화면 처리 종료
+    assert.equal(run.state().userId,"2"); // 새 로그인 보존
+    assert.equal(run.evaluate("csrfToken"),"c".repeat(64)); // 새 토큰 보존
+}); // 전송 복구 검사 끝
+test("서버 목록이 소속 종료를 확인하면 채널 조회 실패에도 자료 폐기", async (context) => // 창 복귀와 타 탭 탈퇴 경계
+{
+    const run=setup((call)=>call.url.includes("list_servers")?{status:200,data:{servers:[]}}:{status:500,code:"INTERNAL_ERROR"}); // 소속은 확인하고 채널만 실패
+    context.after(run.stop); // 예약 정리
+    run.evaluate('channels["1"].serverId="1"; serverManager.identity="1"; serverManager.selected="1"; serverManager.servers=[{id:"1",name:"기존",owner_id:"2",role:"member"}]; globalThis.endedFeed=channels["1"].feed;'); // 이전 소속 자료
+    await run.evaluate("loadChannels()"); // 실제 목록 연결
+    assert.deepEqual(run.state(),{userId:"1",channelIds:[],draft:""}); // 확인된 탈퇴 자료 비노출
+    assert.equal(run.evaluate("endedFeed.list().length"),0); // 기록 저장소 폐기
+    assert.equal(run.evaluate("serverManager.selected"),null); // 실제 빈 소속
+}); // 소속 조회 성공 경계 검사 끝
+test("서버 소속 403은 비활성 채널 초안도 재참여 전 폐기", async (context) => // 여러 채널 서버의 소속 상실 범위
+{
+    const run=setup((call)=>call.url.includes("list_servers")?{status:200,data:{servers:[{id:"1",name:"서버",owner_id:"2",role:"member"}]}}:call.url.includes("get_channels")?{status:200,data:{channels:[{id:"1",server_id:"1",server_name:"서버",name:"일반"},{id:"2",server_id:"1",server_name:"서버",name:"개발"}]}}:{status:200,data:{messages:[],pagination:{next_before_id:null,next_after_id:"0",has_more:false}}}); // 재참여 뒤 같은 소속
+    context.after(run.stop); // 예약 정리
+    run.evaluate('channels["1"].serverId="1"; channels["2"]={serverId:"1",title:"개발",serverName:"서버",messages:[],draft:"비활성 비공개 초안",unread:0}; channels["2"].feed=createChannelFeed("2",channels["2"],"1"); serverManager.identity="1"; serverManager.selected="1"; serverManager.servers=[{id:"1",name:"서버",owner_id:"2",role:"member"}]; channels["1"].feed.block(requestError("소속 없음",403,"FORBIDDEN"));'); // 활성 조회로 서버 소속 상실 확인
+    assert.deepEqual(run.state().channelIds,[]); // 같은 서버 전체 채널 폐기
+    await run.evaluate("loadChannels()"); // 실제 재참여 후 목록 조회
+    run.evaluate('selectChannel("2")'); // 이전 비활성 채널 선택
+    assert.equal(run.state().draft,""); // 이전 소속의 초안 재복원 없음
+}); // 비활성 초안 범위 검사 끝

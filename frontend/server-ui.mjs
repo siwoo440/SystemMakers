@@ -1,4 +1,4 @@
-export function mountServerUI({ manager, byId, onReload, onSelect, onError, isReady }) // 관리 화면의 외부 연결
+export function mountServerUI({ manager, byId, onReload, onSelect, onError, isReady, onDeparted = () => undefined }) // 관리 화면의 외부 연결
 {
     const dialog = byId("server-dialog"); // 공통 관리 대화상자
     const form = byId("server-form"); // 단일 제출 폼
@@ -160,6 +160,10 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
                 {
                     manager.selected = data.server.id; // 새 서버 ID
                     manager.channel = data.channel?.id || null; // 생성된 기본 채널
+                }
+                if (mode === "leave" || mode === "delete") // 확인된 소속 종료
+                {
+                    onDeparted(data.server_id); // 후속 목록 실패 전 이전 자료 폐기
                 }
                 dialog.close(); // 완료한 작업 화면 닫기
                 await onReload(); // 실제 서버·채널 확인

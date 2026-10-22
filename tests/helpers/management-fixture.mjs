@@ -1,4 +1,5 @@
 import { execFileSync, spawn } from "node:child_process"; // 실제 PHP와 DB 실행
+import { querySql } from "./sql-query.mjs"; // 안정적인 실제 DB 조회
 import { randomBytes } from "node:crypto"; // 독립 DB 식별자
 import { mkdirSync, readFileSync } from "node:fs"; // 파일과 세션 준비
 import { createServer } from "node:net"; // 빈 포트 확보
@@ -9,7 +10,6 @@ export async function fixture(context) // 독립 공개 API 검사 환경
     const root = fileURLToPath(new URL("../../", import.meta.url)); // 저장소 루트
     const database = "systemmakers_management_" + randomBytes(6).toString("hex"); // 정리 범위 제한
     const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // PHP 실행 파일
-    const mysql = process.env.MYSQL_TEST_CLIENT || "mysql"; // DB 실행 도구
     const port = process.env.MYSQL_TEST_PORT || "33361"; // 검사 전용 포트
     const locks = []; // 실패 시 해제할 독립 잠금 연결
     let server = null; // 정리할 웹 서버
@@ -17,7 +17,7 @@ export async function fixture(context) // 독립 공개 API 검사 환경
     {
         throw new Error("관리 검사는 전용 33361 포트 필요"); // 안전한 실행 조건
     }
-    const sql = (input, selected = true) => execFileSync(mysql, ["--no-defaults", "--protocol=TCP", "--host=127.0.0.1", "--port=" + port, "--user=root", "--batch", "--skip-column-names", "--default-character-set=utf8mb4", ...(selected ? [database] : [])], { input, encoding: "utf8", windowsHide: true }).trim(); // 실제 SQL 결과
+    const sql = (input, selected = true) => querySql(port, selected ? database : "", input); // 실제 SQL 결과
     sql("CREATE DATABASE " + database + " CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci", false); // 무작위 검사 DB 생성
     context.after(() => // 잠금 연결부터 정리하는 종료 경계
     {

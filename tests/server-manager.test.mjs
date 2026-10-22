@@ -10,6 +10,15 @@ function setup(request) // 브라우저 바깥 경계
     return { manager, values, change: (value) => user = value }; // 제어 가능한 인증 경계
 }
 const servers = [{ id: "9007199254740993", name: "빈 서버", owner_id: "1", role: "owner", created_at: "2026-10-21T00:00:00Z" }]; // 큰 문자열 ID
+test("마지막 서버 선택 제거는 영구 선택도 폐기", async () => // 종료 서버 ID의 재복원 방지
+{
+    const state=setup(async()=>({servers})); // 실제 목록
+    await state.manager.sync(); // 영구 선택 생성
+    state.manager.selected=null; // 마지막 서버 탈퇴·삭제
+    state.manager.channel=null; // 더 이상 선택한 채널 없음
+    state.manager.persist(); // 실제 저장 경계
+    assert.equal(state.values.size,0); // 이전 서버 ID 폐기
+});
 test("채널이 없는 서버도 선택·저장·복원", async () => // 채널 목록에 의존한 서버 누락 포착
 {
     const state = setup(async () => ({ servers })); // 실제 서버 목록 응답

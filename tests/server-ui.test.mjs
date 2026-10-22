@@ -17,7 +17,7 @@ function element() // DOM 입출력 경계
     }; // 닫기 경계 종료
     return item; // 최소 DOM 요소
 }
-function setup(request, name = "검증 서버") // 실제 모듈과 외부 DOM 연결
+function setup(request, name = "검증 서버", onDeparted = () => undefined, onReload = async () => undefined) // 실제 모듈과 외부 DOM 연결
 {
     const elements = new Map(); // 식별자별 요소
     const byId = (id) => // 동일 요소 재사용
@@ -32,7 +32,7 @@ function setup(request, name = "검증 서버") // 실제 모듈과 외부 DOM �
     let ui; // 실제 화면 연결
     const manager = new ServerManager({ request, getUser: () => ({ id: "1" }), onChange: () => ui?.render() }); // 실제 수명 상태
     Object.assign(manager, { identity: "1", selected: "1", servers: [{ id: "1", name, owner_id: "1", role: "owner" }] }); // 확인된 소속 자료
-    ui = mountServerUI({ manager, byId, onReload: async () => undefined, onSelect: async () => undefined, onError: async (error) => error.message, isReady: () => true }); // 실제 작업 핸들러
+    ui = mountServerUI({ manager, byId, onDeparted, onReload, onSelect: async () => undefined, onError: async (error) => error.message, isReady: () => true }); // 실제 작업 핸들러
     return { byId, ui }; // 관측할 DOM 경계
 }
 test("재발급 응답 유실 시 이전 원문 복사 차단", async () => // 무효 코드를 계속 공유하는 오류 차단
@@ -58,6 +58,15 @@ test("재발급 응답 유실 시 이전 원문 복사 차단", async () => // �
     await run.byId("server-form").fire("submit"); // 응답 없는 재발급
     assert.equal(run.byId("invite-code").value, ""); // 이전 원문 폐기
     assert.equal(run.byId("copy-invite").disabled, true); // 무효 코드 복사 차단
+});
+test("서버 삭제 성공은 목록 재조회 전에 소속 자료 폐기", async () => // 후속 통신과 독립된 성공 경계
+{
+    const events = []; // 실제 처리 순서
+    const run = setup(async (path) => path.includes("get_deletion_preview") ? {name:"검증 서버",channel_count:"2",member_count:"1",message_count:"2"} : {server_id:"1",deleted:true}, "검증 서버", (id) => events.push("discard:"+id), async () => events.push("reload")); // 실제 공개 응답
+    await run.byId("delete-server").fire("click"); // 이름 확인 화면
+    run.byId("server-value").value="검증 서버"; // 정확한 대상
+    await run.byId("server-form").fire("submit"); // 삭제 커밋 응답 처리
+    assert.deepEqual(events,["discard:1","reload"]); // 조회 실패 전 폐기 보장
 });
 test("삭제 이름 불일치는 새 미리보기와 빈 확인 입력 요구", async () => // 오래된 삭제 확인 재사용 방지
 {

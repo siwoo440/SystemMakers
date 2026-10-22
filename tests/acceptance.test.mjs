@@ -6,14 +6,14 @@ import { createServer } from "node:net"; // 빈 웹 포트
 import path from "node:path"; // 실행 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 주소 변환
 import test from "node:test"; // 기본 검사 도구
+import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
 const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
 const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // 실제 PHP
-const mysql = process.env.MYSQL_TEST_CLIENT || "mysql"; // 실제 DB 도구
 const port = process.env.MYSQL_TEST_PORT || "33361"; // 독립 MySQL 서버
 const database = "systemmakers_acceptance_" + randomBytes(6).toString("hex"); // 무작위 전용 DB
 function sql(statement, selected = true) // 독립 실제 SQL 요청
 {
-    return execFileSync(mysql, ["--no-defaults", "--protocol=TCP", "--host=127.0.0.1", "--port=" + port, "--user=root", "--batch", "--skip-column-names", "--default-character-set=utf8mb4", ...(selected ? [database] : [])], { input: statement, encoding: "utf8", windowsHide: true }).trim(); // 실제 결과 반환
+    return querySql(port, selected ? database : "", statement); // 실제 결과 반환
 }
 test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", async (context) => // 개별 API 사이의 계약 연결 오류 포착
 {
