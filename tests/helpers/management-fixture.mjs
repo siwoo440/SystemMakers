@@ -7,9 +7,9 @@ import path from "node:path"; // 실행 경로 연결
 import { fileURLToPath } from "node:url"; // 프로젝트 경로
 export async function fixture(context) // 독립 공개 API 검사 환경
 {
-    const root = fileURLToPath(new URL("../../", import.meta.url)); // 저장소 루트
+    const projectRoot = fileURLToPath(new URL("../../", import.meta.url)); // 저장소 루트
     const database = "systemmakers_management_" + randomBytes(6).toString("hex"); // 정리 범위 제한
-    const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // PHP 실행 파일
+    const phpBinary = process.env.PHP_TEST_BIN || path.join(projectRoot, ".runtime/php/php.exe"); // PHP 실행 파일
     const port = process.env.MYSQL_TEST_PORT || "33361"; // 검사 전용 포트
     const locks = []; // 실패 시 해제할 독립 잠금 연결
     let server = null; // 정리할 웹 서버
@@ -25,22 +25,22 @@ export async function fixture(context) // 독립 공개 API 검사 환경
         server?.kill(); // 추가 HTTP 처리 종료
         sql("DROP DATABASE " + database, false); // 해당 DB만 정리
     }); // 검사 종료 처리 끝
-    sql(readFileSync(path.join(root, "backend/sql/schema.sql"), "utf8")); // 기존 스키마 적용
-    const work = path.join(root, ".runtime", database); // 독립 세션 폴더
-    mkdirSync(work, { recursive: true }); // 검사 저장소 준비
-    const env = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "management-test-key-at-least-32-bytes-only" }; // 독립 설정
+    sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 기존 스키마 적용
+    const sessionDirectory = path.join(projectRoot, ".runtime", database); // 독립 세션 폴더
+    mkdirSync(sessionDirectory, { recursive: true }); // 검사 저장소 준비
+    const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "management-test-key-at-least-32-bytes-only" }; // 독립 설정
     const probe = createServer(); // 빈 포트 확인
     await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve)); // 임의 포트 배정
     const address = probe.address().port; // 배정된 포트
     await new Promise((resolve) => probe.close(resolve)); // 포트 예약 종료
     const origin = "http://127.0.0.1:" + address; // 공개 라우터 주소
-    server = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-d", "session.save_path=" + work, "-S", "127.0.0.1:" + address, path.join(root, "router.php")], { env, windowsHide: true, stdio: "ignore" }); // 실제 PHP 웹 서버
+    server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + address, path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 PHP 웹 서버
     function client() // 독립 회원 쿠키 경계
     {
         const session = { cookie: "", token: "", id: "" }; // 실제 인증 상태
         session.request = async (endpoint, body = null, extra = {}, method = body === null ? "GET" : "POST") => // 공개 API와 명시한 변경 메서드
         {
-            const response = await fetch(origin + "/api/" + endpoint, { method, headers: { Cookie: session.cookie, ...(session.id ? { "X-Expected-User-Id": session.id } : {}), ...(body === null ? {} : { "Content-Type": "application/json", "X-CSRF-Token": session.token }), ...extra }, body: body === null ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(5000) }); // 실제 HTTP
+            const response = await fetch(origin + "/Team006/backend/api/" + endpoint, { method, headers: { Cookie: session.cookie, ...(session.id ? { "X-Expected-User-Id": session.id } : {}), ...(body === null ? {} : { "Content-Type": "application/json", "X-CSRF-Token": session.token }), ...extra }, body: body === null ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(5000) }); // 실제 HTTP
             const cookie = response.headers.get("set-cookie"); // 서버 쿠키 교체
             if (cookie) // 새 쿠키 존재 여부
             {
@@ -80,11 +80,11 @@ export async function fixture(context) // 독립 공개 API 검사 환경
         session.id = login.data.user.id; // 실제 사용자 ID
         return session; // 인증된 클라이언트
     }
-    const migrate = () => execFileSync(php, ["-c", path.join(root, ".runtime/php.ini"), path.join(root, "scripts/migrate.php")], { env, encoding: "utf8", windowsHide: true }); // 실제 변경 실행 도구
+    const migrate = () => execFileSync(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/migrate.php")], { env: serverEnvironment, encoding: "utf8", windowsHide: true }); // 실제 변경 실행 도구
     async function hold(statement, after = "") // 별도 연결에서 실제 잠금 유지
     {
-        const source = 'require ' + JSON.stringify(path.join(root, 'backend/config/database.php')) + '; $pdo=db(); $pdo->beginTransaction(); $pdo->query(' + JSON.stringify(statement) + ')->fetchAll(); echo "LOCKED\\n"; fflush(STDOUT); fgets(STDIN); ' + (after ? '$pdo->exec(' + JSON.stringify(after) + '); ' : '') + '$pdo->commit();'; // 실제 잠금과 명시적 해제
-        const process = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-r", source], { env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] }); // 실제 독립 DB 연결
+        const source = 'require ' + JSON.stringify(path.join(projectRoot, 'backend/config/database.php')) + '; $fixtureDatabaseConnection=db(); $fixtureDatabaseConnection->beginTransaction(); $fixtureDatabaseConnection->query(' + JSON.stringify(statement) + ')->fetchAll(); echo "LOCKED\\n"; fflush(STDOUT); fgets(STDIN); ' + (after ? '$fixtureDatabaseConnection->exec(' + JSON.stringify(after) + '); ' : '') + '$fixtureDatabaseConnection->commit();'; // 실제 잠금과 명시적 해제
+        const process = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-r", source], { env: serverEnvironment, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] }); // 실제 독립 DB 연결
         locks.push(process); // DB 제거 전에 잠금 연결 정리
         await new Promise((resolve, reject) => // 잠금 획득 신호
         {
@@ -98,5 +98,5 @@ export async function fixture(context) // 독립 공개 API 검사 환경
             await new Promise((resolve) => process.once("exit", resolve)); // 커밋 완료 확인
         }; // 해제 함수 종료
     }
-    return { root, env, php, sql, client, account, migrate, hold }; // 검사 경계 반환
+    return { root: projectRoot, env: serverEnvironment, php: phpBinary, sql, client, account, migrate, hold }; // 검사 경계 반환
 }

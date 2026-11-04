@@ -1,10 +1,10 @@
 "use strict"; // 엄격한 자바스크립트 검사
-import { MessageFeed } from "/message-feed.mjs"; // 채널 기록과 자동 갱신 수명 관리
-import { ServerManager } from "/server-manager.mjs"; // 실제 서버 소속 상태
-import { mountServerUI } from "/server-ui.mjs"; // 명시적 관리 화면
-import { mountChannelUI } from "/channel-ui.mjs"; // 역할별 채널 관리 화면
-import { mountProfileUI } from "/profile-ui.mjs"; // 본인 정보 조회·사용자명 수정
-const byId = (id) => document.getElementById(id); // 화면 요소 조회
+import { MessageFeed } from "./message-feed.mjs"; // 채널 기록과 자동 갱신 수명 관리
+import { ServerManager } from "./server-manager.mjs"; // 실제 서버 소속 상태
+import { mountServerUI } from "./server-ui.mjs"; // 명시적 관리 화면
+import { mountChannelUI } from "./channel-ui.mjs"; // 역할별 채널 관리 화면
+import { mountProfileUI } from "./profile-ui.mjs"; // 본인 정보 조회·사용자명 수정
+const byId = (elementId) => document.getElementById(elementId); // 화면 요소 조회
 let channels = Object.create(null); // 서버에서 확인한 채널별 화면 자료
 const messageInput = byId("message-input"); // 메시지 작성 필드
 const messageScroll = byId("message-scroll"); // 대화 스크롤 영역
@@ -56,43 +56,43 @@ function pauseMessageFeeds() // 계정과 채널 전환 전 조회 중단
 }
 function updateHistoryControls() // 기록 조회 버튼과 갱신 상태 표시
 {
-    const feed = channels[activeChannel]?.feed; // 현재 채널 조회 상태
-    byId("load-older").hidden = !feed?.loaded || !feed.hasOlder || feed.blocked; // 남은 이전 기록 표시
-    byId("load-older").disabled = Boolean(feed?.busy); // 조회 중 겹치는 이전 요청 차단
-    byId("retry-messages").hidden = !feed?.error || feed.blocked; // 통신 실패의 수동 재시도
-    byId("retry-messages").disabled = Boolean(feed?.busy); // 재연결 중 중복 요청 차단
-    byId("history-status").textContent = !feed ? currentUser ? "선택할 채널이 없습니다." : "로그인 후 대화를 불러옵니다." : feed.blocked ? "채널 접근을 확인하세요." : feed.error ? "대화를 갱신하지 못했습니다. 다시 연결하는 중입니다." : !feed.loaded ? "이전 대화를 불러오는 중입니다." : feed.busy ? "대화 확인 중…" : "대화 연결됨 · 2초 간격 자동 갱신"; // 빈 서버와 비로그인 구분
+    const channelFeed = channels[activeChannel]?.feed; // 현재 채널 조회 상태
+    byId("load-older").hidden = !channelFeed?.loaded || !channelFeed.hasOlder || channelFeed.blocked; // 남은 이전 기록 표시
+    byId("load-older").disabled = Boolean(channelFeed?.busy); // 조회 중 겹치는 이전 요청 차단
+    byId("retry-messages").hidden = !channelFeed?.error || channelFeed.blocked; // 통신 실패의 수동 재시도
+    byId("retry-messages").disabled = Boolean(channelFeed?.busy); // 재연결 중 중복 요청 차단
+    byId("history-status").textContent = !channelFeed ? currentUser ? "선택할 채널이 없습니다." : "로그인 후 대화를 불러옵니다." : channelFeed.blocked ? "채널 접근을 확인하세요." : channelFeed.error ? "대화를 갱신하지 못했습니다. 다시 연결하는 중입니다." : !channelFeed.loaded ? "이전 대화를 불러오는 중입니다." : channelFeed.busy ? "대화 확인 중…" : "대화 연결됨 · 2초 간격 자동 갱신"; // 빈 서버와 비로그인 구분
 }
 function createChannelFeed(channelId, channel, userId) // 실제 소속 채널의 조회 연결
 {
-    const feed = new MessageFeed({ channelId, request: (query, signal) => requestEndpoint("/api/get_messages.php?" + query, null, signal), onChange: (change) => // 동일 출처의 취소 가능한 기록 조회
+    const channelFeed = new MessageFeed({ channelId, request: (messageQuery, abortSignal) => requestEndpoint("./backend/api/get_messages.php?" + messageQuery, null, abortSignal), onChange: (feedChange) => // 동일 출처의 취소 가능한 기록 조회
     {
         if (currentUser?.id !== userId || channels[channelId] !== channel) // 이전 계정과 교체된 채널 응답
         {
             return; // 현재 화면 변경 차단
         }
-        channel.messages = feed.list().map((item) => ({ id: item.id, name: item.user_id === currentUser?.id ? currentUser.username : item.username, timestamp: item.created_at, text: item.content })); // 지연 기록도 현재 본인 표시 이름 사용
+        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, name: messageEntry.user_id === currentUser?.id ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content })); // 지연 기록도 현재 본인 표시 이름 사용
         if (activeChannel !== channelId) // 현재 표시하지 않는 채널
         {
-            channel.unread += change.added; // 원래 채널의 새 메시지 수 유지
+            channel.unread += feedChange.added; // 원래 채널의 새 메시지 수 유지
             return; // 다른 채널 화면 변경 차단
         }
-        if (!["loading", "state"].includes(change.kind)) // 실제 기록이 바뀐 경우
+        if (!["loading", "state"].includes(feedChange.kind)) // 실제 기록이 바뀐 경우
         {
-            const top = messageScroll.scrollTop; // 기존 읽는 위치
-            const height = messageScroll.scrollHeight; // 이전 기록 높이
+            const previousScrollTop = messageScroll.scrollTop; // 기존 읽는 위치
+            const previousScrollHeight = messageScroll.scrollHeight; // 이전 기록 높이
             const keepBottom = nearBottom(); // 새 메시지 자동 이동 조건
             messages.replaceChildren(...channel.messages.map(createMessage)); // 중복 없는 실제 기록 표시
-            if (change.kind === "initial" || (change.kind !== "before" && keepBottom)) // 최초 진입 또는 하단에서 신규 수신
+            if (feedChange.kind === "initial" || (feedChange.kind !== "before" && keepBottom)) // 최초 진입 또는 하단에서 신규 수신
             {
                 scrollToBottom(); // 최신 대화 위치 표시
             }
             else // 과거 기록을 읽는 중인 상태
             {
-                messageScroll.scrollTop = change.kind === "before" ? top + messageScroll.scrollHeight - height : top; // 이전 기록 추가 시 현재 메시지 위치 보존
-                if (["after", "send"].includes(change.kind)) // 하단에 새로 추가된 기록
+                messageScroll.scrollTop = feedChange.kind === "before" ? previousScrollTop + messageScroll.scrollHeight - previousScrollHeight : previousScrollTop; // 이전 기록 추가 시 현재 메시지 위치 보존
+                if (["after", "send"].includes(feedChange.kind)) // 하단에 새로 추가된 기록
                 {
-                    channel.unread += change.added; // 실제 새 기록만 안내
+                    channel.unread += feedChange.added; // 실제 새 기록만 안내
                 }
             }
             channel.scroll = messageScroll.scrollTop; // 복원할 위치 갱신
@@ -100,19 +100,19 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         }
         updateHistoryControls(); // 조회 진행과 오류 안내
         updateComposer(); // 권한 변경에 따른 전송 상태
-    }, onError: (error) => // 실제 조회 오류의 인증과 권한 처리
+    }, onError: (operationError) => // 실제 조회 오류의 인증과 권한 처리
     {
         if (currentUser?.id !== userId || channels[channelId] !== channel) // 이전 계정 오류 여부
         {
             return; // 늦은 오류 무시
         }
-        if (error.status === 401 || error.code === "SESSION_CHANGED") // 세션 만료 또는 다른 탭 계정 변경
+        if (operationError.status === 401 || operationError.code === "SESSION_CHANGED") // 세션 만료 또는 다른 탭 계정 변경
         {
-            expireMessageSession(error.code === "SESSION_CHANGED").catch(ignoreConnectionFailure); // 계정 자료 정리와 로그인 화면 복구
+            expireMessageSession(operationError.code === "SESSION_CHANGED").catch(ignoreConnectionFailure); // 계정 자료 정리와 로그인 화면 복구
         }
-        else if ([403, 404].includes(error.status)) // 현재 채널 소속 또는 존재 상실
+        else if ([403, 404].includes(operationError.status)) // 현재 채널 소속 또는 존재 상실
         {
-            if (error.status === 403 && error.code === "FORBIDDEN" && channel.serverId) // 현재 계약의 서버 소속 상실
+            if (operationError.status === 403 && operationError.code === "FORBIDDEN" && channel.serverId) // 현재 계약의 서버 소속 상실
             {
                 discardDepartedServer(channel.serverId); // 비활성 채널의 초안·대화도 함께 폐기
                 channelError = "서버에 접근할 수 없습니다. 참여 상태와 목록을 다시 확인하세요."; // 소속 종료 안내
@@ -140,11 +140,11 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
             updateComposer(); // 권한 없는 전송 차단
         }
     } }); // 조회 경계 연결 종료
-    return feed; // 채널별 독립 조회 상태 반환
+    return channelFeed; // 채널별 독립 조회 상태 반환
 }
-function validId(value) // 큰 정수 문자열 계약 검사
+function validId(identifierValue) // 큰 정수 문자열 계약 검사
 {
-    return typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value) && (value.length < 20 || value <= "18446744073709551615"); // 부호 없는 64비트 범위 확인
+    return typeof identifierValue === "string" && /^[1-9][0-9]{0,19}$/.test(identifierValue) && (identifierValue.length < 20 || identifierValue <= "18446744073709551615"); // 부호 없는 64비트 범위 확인
 }
 function nearBottom() // 대화 하단 여부 확인
 {
@@ -152,9 +152,9 @@ function nearBottom() // 대화 하단 여부 확인
 }
 function showNewMessages() // 새 메시지 안내 갱신
 {
-    const unread = channels[activeChannel]?.unread || 0; // 선택한 채널의 읽지 않은 수
-    byId("new-messages").hidden = unread === 0; // 새 메시지 안내 표시
-    byId("new-messages").textContent = `새 메시지 ${unread}개 보기 ↓`; // 안전한 안내 출력
+    const unreadCount = channels[activeChannel]?.unread || 0; // 선택한 채널의 읽지 않은 수
+    byId("new-messages").hidden = unreadCount === 0; // 새 메시지 안내 표시
+    byId("new-messages").textContent = `새 메시지 ${unreadCount}개 보기 ↓`; // 안전한 안내 출력
 }
 function scrollToBottom() // 대화 하단 이동
 {
@@ -167,80 +167,80 @@ function scrollToBottom() // 대화 하단 이동
 }
 function createMessage(message) // HTML 실행 없는 저장 메시지 생성
 {
-    const article = document.createElement("article"); // 메시지 묶음
-    article.className = "message"; // 메시지 배치 스타일
-    const avatar = document.createElement("div"); // 작성자 이니셜
-    avatar.className = "avatar avatar-teal"; // 작성자 아바타 스타일
-    avatar.setAttribute("aria-hidden", "true"); // 장식 중복 읽기 방지
-    avatar.textContent = Array.from(message.name)[0].toUpperCase(); // 사용자 첫 글자 출력
-    const content = document.createElement("div"); // 메시지 내용 영역
-    content.className = "message-content"; // 본문 배치 스타일
-    const meta = document.createElement("div"); // 작성 정보 영역
-    meta.className = "message-meta"; // 작성 정보 스타일
-    const name = document.createElement("strong"); // 사용자 이름
-    name.textContent = message.name; // 일반 텍스트 사용자명
-    const time = document.createElement("time"); // 저장 시각
-    time.dateTime = message.timestamp; // 기계 판독 시각
-    time.textContent = new Date(message.timestamp).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }); // 사용자 시간대 표시
-    const label = document.createElement("span"); // 확인된 저장 배지
-    label.className = "local-label"; // 배지 스타일
-    label.textContent = "저장됨"; // 실제 성공 응답 구분
-    meta.append(name, time, label); // 작성 정보 배치
-    const body = document.createElement("p"); // 메시지 본문
-    body.className = "message-body"; // 원문 줄바꿈 스타일
-    body.textContent = message.text; // HTML 실행 없는 원문 출력
-    content.append(meta, body); // 작성 정보와 본문 배치
-    article.append(avatar, content); // 메시지 요소 조립
-    return article; // 완성한 메시지 반환
+    const messageArticle = document.createElement("article"); // 메시지 묶음
+    messageArticle.className = "message"; // 메시지 배치 스타일
+    const authorAvatar = document.createElement("div"); // 작성자 이니셜
+    authorAvatar.className = "avatar avatar-teal"; // 작성자 아바타 스타일
+    authorAvatar.setAttribute("aria-hidden", "true"); // 장식 중복 읽기 방지
+    authorAvatar.textContent = Array.from(message.name)[0].toUpperCase(); // 사용자 첫 글자 출력
+    const messageContent = document.createElement("div"); // 메시지 내용 영역
+    messageContent.className = "message-content"; // 본문 배치 스타일
+    const messageMetadata = document.createElement("div"); // 작성 정보 영역
+    messageMetadata.className = "message-meta"; // 작성 정보 스타일
+    const authorName = document.createElement("strong"); // 사용자 이름
+    authorName.textContent = message.name; // 일반 텍스트 사용자명
+    const messageTime = document.createElement("time"); // 저장 시각
+    messageTime.dateTime = message.timestamp; // 기계 판독 시각
+    messageTime.textContent = new Date(message.timestamp).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }); // 사용자 시간대 표시
+    const savedLabel = document.createElement("span"); // 확인된 저장 배지
+    savedLabel.className = "local-label"; // 배지 스타일
+    savedLabel.textContent = "저장됨"; // 실제 성공 응답 구분
+    messageMetadata.append(authorName, messageTime, savedLabel); // 작성 정보 배치
+    const messageBody = document.createElement("p"); // 메시지 본문
+    messageBody.className = "message-body"; // 원문 줄바꿈 스타일
+    messageBody.textContent = message.text; // HTML 실행 없는 원문 출력
+    messageContent.append(messageMetadata, messageBody); // 작성 정보와 본문 배치
+    messageArticle.append(authorAvatar, messageContent); // 메시지 요소 조립
+    return messageArticle; // 완성한 메시지 반환
 }
 function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
 {
     const channel = channels[activeChannel]; // 선택한 실제 채널
-    const count = Array.from(messageInput.value).length; // 원문 코드 포인트 수
+    const characterCount = Array.from(messageInput.value).length; // 원문 코드 포인트 수
     const hasText = /[^\p{White_Space}\uFEFF]/u.test(messageInput.value); // 공백 외 글자 여부
     const containsNull = messageInput.value.includes("\u0000"); // 저장 불가능한 빈 문자
-    const available = Boolean(currentUser && channel && !channel.feed?.blocked && csrfToken && !authBusy && !authInitializing && !channelLoading && !channelError); // 실제 전송 준비 상태
-    messageInput.disabled = !available; // 게스트와 미확인 채널 입력 차단
-    byId("message-count").textContent = `${count.toLocaleString("ko-KR")} / 2,000`; // 원문 길이 표시
-    byId("message-count").classList.toggle("over-limit", count > 2000); // 초과 길이 표시
-    byId("send-button").disabled = !available || Boolean(sendRequest) || !hasText || count > 2000 || containsNull; // 중복 제출과 잘못된 입력 차단
+    const composerAvailable = Boolean(currentUser && channel && !channel.feed?.blocked && csrfToken && !authBusy && !authInitializing && !channelLoading && !channelError); // 실제 전송 준비 상태
+    messageInput.disabled = !composerAvailable; // 게스트와 미확인 채널 입력 차단
+    byId("message-count").textContent = `${characterCount.toLocaleString("ko-KR")} / 2,000`; // 원문 길이 표시
+    byId("message-count").classList.toggle("over-limit", characterCount > 2000); // 초과 길이 표시
+    byId("send-button").disabled = !composerAvailable || Boolean(sendRequest) || !hasText || characterCount > 2000 || containsNull; // 중복 제출과 잘못된 입력 차단
     byId("open-auth").disabled = authBusy || authInitializing || Boolean(sendRequest); // 저장 결과 확인 전 계정 변경 차단
     byId("send-button").textContent = sendRequest ? "저장 중…" : "전송 ↗"; // 실제 저장 요청 상태
     byId("message-form").setAttribute("aria-busy", String(Boolean(sendRequest))); // 보조 기기 요청 상태
-    messageInput.setAttribute("aria-invalid", String(count > 2000 || containsNull)); // 입력 오류 접근성 상태
+    messageInput.setAttribute("aria-invalid", String(characterCount > 2000 || containsNull)); // 입력 오류 접근성 상태
     if (channel) // 실제 채널 선택 여부
     {
         channel.draft = messageInput.value; // 채널별 작성 원문 보관
     }
-    const feedback = containsNull ? "지원하지 않는 빈 문자를 제거하세요." : count > 2000 ? "메시지는 2,000자까지 입력할 수 있습니다." : !currentUser ? "로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다." : channelLoading ? "참여 중인 채널을 확인하는 중입니다." : channelError ? channelError : !channel ? serverManager.selected ? emptyChannelHint() : "서버를 만들거나 초대 코드로 참여하세요." : !csrfToken ? "화면 보호 정보를 확인하지 못했습니다. 다시 로그인하세요." : channel.feedback || "대화는 DB에 저장되며 새 메시지를 자동으로 확인합니다."; // 확인된 기능 범위와 오류 안내
+    const feedback = containsNull ? "지원하지 않는 빈 문자를 제거하세요." : characterCount > 2000 ? "메시지는 2,000자까지 입력할 수 있습니다." : !currentUser ? "로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다." : channelLoading ? "참여 중인 채널을 확인하는 중입니다." : channelError ? channelError : !channel ? serverManager.selected ? emptyChannelHint() : "서버를 만들거나 초대 코드로 참여하세요." : !csrfToken ? "화면 보호 정보를 확인하지 못했습니다. 다시 로그인하세요." : channel.feedback || "대화는 DB에 저장되며 새 메시지를 자동으로 확인합니다."; // 확인된 기능 범위와 오류 안내
     byId("composer-feedback").textContent = feedback; // 안전한 상태 문구 출력
-    byId("composer-feedback").classList.toggle("error", count > 2000 || containsNull || Boolean(channel?.error) || Boolean(channelError)); // 실패 상태 색상
+    byId("composer-feedback").classList.toggle("error", characterCount > 2000 || containsNull || Boolean(channel?.error) || Boolean(channelError)); // 실패 상태 색상
     renderManagementUI(); // 전송 중 서버·채널 관리 잠금
 }
 function emptyChannelHint() // 빈 서버의 역할별 다음 조작
 {
-    const role = serverManager.servers.find((server) => server.id === serverManager.selected)?.role; // 확인된 소속 역할
-    return ["owner", "admin"].includes(role) ? "채널 만들기 버튼으로 첫 대화방을 준비하세요." : "관리자가 채널을 준비하면 목록을 다시 확인하세요."; // 생성 권한별 안내
+    const serverRole = serverManager.servers.find((server) => server.id === serverManager.selected)?.role; // 확인된 소속 역할
+    return ["owner", "admin"].includes(serverRole) ? "채널 만들기 버튼으로 첫 대화방을 준비하세요." : "관리자가 채널을 준비하면 목록을 다시 확인하세요."; // 생성 권한별 안내
 }
 function renderChannels() // 실제 소속 채널 목록 생성
 {
-    const list = byId("channel-list"); // 동적 채널 버튼 영역
-    const items = Object.entries(channels).filter(([, channel]) => !serverManager.identity || channel.serverId === serverManager.selected).map(([id, channel]) => // 선택한 서버의 채널 순서
+    const channelList = byId("channel-list"); // 동적 채널 버튼 영역
+    const channelButtons = Object.entries(channels).filter(([, channel]) => !serverManager.identity || channel.serverId === serverManager.selected).map(([channelId, channel]) => // 선택한 서버의 채널 순서
     {
-        const button = document.createElement("button"); // 키보드 접근 가능한 채널 버튼
-        button.type = "button"; // 폼 제출 방지
-        button.className = "channel-button"; // 기존 채널 디자인
-        button.dataset.channel = id; // 문자열 식별자 보관
-        button.textContent = `# ${channel.title} · ${channel.serverName}`; // 같은 이름의 서버별 채널 구분
-        button.title = `${channel.serverName} / ${channel.title}`; // 전체 채널 이름 안내
-        button.setAttribute("aria-pressed", String(id === activeChannel)); // 현재 채널 선택 상태
-        button.classList.toggle("active", id === activeChannel); // 현재 채널 강조
-        button.addEventListener("click", () => selectChannel(id)); // 확인한 식별자로만 채널 선택
-        return button; // 완성한 탐색 버튼
+        const channelButton = document.createElement("button"); // 키보드 접근 가능한 채널 버튼
+        channelButton.type = "button"; // 폼 제출 방지
+        channelButton.className = "channel-button"; // 기존 채널 디자인
+        channelButton.dataset.channel = channelId; // 문자열 식별자 보관
+        channelButton.textContent = `# ${channel.title} · ${channel.serverName}`; // 같은 이름의 서버별 채널 구분
+        channelButton.title = `${channel.serverName} / ${channel.title}`; // 전체 채널 이름 안내
+        channelButton.setAttribute("aria-pressed", String(channelId === activeChannel)); // 현재 채널 선택 상태
+        channelButton.classList.toggle("active", channelId === activeChannel); // 현재 채널 강조
+        channelButton.addEventListener("click", () => selectChannel(channelId)); // 확인한 식별자로만 채널 선택
+        return channelButton; // 완성한 탐색 버튼
     }); // 채널 버튼 생성 끝
-    list.replaceChildren(...items); // 이전 계정 목록 제거 후 교체
-    byId("channel-count").textContent = String(items.length).padStart(2, "0"); // 실제 채널 수
-    byId("channel-status").hidden = items.length > 0 && !channelLoading && !channelError; // 비어 있거나 실패한 목록 안내
+    channelList.replaceChildren(...channelButtons); // 이전 계정 목록 제거 후 교체
+    byId("channel-count").textContent = String(channelButtons.length).padStart(2, "0"); // 실제 채널 수
+    byId("channel-status").hidden = channelButtons.length > 0 && !channelLoading && !channelError; // 비어 있거나 실패한 목록 안내
     byId("channel-status").textContent = !currentUser ? "로그인 후 참여 채널이 표시됩니다." : channelLoading ? "채널을 확인하는 중입니다." : channelError || (serverManager.selected ? emptyChannelHint() : "서버를 만들거나 초대 코드로 참여하세요."); // 빈 서버와 미소속 구분
     byId("retry-channels").hidden = !currentUser || !channelError; // 조회 실패 시 재시도 제공
     byId("retry-channels").disabled = channelLoading || authBusy; // 중복 조회 차단
@@ -307,10 +307,10 @@ async function expireMessageSession(changed = false) // 만료되거나 다른 �
         showAuthError(changed ? "로그인 계정이 변경되었습니다. 이전 초안은 자동 전송하지 않습니다. 현재 계정을 확인하세요." : "세션이 만료되었습니다. 다시 로그인하세요."); // 실제 종료 이유 안내
     }
 }
-function discardDepartedServer(id) // 탈퇴·서버 삭제 확정 자료의 즉시 폐기
+function discardDepartedServer(serverId) // 탈퇴·서버 삭제 확정 자료의 즉시 폐기
 {
-    serverManager.servers = serverManager.servers.filter((server) => server.id !== id); // 종료 소속 목록 제거
-    if (serverManager.selected === id) // 선택 중인 종료 서버
+    serverManager.servers = serverManager.servers.filter((server) => server.id !== serverId); // 종료 소속 목록 제거
+    if (serverManager.selected === serverId) // 선택 중인 종료 서버
     {
         serverUI?.clear(); // 종료 서버의 초대 원문과 확인 입력 폐기
         byId("server-dialog").close(); // 접근할 수 없는 관리 화면 종료
@@ -321,26 +321,26 @@ function discardDepartedServer(id) // 탈퇴·서버 삭제 확정 자료의 즉
     serverManager.persist(); // 영구 선택도 종료 반영
     for (const [channelId, channel] of Object.entries(channels)) // 확인된 같은 서버의 모든 채널
     {
-        if (channel.serverId === id) // 종료한 소속 범위
+        if (channel.serverId === serverId) // 종료한 소속 범위
         {
             discardDeletedChannel(channelId); // 기록·초안·예약·복원 자료 폐기
         }
     }
     renderManagementUI(); // 소속 종료를 버튼과 제목에 반영
 }
-function discardDeletedChannel(id) // 삭제 확정 자료의 즉시 폐기
+function discardDeletedChannel(channelId) // 삭제 확정 자료의 즉시 폐기
 {
-    channels[id]?.feed.block(requestError("삭제된 채널입니다.")); // 기록·진행 조회·예약 종료
-    delete channels[id]; // 초안과 채널 참조 제거
+    channels[channelId]?.feed.block(requestError("삭제된 채널입니다.")); // 기록·진행 조회·예약 종료
+    delete channels[channelId]; // 초안과 채널 참조 제거
     if (savedDrafts?.values) // 만료 복원용 초안 존재
     {
-        delete savedDrafts.values[id]; // 삭제 대상 초안 복원 차단
+        delete savedDrafts.values[channelId]; // 삭제 대상 초안 복원 차단
     }
-    if (serverManager.channel === id) // 저장된 삭제 대상 선택
+    if (serverManager.channel === channelId) // 저장된 삭제 대상 선택
     {
         serverManager.rememberChannel(null); // 영구 선택 제거
     }
-    if (activeChannel === id) // 표시 중인 삭제 대상
+    if (activeChannel === channelId) // 표시 중인 삭제 대상
     {
         activeChannel = null; // 더 이상 선택할 수 없는 채널
         messageInput.value = ""; // 삭제된 대화의 입력 제거
@@ -354,9 +354,9 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
     {
         return; // 게스트 조회 중단
     }
-    const generation = authGeneration; // 요청 당시 계정 상태
+    const requestGeneration = authGeneration; // 요청 당시 계정 상태
     const userId = currentUser.id; // 요청 당시 사용자 식별자
-    const version = ++channelLoadVersion; // 최신 조회 식별 번호
+    const requestVersion = ++channelLoadVersion; // 최신 조회 식별 번호
     pauseMessageFeeds(); // 목록 교체 중 기존 기록 요청 중단
     channelLoading = true; // 실제 조회 진행 상태
     channelError = ""; // 이전 오류 초기화
@@ -365,7 +365,7 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
     try // 실제 소속 채널과 응답 계약 확인
     {
         await serverManager.sync(); // 채널이 없는 소속 서버도 먼저 확인
-        if (generation !== authGeneration || version !== channelLoadVersion || currentUser?.id !== userId) // 소속 확인 중 계정 교체
+        if (requestGeneration !== authGeneration || requestVersion !== channelLoadVersion || currentUser?.id !== userId) // 소속 확인 중 계정 교체
         {
             return; // 새 계정 자료 정리와 후속 조회 중단
         }
@@ -377,37 +377,37 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
                 discardDepartedServer(serverId); // 채널 조회 실패 전 종료 자료 폐기
             }
         }
-        const data = await requestEndpoint("/api/get_channels.php"); // 쿼리 없는 실제 조회 요청
-        if (generation !== authGeneration || version !== channelLoadVersion || currentUser?.id !== userId) // 늦은 이전 계정 응답 여부
+        const responseData = await requestEndpoint("./backend/api/get_channels.php"); // 쿼리 없는 실제 조회 요청
+        if (requestGeneration !== authGeneration || requestVersion !== channelLoadVersion || currentUser?.id !== userId) // 늦은 이전 계정 응답 여부
         {
             return; // 이전 계정 목록 적용 중단
         }
-        if (!Array.isArray(data.channels) || data.channels.some((item) => !item || !validId(item.id) || !validId(item.server_id) || typeof item.name !== "string" || !item.name || typeof item.server_name !== "string" || !item.server_name) || new Set(data.channels.map((item) => item.id)).size !== data.channels.length) // 실제 채널 계약 검사
+        if (!Array.isArray(responseData.channels) || responseData.channels.some((channelEntry) => !channelEntry || !validId(channelEntry.id) || !validId(channelEntry.server_id) || typeof channelEntry.name !== "string" || !channelEntry.name || typeof channelEntry.server_name !== "string" || !channelEntry.server_name) || new Set(responseData.channels.map((channelEntry) => channelEntry.id)).size !== responseData.channels.length) // 실제 채널 계약 검사
         {
             throw requestError("참여 채널 정보를 확인하지 못했습니다. 채널 목록을 다시 확인하세요."); // 미확인 식별자 사용 차단
         }
         const nextChannels = Object.create(null); // 새로 확인한 소속 채널
-        data.channels.forEach((item) => // 실제 응답 순서대로 채널 준비
+        responseData.channels.forEach((channelEntry) => // 실제 응답 순서대로 채널 준비
         {
-            const previous = channels[item.id]; // 같은 계정의 기존 채널 자료
-            const recovered = savedDrafts?.userId === userId ? savedDrafts.values[item.id] || "" : ""; // 같은 계정의 만료 전 초안
-            const channel = previous && !previous.feed?.blocked ? previous : { messages: [], draft: previous?.feed?.blocked ? "" : previous?.draft || recovered, scroll: null, unread: 0, feedback: "", error: false }; // 접근 종료 자료는 초안도 복원하지 않음
-            channel.title = item.name; // 현재 채널 이름
-            channel.serverName = item.server_name; // 현재 소속 서버 이름
-            channel.serverId = item.server_id; // 서버별 독립 탐색 조건
-            channel.feed ??= createChannelFeed(item.id, channel, userId); // 계정과 채널별 독립 기록 상태
-            nextChannels[item.id] = channel; // 확인한 소속 채널 보관
+            const previousChannel = channels[channelEntry.id]; // 같은 계정의 기존 채널 자료
+            const recoveredDraft = savedDrafts?.userId === userId ? savedDrafts.values[channelEntry.id] || "" : ""; // 같은 계정의 만료 전 초안
+            const channel = previousChannel && !previousChannel.feed?.blocked ? previousChannel : { messages: [], draft: previousChannel?.feed?.blocked ? "" : previousChannel?.draft || recoveredDraft, scroll: null, unread: 0, feedback: "", error: false }; // 접근 종료 자료는 초안도 복원하지 않음
+            channel.title = channelEntry.name; // 현재 채널 이름
+            channel.serverName = channelEntry.server_name; // 현재 소속 서버 이름
+            channel.serverId = channelEntry.server_id; // 서버별 독립 탐색 조건
+            channel.feed ??= createChannelFeed(channelEntry.id, channel, userId); // 계정과 채널별 독립 기록 상태
+            nextChannels[channelEntry.id] = channel; // 확인한 소속 채널 보관
         }); // 소속 채널 준비 끝
         savedDrafts = null; // 확인 후 만료 전 초안 참조 제거
         channels = nextChannels; // 확인한 소속 채널만 유지
         channelLoading = false; // 채널 조회 완료
-        const candidates = data.channels.filter((item) => item.server_id === serverManager.selected); // 선택 서버의 확인한 채널
-        const preferred = serverManager.channel || activeChannel; // 새로고침 전 또는 현재 선택
-        const selected = candidates.some((item) => item.id === preferred) ? preferred : candidates[0]?.id || null; // 유효한 선택 또는 첫 채널
+        const candidateChannels = responseData.channels.filter((channelEntry) => channelEntry.server_id === serverManager.selected); // 선택 서버의 확인한 채널
+        const preferredChannelId = serverManager.channel || activeChannel; // 새로고침 전 또는 현재 선택
+        const selectedChannelId = candidateChannels.some((channelEntry) => channelEntry.id === preferredChannelId) ? preferredChannelId : candidateChannels[0]?.id || null; // 유효한 선택 또는 첫 채널
         activeChannel = null; // 이전 선택의 초안 덮어쓰기 방지
-        if (selected) // 참여 채널 존재 여부
+        if (selectedChannelId) // 참여 채널 존재 여부
         {
-            selectChannel(selected); // 실제 채널 화면 표시
+            selectChannel(selectedChannelId); // 실제 채널 화면 표시
         }
         else // 참여 중인 채널 없는 사용자
         {
@@ -416,22 +416,22 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
             renderEmptyConversation(); // 정확한 미참여 안내
         }
     }
-    catch (error) // 조회 오류와 인증 만료 처리
+    catch (operationError) // 조회 오류와 인증 만료 처리
     {
-        if (generation !== authGeneration || version !== channelLoadVersion) // 이미 교체된 조회 상태
+        if (requestGeneration !== authGeneration || requestVersion !== channelLoadVersion) // 이미 교체된 조회 상태
         {
             return; // 이전 실패 응답 무시
         }
-        if (error.status === 401 || error.code === "SESSION_CHANGED") // 실제 로그인 만료와 계정 변경 응답
+        if (operationError.status === 401 || operationError.code === "SESSION_CHANGED") // 실제 로그인 만료와 계정 변경 응답
         {
-            await expireMessageSession(error.code === "SESSION_CHANGED"); // 이전 계정 목록과 기록 정리
+            await expireMessageSession(operationError.code === "SESSION_CHANGED"); // 이전 계정 목록과 기록 정리
             return; // 만료 계정 조회 종료
         }
         channelError = "참여 채널을 확인하지 못했습니다. 채널 목록 다시 확인을 눌러주세요."; // 성공 추정 없는 실패 안내
     }
     finally // 최신 요청의 화면 상태 갱신
     {
-        if (generation === authGeneration && version === channelLoadVersion) // 현재 계정의 마지막 조회 여부
+        if (requestGeneration === authGeneration && requestVersion === channelLoadVersion) // 현재 계정의 마지막 조회 여부
         {
             channelLoading = false; // 조회 잠금 해제
             renderChannels(); // 재시도 버튼과 결과 표시
@@ -439,9 +439,9 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
         }
     }
 }
-async function sendMessage(event) // 실제 데이터베이스 메시지 저장
+async function sendMessage(uiEvent) // 실제 데이터베이스 메시지 저장
 {
-    event.preventDefault(); // 기본 폼 페이지 이동 차단
+    uiEvent.preventDefault(); // 기본 폼 페이지 이동 차단
     updateComposer(); // 최신 입력과 계정 상태 검사
     if (byId("send-button").disabled) // 입력 오류 또는 중복 요청 여부
     {
@@ -449,28 +449,28 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
     }
     const channelId = activeChannel; // 제출한 실제 채널 식별자
     const channel = channels[channelId]; // 응답을 적용할 채널 자료
-    const request = { generation: authGeneration, userId: currentUser.id, content: messageInput.value }; // 제출 당시 계정과 원문
-    sendRequest = request; // 중복 전송 잠금
+    const messageRequest = { generation: authGeneration, userId: currentUser.id, content: messageInput.value }; // 제출 당시 계정과 원문
+    sendRequest = messageRequest; // 중복 전송 잠금
     channel.feedback = "메시지를 저장하는 중입니다."; // 실제 요청 진행 안내
     channel.error = false; // 이전 실패 상태 제거
     updateComposer(); // 전송 버튼과 접근성 상태 갱신
     try // 실제 저장 성공 응답 확인
     {
-        const data = await requestEndpoint("/api/send_message.php", { channel_id: channelId, content: request.content }); // 최신 보호 토큰과 원문 전송
-        if (request.generation !== authGeneration || currentUser?.id !== request.userId || channels[channelId] !== channel || channel.feed.blocked) // 계정·채널 교체와 조회 중 권한 상실 여부
+        const responseData = await requestEndpoint("./backend/api/send_message.php", { channel_id: channelId, content: messageRequest.content }); // 최신 보호 토큰과 원문 전송
+        if (messageRequest.generation !== authGeneration || currentUser?.id !== messageRequest.userId || channels[channelId] !== channel || channel.feed.blocked) // 계정·채널 교체와 조회 중 권한 상실 여부
         {
             return; // 이전 계정의 늦은 성공 무시
         }
-        const result = data.message; // 실제 저장된 메시지 객체
-        if (!result || !validId(result.id) || result.channel_id !== channelId || result.user_id !== request.userId || typeof result.username !== "string" || !result.username || result.content !== request.content || typeof result.created_at !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(result.created_at) || Number.isNaN(Date.parse(result.created_at))) // 저장 응답의 계약과 원문 확인
+        const savedMessage = responseData.message; // 실제 저장된 메시지 객체
+        if (!savedMessage || !validId(savedMessage.id) || savedMessage.channel_id !== channelId || savedMessage.user_id !== messageRequest.userId || typeof savedMessage.username !== "string" || !savedMessage.username || savedMessage.content !== messageRequest.content || typeof savedMessage.created_at !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(savedMessage.created_at) || Number.isNaN(Date.parse(savedMessage.created_at))) // 저장 응답의 계약과 원문 확인
         {
             throw requestError("저장 응답을 확인하지 못했습니다."); // 불완전한 성공 응답 거절
         }
-        channel.feed.add(result); // 신규 조회 커서를 유지한 전송 결과 중복 제거
-        if (channel.draft === request.content) // 제출 이후 수정하지 않은 초안 여부
+        channel.feed.add(savedMessage); // 신규 조회 커서를 유지한 전송 결과 중복 제거
+        if (channel.draft === messageRequest.content) // 제출 이후 수정하지 않은 초안 여부
         {
             channel.draft = ""; // 확정된 제출 초안만 제거
-            if (activeChannel === channelId && messageInput.value === request.content) // 현재 화면도 같은 초안 여부
+            if (activeChannel === channelId && messageInput.value === messageRequest.content) // 현재 화면도 같은 초안 여부
             {
                 messageInput.value = ""; // 사용자가 새로 작성한 내용 보호
             }
@@ -478,23 +478,23 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
         channel.feedback = "메시지가 저장되었습니다. 새로고침 후에도 DB에 남습니다."; // 확인된 저장 결과 안내
         channel.error = false; // 성공 상태 복원
     }
-    catch (error) // 저장 실패와 불확실한 결과 처리
+    catch (operationError) // 저장 실패와 불확실한 결과 처리
     {
-        if (request.generation !== authGeneration || currentUser?.id !== request.userId || channels[channelId] !== channel) // 이전 계정 요청 여부
+        if (messageRequest.generation !== authGeneration || currentUser?.id !== messageRequest.userId || channels[channelId] !== channel) // 이전 계정 요청 여부
         {
             return; // 이전 실패가 현재 계정을 변경하지 않도록 중단
         }
-        if (error.status === 401 || error.code === "SESSION_CHANGED") // 실제 인증 만료와 계정 변경 응답
+        if (operationError.status === 401 || operationError.code === "SESSION_CHANGED") // 실제 인증 만료와 계정 변경 응답
         {
-            await expireMessageSession(error.code === "SESSION_CHANGED"); // 같은 계정 초안만 보관하고 이전 화면 종료
+            await expireMessageSession(operationError.code === "SESSION_CHANGED"); // 같은 계정 초안만 보관하고 이전 화면 종료
             return; // 만료 계정 처리 종료
         }
-        if (error.code === "CSRF_INVALID") // 보호 토큰 불일치 응답
+        if (operationError.code === "CSRF_INVALID") // 보호 토큰 불일치 응답
         {
             try // 다음 수동 제출용 보호 정보 확인
             {
-                await refreshCsrf(request.generation); // 자동 전송 없는 최신 토큰 조회
-                if (request.generation !== authGeneration || currentUser?.id !== request.userId || channels[channelId] !== channel) // 복구 중 종료된 요청
+                await refreshCsrf(messageRequest.generation); // 자동 전송 없는 최신 토큰 조회
+                if (messageRequest.generation !== authGeneration || currentUser?.id !== messageRequest.userId || channels[channelId] !== channel) // 복구 중 종료된 요청
                 {
                     return; // 이전 복구의 안내 적용 중단
                 }
@@ -502,7 +502,7 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
             }
             catch (recoveryError) // 보호 정보 또는 계정 확인 실패
             {
-                if (request.generation !== authGeneration || currentUser?.id !== request.userId || channels[channelId] !== channel) // 이전 계정의 중첩 실패
+                if (messageRequest.generation !== authGeneration || currentUser?.id !== messageRequest.userId || channels[channelId] !== channel) // 이전 계정의 중첩 실패
                 {
                     return; // 새 로그인 계정과 토큰 보존
                 }
@@ -516,18 +516,18 @@ async function sendMessage(event) // 실제 데이터베이스 메시지 저장
         }
         else // 저장 거절 또는 통신 결과 미확인
         {
-            channel.feedback = error.status === 403 ? "이 채널에 메시지를 보낼 권한이 없습니다. 참여 상태를 확인하세요." : error.status === 404 ? "채널을 찾을 수 없습니다. 채널 목록을 다시 확인하세요." : error.status === 0 ? "저장 결과를 확인하지 못했습니다. 이미 저장되었을 수 있습니다. 다시 전송하면 중복 저장될 수 있으니 주의하세요. 자동 재전송은 하지 않습니다." : error.message; // 실제 실패 종류별 안내
+            channel.feedback = operationError.status === 403 ? "이 채널에 메시지를 보낼 권한이 없습니다. 참여 상태를 확인하세요." : operationError.status === 404 ? "채널을 찾을 수 없습니다. 채널 목록을 다시 확인하세요." : operationError.status === 0 ? "저장 결과를 확인하지 못했습니다. 이미 저장되었을 수 있습니다. 다시 전송하면 중복 저장될 수 있으니 주의하세요. 자동 재전송은 하지 않습니다." : operationError.message; // 실제 실패 종류별 안내
         }
-        if (error.status === 404 || error.code === "FORBIDDEN") // 사라졌거나 참여 상태가 바뀐 채널
+        if (operationError.status === 404 || operationError.code === "FORBIDDEN") // 사라졌거나 참여 상태가 바뀐 채널
         {
-            channel.feed.block(error); // 비활성 채널도 과거 기록과 조회 수명 제거
+            channel.feed.block(operationError); // 비활성 채널도 과거 기록과 조회 수명 제거
             return; // 공통 차단 경계의 권한 안내 유지
         }
         channel.error = true; // 초안을 유지한 실패 표시
     }
     finally // 현재 요청 잠금과 화면 정리
     {
-        if (sendRequest === request) // 현재 계정의 동일 요청 여부
+        if (sendRequest === messageRequest) // 현재 계정의 동일 요청 여부
         {
             sendRequest = null; // 전송 중복 잠금 해제
             updateComposer(); // 남아 있는 초안과 상태 갱신
@@ -545,9 +545,9 @@ function setSidebar(open) // 모바일 목록 표시 설정
     document.querySelector(".conversation").inert = sidebarOpen; // 목록 열린 동안 대화 포커스 제한
     if (sidebarOpen) // 목록 열기 요청 여부
     {
-        const retry = byId("retry-channels"); // 실제 목록 복구 버튼
-        const target = document.querySelector(".channel-button.active") || (!retry.hidden && !retry.disabled ? retry : !byId("open-auth").disabled ? byId("open-auth") : byId("channel-sidebar")); // 빈 목록에서도 보이는 포커스 대상
-        target.focus(); // 사용 가능한 목록 요소로 포커스 이동
+        const retryButton = byId("retry-channels"); // 실제 목록 복구 버튼
+        const focusTarget = document.querySelector(".channel-button.active") || (!retryButton.hidden && !retryButton.disabled ? retryButton : !byId("open-auth").disabled ? byId("open-auth") : byId("channel-sidebar")); // 빈 목록에서도 보이는 포커스 대상
+        focusTarget.focus(); // 사용 가능한 목록 요소로 포커스 이동
     }
     else if (mobileQuery.matches) // 모바일 목록 닫기 여부
     {
@@ -601,9 +601,9 @@ function validatePassword() // 공통 비밀번호 규칙 검사
     passwordInput.setCustomValidity(""); // 이전 규칙 오류 초기화
     if (passwordInput.value) // 비밀번호 입력 여부
     {
-        const length = Array.from(passwordInput.value).length; // 비밀번호 코드 포인트 수
-        const bytes = new TextEncoder().encode(passwordInput.value).length; // 비밀번호 UTF-8 바이트 수
-        if (length < 12 || length > 64 || bytes > 72 || passwordInput.value.includes("\u0000")) // 공통 비밀번호 제한 확인
+        const characterCount = Array.from(passwordInput.value).length; // 비밀번호 코드 포인트 수
+        const byteCount = new TextEncoder().encode(passwordInput.value).length; // 비밀번호 UTF-8 바이트 수
+        if (characterCount < 12 || characterCount > 64 || byteCount > 72 || passwordInput.value.includes("\u0000")) // 공통 비밀번호 제한 확인
         {
             passwordInput.setCustomValidity("비밀번호는 12~64자, UTF-8 기준 최대 72바이트로 입력하세요."); // 명확한 입력 오류 안내
         }
@@ -642,17 +642,17 @@ function showAuthError(message, fields = {}) // 실제 실패와 필드 오류 �
 function validateAuthForm() // 실제 API 계약에 맞는 입력 검사
 {
     clearAuthErrors(); // 이전 오류 상태 초기화
-    const username = byId("auth-username"); // 가입 사용자명 입력
-    const email = byId("auth-email"); // 공통 이메일 입력
-    username.value = username.value.trim().toLowerCase(); // 사용자명 공백 제거와 소문자 정규화
-    email.value = email.value.trim().toLowerCase(); // 이메일 공백 제거와 소문자 정규화
-    if (authMode === "register" && !/^[a-z0-9_]{3,32}$/.test(username.value)) // 사용자명 허용 범위 확인
+    const usernameInput = byId("auth-username"); // 가입 사용자명 입력
+    const emailInput = byId("auth-email"); // 공통 이메일 입력
+    usernameInput.value = usernameInput.value.trim().toLowerCase(); // 사용자명 공백 제거와 소문자 정규화
+    emailInput.value = emailInput.value.trim().toLowerCase(); // 이메일 공백 제거와 소문자 정규화
+    if (authMode === "register" && !/^[a-z0-9_]{3,32}$/.test(usernameInput.value)) // 사용자명 허용 범위 확인
     {
-        username.setCustomValidity("사용자명은 영문·숫자·밑줄 3~32자로 입력하세요."); // 사용자명 입력 규칙 안내
+        usernameInput.setCustomValidity("사용자명은 영문·숫자·밑줄 3~32자로 입력하세요."); // 사용자명 입력 규칙 안내
     }
-    if (email.value.length > 254 || /[^\x00-\x7F]/.test(email.value)) // 이메일 ASCII와 길이 확인
+    if (emailInput.value.length > 254 || /[^\x00-\x7F]/.test(emailInput.value)) // 이메일 ASCII와 길이 확인
     {
-        email.setCustomValidity("이메일은 영문 주소 기준 최대 254자로 입력하세요."); // 계약에 맞는 이메일 제한 안내
+        emailInput.setCustomValidity("이메일은 영문 주소 기준 최대 254자로 입력하세요."); // 계약에 맞는 이메일 제한 안내
     }
     validatePassword(); // 원문 비밀번호 글자 수와 바이트 검사
     return authForm.reportValidity(); // 첫 오류 안내와 최종 입력 확인
@@ -697,9 +697,9 @@ function validUser(user) // 실제 사용자 응답 기본 검사
 }
 function requestError(message, status = 0, code = "", fields = {}, retryAfter = null) // 안전한 요청 오류 생성
 {
-    const error = new Error(message); // 사용자 안내 오류 객체
-    Object.assign(error, { status, code, fields, retryAfter }); // HTTP 상태와 계약 오류 정보 보관
-    return error; // 화면 처리용 오류 반환
+    const operationError = new Error(message); // 사용자 안내 오류 객체
+    Object.assign(operationError, { status, code, fields, retryAfter }); // HTTP 상태와 계약 오류 정보 보관
+    return operationError; // 화면 처리용 오류 반환
 }
 function ignoreConnectionFailure() // 선택적 연결 확인 실패 처리
 {
@@ -707,14 +707,14 @@ function ignoreConnectionFailure() // 선택적 연결 확인 실패 처리
 }
 async function requestEndpoint(path, body = null, signal = null, method = null) // 동일 출처의 취소 가능한 JSON API 요청
 {
-    const controller = new AbortController(); // 오래 걸리는 요청 취소 도구
-    const cancel = () => controller.abort(); // 채널 수명 종료의 요청 취소
+    const requestController = new AbortController(); // 오래 걸리는 요청 취소 도구
+    const cancel = () => requestController.abort(); // 채널 수명 종료의 요청 취소
     signal?.addEventListener("abort", cancel, { once: true }); // 채널 이동과 로그아웃 연결
     if (signal?.aborted) // 요청 직전 이미 취소된 수명
     {
-        controller.abort(); // 종료된 조회의 네트워크 시작 차단
+        requestController.abort(); // 종료된 조회의 네트워크 시작 차단
     }
-    const timeout = window.setTimeout(() => controller.abort(), 15000); // 연결 확인 대기 시간 제한
+    const requestTimeout = window.setTimeout(() => requestController.abort(), 15000); // 연결 확인 대기 시간 제한
     const headers = { Accept: "application/json" }; // JSON 응답 요청
     if (currentUser) // 화면이 확인한 사용자 존재 여부
     {
@@ -727,7 +727,7 @@ async function requestEndpoint(path, body = null, signal = null, method = null) 
     }
     try // 응답과 실패 정보 확인
     {
-        const response = await fetch(path, { method: method || (body === null ? "GET" : "POST"), credentials: "same-origin", headers, body: body === null ? undefined : JSON.stringify(body), cache: "no-store", signal: controller.signal }); // 기존 인증과 명시한 PATCH 요청
+        const response = await fetch(path, { method: method || (body === null ? "GET" : "POST"), credentials: "same-origin", headers, body: body === null ? undefined : JSON.stringify(body), cache: "no-store", signal: requestController.signal }); // 기존 인증과 명시한 PATCH 요청
         const payload = await response.json(); // 표준 JSON 응답 읽기
         if (!response.ok || payload.success !== true) // 서버 실패 응답 여부
         {
@@ -740,25 +740,25 @@ async function requestEndpoint(path, body = null, signal = null, method = null) 
         }
         return payload.data; // 실제 응답 자료 반환
     }
-    catch (error) // 통신 또는 계약 오류 처리
+    catch (operationError) // 통신 또는 계약 오류 처리
     {
-        if (typeof error.status === "number") // 이미 확인한 API 오류 여부
+        if (typeof operationError.status === "number") // 이미 확인한 API 오류 여부
         {
-            throw error; // 서버 오류 정보 유지
+            throw operationError; // 서버 오류 정보 유지
         }
         throw requestError(body === null ? "연결 상태를 확인하지 못했습니다. 잠시 후 다시 시도하세요." : "응답을 확인하지 못했습니다. 처리되었을 수 있으니 계정 상태를 확인한 뒤 다시 시도하세요."); // 통신 실패의 불확실성 안내
     }
     finally // 요청 자원 정리
     {
-        window.clearTimeout(timeout); // 완료한 요청의 대기 제한 제거
+        window.clearTimeout(requestTimeout); // 완료한 요청의 대기 제한 제거
         signal?.removeEventListener("abort", cancel); // 완료한 요청의 취소 연결 제거
     }
 }
 async function refreshCsrf(generation = authGeneration) // 실제 세션 보호 토큰 재조회
 {
     csrfToken = null; // 이전 토큰 사용 중단
-    const data = await requestEndpoint("/api/csrf.php"); // 현재 세션의 보호 토큰 조회
-    if (typeof data.csrf_token !== "string" || !/^[a-f0-9]{64}$/.test(data.csrf_token)) // 보호 토큰 계약 확인
+    const responseData = await requestEndpoint("./backend/api/csrf.php"); // 현재 세션의 보호 토큰 조회
+    if (typeof responseData.csrf_token !== "string" || !/^[a-f0-9]{64}$/.test(responseData.csrf_token)) // 보호 토큰 계약 확인
     {
         throw requestError("화면 보호 정보를 확인하지 못했습니다. 다시 시도하세요."); // 유효하지 않은 토큰 거절
     }
@@ -769,7 +769,7 @@ async function refreshCsrf(generation = authGeneration) // 실제 세션 보호 
     const expectedUserId = currentUser?.id; // 토큰을 적용할 화면 계정
     if (expectedUserId) // 로그인 상태에서 보호 정보 교체 여부
     {
-        const identity = await requestEndpoint("/api/get_current_user.php"); // 새 토큰 조회 뒤 현재 세션과 기대 계정 확인
+        const identity = await requestEndpoint("./backend/api/get_current_user.php"); // 새 토큰 조회 뒤 현재 세션과 기대 계정 확인
         if (!validUser(identity.user) || identity.user.id !== expectedUserId) // 계정 응답의 추가 일치 검사
         {
             throw requestError("로그인 계정이 변경되었습니다. 다시 확인하세요.", 403, "SESSION_CHANGED"); // 다른 계정 토큰의 초안 사용 차단
@@ -779,7 +779,7 @@ async function refreshCsrf(generation = authGeneration) // 실제 세션 보호 
             return; // 이전 토큰 적용 차단
         }
     }
-    csrfToken = data.csrf_token; // 브라우저 메모리에만 새 토큰 보관
+    csrfToken = responseData.csrf_token; // 브라우저 메모리에만 새 토큰 보관
     renderAuthState(); // 보호 준비 상태 갱신
 }
 function clearSessionView(preserveDrafts = false) // 종료된 계정 자료 정리
@@ -789,7 +789,7 @@ function clearSessionView(preserveDrafts = false) // 종료된 계정 자료 정
     channelUI?.clear(); // 이전 채널 관리 대상과 입력 제거
     profileUI?.clear(); // 이전 이메일·사용자명 입력과 응답 폐기
     serverManager.reset(); // 서버·영구 선택·진행 결과 수명 제거
-    savedDrafts = preserveDrafts && currentUser ? { userId: currentUser.id, values: Object.fromEntries(Object.entries(channels).map(([id, channel]) => [id, channel.draft])) } : null; // 같은 계정 재로그인용 초안
+    savedDrafts = preserveDrafts && currentUser ? { userId: currentUser.id, values: Object.fromEntries(Object.entries(channels).map(([channelId, channel]) => [channelId, channel.draft])) } : null; // 같은 계정 재로그인용 초안
     currentUser = null; // 이전 사용자 제거
     csrfToken = null; // 이전 보호 정보 제거
     channelLoadVersion += 1; // 이전 채널 조회 무효화
@@ -809,37 +809,37 @@ async function restoreCurrentUser(generation) // 실제 로그인 세션 복원
 {
     try // 현재 사용자 응답 확인
     {
-        const data = await requestEndpoint("/api/get_current_user.php"); // 실제 로그인 세션 조회
+        const responseData = await requestEndpoint("./backend/api/get_current_user.php"); // 실제 로그인 세션 조회
         if (generation !== authGeneration) // 최신 인증 상태와 조회 순서 비교
         {
             return; // 이전 상태의 늦은 응답 무시
         }
-        if (!validUser(data.user)) // 사용자 응답 자료 확인
+        if (!validUser(responseData.user)) // 사용자 응답 자료 확인
         {
             throw requestError("사용자 정보를 확인하지 못했습니다."); // 잘못된 인증 자료 거절
         }
-        if (currentUser && currentUser.id !== data.user.id) // 실제 계정이 바뀐 복원 응답
+        if (currentUser && currentUser.id !== responseData.user.id) // 실제 계정이 바뀐 복원 응답
         {
             authGeneration += 1; // 이전 계정 요청 무효화
             generation = authGeneration; // 이번 복원 수명 갱신
             clearSessionView(); // 이전 계정의 채널·초안·기록 제거
         }
-        currentUser = data.user; // 실제 사용자 자료 보관
+        currentUser = responseData.user; // 실제 사용자 자료 보관
         sessionNotice = "로그인됨"; // 소속 권한과 구분한 인증 상태
         await loadChannels(); // 확인된 사용자 소속 채널 조회
     }
-    catch (error) // 비로그인과 연결 실패 구분
+    catch (operationError) // 비로그인과 연결 실패 구분
     {
         if (generation !== authGeneration) // 최신 인증 상태와 조회 순서 비교
         {
             return; // 이전 상태의 늦은 실패 무시
         }
-        if (error.code === "SESSION_CHANGED") // 복원 중 다른 탭 계정 변경
+        if (operationError.code === "SESSION_CHANGED") // 복원 중 다른 탭 계정 변경
         {
             await expireMessageSession(true); // 이전 계정 자료를 남기지 않는 복구
             return; // 사용자 교체를 성공으로 추정하지 않도록 종료
         }
-        if (error.status === 401) // 실제 비로그인 확인
+        if (operationError.status === 401) // 실제 비로그인 확인
         {
             clearSessionView(true); // 이전 기록 제거와 같은 계정 초안만 보관
             sessionNotice = "로그인 후 채널 이용 가능"; // 확인된 게스트 상태
@@ -848,14 +848,14 @@ async function restoreCurrentUser(generation) // 실제 로그인 세션 복원
         else // 통신 또는 응답 실패
         {
             sessionNotice = "세션 확인 필요"; // 인증 성공 추정 없는 상태
-            throw error; // 호출 화면에 실패 전달
+            throw operationError; // 호출 화면에 실패 전달
         }
     }
     renderAuthState(); // 확인된 세션 상태 출력
 }
-async function handleAuthFailure(error) // 실제 인증 실패 안내 구성
+async function handleAuthFailure(operationError) // 실제 인증 실패 안내 구성
 {
-    if (error.code === "CSRF_INVALID") // 세션 보호 토큰 만료 또는 불일치
+    if (operationError.code === "CSRF_INVALID") // 세션 보호 토큰 만료 또는 불일치
     {
         try // 새 보호 토큰 확인
         {
@@ -872,29 +872,29 @@ async function handleAuthFailure(error) // 실제 인증 실패 안내 구성
             return "화면 보호 정보를 갱신하지 못했습니다. 연결을 확인하고 다시 시도하세요."; // 복구 실패 안내
         }
     }
-    if (error.status === 429) // 실제 로그인 시도 제한
+    if (operationError.status === 429) // 실제 로그인 시도 제한
     {
-        const seconds = /^\d+$/.test(error.retryAfter || "") ? Number(error.retryAfter) : null; // 유효한 재시도 대기 시간
+        const seconds = /^\d+$/.test(operationError.retryAfter || "") ? Number(operationError.retryAfter) : null; // 유효한 재시도 대기 시간
         return seconds === null ? "로그인 시도가 많습니다. 잠시 후 다시 시도하세요." : `로그인 시도가 많습니다. ${seconds.toLocaleString("ko-KR")}초 후 다시 시도하세요.`; // 접근 가능한 제한 안내
     }
-    return error.message; // 서버에서 확인한 일반 오류
+    return operationError.message; // 서버에서 확인한 일반 오류
 }
-async function submitAuth(event) // 실제 가입 또는 로그인 처리
+async function submitAuth(uiEvent) // 실제 가입 또는 로그인 처리
 {
-    event.preventDefault(); // 기본 폼 이동 차단
+    uiEvent.preventDefault(); // 기본 폼 이동 차단
     if (authBusy || authInitializing || !validateAuthForm()) // 중복 요청과 입력 오류 확인
     {
         return; // 처리할 수 없는 제출 중단
     }
-    const mode = authMode; // 요청 시작 시 인증 유형 보관
-    const body = { email: byId("auth-email").value, password: passwordInput.value }; // 실제 인증 입력 자료
-    if (mode === "register") // 가입 요청 여부
+    const requestMode = authMode; // 요청 시작 시 인증 유형 보관
+    const authBody = { email: byId("auth-email").value, password: passwordInput.value }; // 실제 인증 입력 자료
+    if (requestMode === "register") // 가입 요청 여부
     {
-        body.username = byId("auth-username").value; // 가입용 정규화 사용자명 추가
+        authBody.username = byId("auth-username").value; // 가입용 정규화 사용자명 추가
     }
     authGeneration += 1; // 이전 세션 확인 응답 무효화
     setAuthBusy(true); // 요청 중 중복 입력과 화면 전환 차단
-    byId("auth-feedback").textContent = mode === "register" ? "계정을 만드는 중입니다." : "로그인 정보를 확인하는 중입니다."; // 실제 진행 상태 안내
+    byId("auth-feedback").textContent = requestMode === "register" ? "계정을 만드는 중입니다." : "로그인 정보를 확인하는 중입니다."; // 실제 진행 상태 안내
     let registrationEmail = null; // 성공 후 로그인 이메일 보관
     let loginSucceeded = false; // 실제 로그인 성공 여부
     let failure = null; // 잠금 해제 후 표시할 오류
@@ -904,28 +904,28 @@ async function submitAuth(event) // 실제 가입 또는 로그인 처리
         {
             await refreshCsrf(); // 다음 요청의 실제 보호 토큰 발급
         }
-        const data = await requestEndpoint(`/api/${mode}.php`, body); // 실제 가입 또는 로그인 POST
-        if (!validUser(data.user) || (mode === "login" && !/^[a-f0-9]{64}$/.test(data.csrf_token || ""))) // 성공 응답의 사용자와 새 토큰 확인
+        const responseData = await requestEndpoint(`./backend/api/${requestMode}.php`, authBody); // 실제 가입 또는 로그인 POST
+        if (!validUser(responseData.user) || (requestMode === "login" && !/^[a-f0-9]{64}$/.test(responseData.csrf_token || ""))) // 성공 응답의 사용자와 새 토큰 확인
         {
             throw requestError("서버 응답을 확인하지 못했습니다. 계정 상태를 확인한 뒤 다시 시도하세요."); // 불완전한 응답의 성공 추정 방지
         }
-        if (mode === "register") // 실제 가입 성공 여부
+        if (requestMode === "register") // 실제 가입 성공 여부
         {
-            registrationEmail = body.email; // 별도 로그인을 위한 이메일 보관
+            registrationEmail = authBody.email; // 별도 로그인을 위한 이메일 보관
         }
         else // 실제 로그인 성공
         {
-            currentUser = data.user; // 실제 로그인한 사용자 보관
-            csrfToken = data.csrf_token; // 로그인 후 교체된 보호 토큰 보관
+            currentUser = responseData.user; // 실제 로그인한 사용자 보관
+            csrfToken = responseData.csrf_token; // 로그인 후 교체된 보호 토큰 보관
             sessionNotice = "로그인됨"; // 실제 인증 성공 상태
             loginSucceeded = true; // 성공 응답 확인 표시
         }
     }
-    catch (error) // 실제 인증 실패 또는 불확실한 응답
+    catch (operationError) // 실제 인증 실패 또는 불확실한 응답
     {
-        const message = await handleAuthFailure(error); // 토큰 복구 또는 시도 제한 안내
-        failure = { message, fields: error.fields || {} }; // 잠금 해제 후 안전한 실패 표시 자료
-        if (error.code === "ALREADY_AUTHENTICATED") // 다른 화면에서 이미 로그인한 세션
+        const message = await handleAuthFailure(operationError); // 토큰 복구 또는 시도 제한 안내
+        failure = { message, fields: operationError.fields || {} }; // 잠금 해제 후 안전한 실패 표시 자료
+        if (operationError.code === "ALREADY_AUTHENTICATED") // 다른 화면에서 이미 로그인한 세션
         {
             csrfToken = null; // 다른 화면에서 교체되었을 이전 토큰 제거
             try // 현재 사용자와 보호 토큰의 실제 복구 확인
@@ -947,7 +947,7 @@ async function submitAuth(event) // 실제 가입 또는 로그인 처리
     }
     finally // 요청 종료 후 자격 증명과 입력 잠금 정리
     {
-        body.password = ""; // 요청 자료의 비밀번호 참조 정리
+        authBody.password = ""; // 요청 자료의 비밀번호 참조 정리
         passwordInput.value = ""; // 화면에 남은 비밀번호 제거
         setAuthBusy(false); // 입력과 화면 전환 복구
     }
@@ -987,23 +987,23 @@ async function logout() // 실제 로그인 세션 종료
         {
             await refreshCsrf(); // 누락된 토큰 재발급
         }
-        await requestEndpoint("/api/logout.php", {}); // 빈 JSON 객체로 실제 로그아웃
+        await requestEndpoint("./backend/api/logout.php", {}); // 빈 JSON 객체로 실제 로그아웃
         sessionNotice = "로그아웃됨"; // 실제 세션 종료 안내
         clearSessionView(); // 이전 사용자와 대화 및 초안 제거
         await refreshCsrf().catch(ignoreConnectionFailure); // 새 게스트 세션 보호 토큰 발급 시도
     }
-    catch (error) // 로그아웃 실패 또는 세션 만료
+    catch (operationError) // 로그아웃 실패 또는 세션 만료
     {
-        if (error.status === 401 || error.code === "SESSION_CHANGED") // 서버에서 세션 만료 또는 계정 변경 확인
+        if (operationError.status === 401 || operationError.code === "SESSION_CHANGED") // 서버에서 세션 만료 또는 계정 변경 확인
         {
-            sessionNotice = error.code === "SESSION_CHANGED" ? "계정 변경 · 다시 확인하세요" : "세션 만료 · 다시 로그인하세요"; // 현재 세션 종료 이유
+            sessionNotice = operationError.code === "SESSION_CHANGED" ? "계정 변경 · 다시 확인하세요" : "세션 만료 · 다시 로그인하세요"; // 현재 세션 종료 이유
             clearSessionView(); // 만료된 사용자 화면 자료 제거
             await refreshCsrf().catch(ignoreConnectionFailure); // 로그인 전 새 보호 토큰 발급 시도
             expired = true; // 로그인 화면 재표시 준비
         }
         else // 실제 종료를 확인하지 못한 경우
         {
-            sessionNotice = await handleAuthFailure(error); // 사용자 상태 유지와 실제 실패 안내
+            sessionNotice = await handleAuthFailure(operationError); // 사용자 상태 유지와 실제 실패 안내
         }
     }
     finally // 로그아웃 요청 잠금 해제
@@ -1022,16 +1022,16 @@ async function logout() // 실제 로그인 세션 종료
 }
 async function checkConnections() // 최초 세션과 실제 연결 확인
 {
-    const generation = authGeneration; // 최초 확인 요청의 상태 번호
+    const requestGeneration = authGeneration; // 최초 확인 요청의 상태 번호
     await refreshCsrf().catch(ignoreConnectionFailure); // 병렬 조회 전 최초 세션 쿠키 발급 시도
-    const health = requestEndpoint("/api/health.php").then((data) => // 독립적인 데이터베이스 상태 확인
+    const health = requestEndpoint("./backend/api/health.php").then((responseData) => // 독립적인 데이터베이스 상태 확인
     {
-        databaseReady = data.status === "ok"; // 실제 연결 성공 여부 보관
+        databaseReady = responseData.status === "ok"; // 실제 연결 성공 여부 보관
         renderAuthState(); // 확인한 연결 상태 표시
     }).catch(ignoreConnectionFailure); // 연결 실패의 준비 완료 추정 방지
     try // 세션 쿠키 발급 후 인증 상태 확인
     {
-        await restoreCurrentUser(generation); // 실제 현재 사용자 확인
+        await restoreCurrentUser(requestGeneration); // 실제 현재 사용자 확인
     }
     catch // 초기 세션 조회 또는 보호 정보 확인 실패
     {
@@ -1049,18 +1049,18 @@ async function checkConnections() // 최초 세션과 실제 연결 확인
     }
     await health; // 실제 데이터베이스 확인 종료 대기
 }
-async function serverFailure(error, generation = authGeneration, userId = currentUser?.id) // 관리·프로필 복구의 계정 수명
+async function serverFailure(operationError, generation = authGeneration, userId = currentUser?.id) // 관리·프로필 복구의 계정 수명
 {
-    if (error.code === "STALE_RESPONSE" || generation !== authGeneration || userId !== currentUser?.id) // 중첩 복구도 이전 계정 결과 폐기
+    if (operationError.code === "STALE_RESPONSE" || generation !== authGeneration || userId !== currentUser?.id) // 중첩 복구도 이전 계정 결과 폐기
     {
         return "로그인 상태를 다시 확인하세요."; // 이전 자료 표시 중단
     }
-    if (error.status === 401 || error.code === "SESSION_CHANGED") // 실제 계정 종료
+    if (operationError.status === 401 || operationError.code === "SESSION_CHANGED") // 실제 계정 종료
     {
-        await expireMessageSession(error.code === "SESSION_CHANGED"); // 기존 계정 화면 정리
+        await expireMessageSession(operationError.code === "SESSION_CHANGED"); // 기존 계정 화면 정리
         return "현재 계정으로 다시 로그인하세요."; // 수동 재확인 안내
     }
-    if (error.code === "CSRF_INVALID") // 계정 확인을 포함한 토큰 복구
+    if (operationError.code === "CSRF_INVALID") // 계정 확인을 포함한 토큰 복구
     {
         try // 자동 변경 재전송 없는 복구
         {
@@ -1072,18 +1072,18 @@ async function serverFailure(error, generation = authGeneration, userId = curren
             return serverFailure(recovery, generation, userId); // 복구 시작 계정의 종료 경계 유지
         }
     }
-    if ([403, 404].includes(error.status)) // 소속 또는 자원 상실
+    if ([403, 404].includes(operationError.status)) // 소속 또는 자원 상실
     {
         serverUI?.clear(); // 이전 초대와 입력 제거
         byId("server-dialog").close(); // 접근하지 못하는 관리 화면 종료
         channelUI?.clear(); // 접근을 잃은 채널 관리 화면 종료
         await loadChannels(); // 실제 서버·채널 목록 재확인
     }
-    return error.status === 429 ? `요청이 많습니다. ${error.retryAfter || 600}초 후 다시 시도하세요.` : error.message; // 실제 오류와 제한 안내
+    return operationError.status === 429 ? `요청이 많습니다. ${operationError.retryAfter || 600}초 후 다시 시도하세요.` : operationError.message; // 실제 오류와 제한 안내
 }
 byId("retry-channels").addEventListener("click", loadChannels); // 소속 채널 조회 재시도
 serverUI = mountServerUI({ manager: serverManager, byId, onDeparted: discardDepartedServer, onReload: loadChannels, onSelect: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 실제 관리 화면 연결
-channelUI = mountChannelUI({ manager: serverManager, byId, getChannel: () => activeChannel && channels[activeChannel] ? { ...channels[activeChannel], id: activeChannel } : null, hasChannel: (id) => Boolean(channels[id]), onDeleted: discardDeletedChannel, onReload: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest && !channelLoading && !channelError) }); // 실제 채널과 권한별 관리 연결
+channelUI = mountChannelUI({ manager: serverManager, byId, getChannel: () => activeChannel && channels[activeChannel] ? { ...channels[activeChannel], id: activeChannel } : null, hasChannel: (channelId) => Boolean(channels[channelId]), onDeleted: discardDeletedChannel, onReload: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest && !channelLoading && !channelError) }); // 실제 채널과 권한별 관리 연결
 profileUI = mountProfileUI({ manager: serverManager, byId, getUser: () => currentUser, onUser: applyProfile, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 기존 인증·요청 수명으로 본인 프로필 연결
 document.addEventListener("visibilitychange", () => // 빈 서버를 포함한 창 복귀 갱신
 {
@@ -1095,9 +1095,9 @@ document.addEventListener("visibilitychange", () => // 빈 서버를 포함한 �
 byId("load-older").addEventListener("click", () => channels[activeChannel]?.feed.older()); // 현재 채널의 이전 기록 추가
 byId("retry-messages").addEventListener("click", () => channels[activeChannel]?.feed.activate()); // 확인하지 못한 대화 수동 재조회
 window.addEventListener("pagehide", pauseMessageFeeds); // 화면 종료 시 폴링과 진행 요청 정리
-window.addEventListener("pageshow", (event) => // 뒤로 가기 캐시에서 복구된 화면
+window.addEventListener("pageshow", (uiEvent) => // 뒤로 가기 캐시에서 복구된 화면
 {
-    if (event.persisted && currentUser && channels[activeChannel]) // 로그인한 기존 채널 복구 여부
+    if (uiEvent.persisted && currentUser && channels[activeChannel]) // 로그인한 기존 채널 복구 여부
     {
         channels[activeChannel].feed.activate(); // 남은 신규 기록 확인 재개
     }
@@ -1112,11 +1112,11 @@ messageInput.addEventListener("input", () => // 입력 수정 상태 처리
     updateComposer(); // 최신 초안과 글자 수 갱신
 }); // 입력 수정 처리 끝
 byId("message-form").addEventListener("submit", sendMessage); // 실제 메시지 저장 연결
-messageInput.addEventListener("keydown", (event) => // 키보드 전송 처리
+messageInput.addEventListener("keydown", (uiEvent) => // 키보드 전송 처리
 {
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing && event.keyCode !== 229) // 한글 조합 제외 단독 Enter
+    if (uiEvent.key === "Enter" && !uiEvent.shiftKey && !uiEvent.isComposing && uiEvent.keyCode !== 229) // 한글 조합 제외 단독 Enter
     {
-        event.preventDefault(); // 기본 줄바꿈 차단
+        uiEvent.preventDefault(); // 기본 줄바꿈 차단
         byId("message-form").requestSubmit(); // 동일한 유효성 경로로 전송
     }
 }); // 키보드 전송 처리 끝
@@ -1137,53 +1137,53 @@ byId("new-messages").addEventListener("click", scrollToBottom); // 새 메시지
 byId("sidebar-toggle").addEventListener("click", () => setSidebar(!sidebarOpen)); // 모바일 목록 전환
 byId("sidebar-backdrop").addEventListener("click", () => setSidebar(false)); // 목록 바깥 클릭 닫기
 mobileQuery.addEventListener("change", () => setSidebar(false)); // 화면 크기 변경 시 목록 정리
-document.addEventListener("keydown", (event) => // 모바일 목록 키보드 제어
+document.addEventListener("keydown", (uiEvent) => // 모바일 목록 키보드 제어
 {
     if (!sidebarOpen || authDialog.open) // 목록 전용 제어 여부
     {
         return; // 다른 화면 키보드 처리 유지
     }
-    if (event.key === "Escape") // 목록 닫기 키 여부
+    if (uiEvent.key === "Escape") // 목록 닫기 키 여부
     {
-        event.preventDefault(); // 기본 Escape 동작 차단
+        uiEvent.preventDefault(); // 기본 Escape 동작 차단
         setSidebar(false); // 모바일 목록 접기
     }
-    if (event.key === "Tab") // 목록 포커스 순환 여부
+    if (uiEvent.key === "Tab") // 목록 포커스 순환 여부
     {
-        const focusable = [...byId("channel-sidebar").querySelectorAll("button:not([hidden]):not(:disabled)")]; // 사용 가능한 목록 버튼
-        const index = focusable.indexOf(document.activeElement); // 현재 목록 포커스 위치
-        if (focusable.length === 0) // 초기 조회 중 사용할 버튼 없는 상태
+        const focusableButtons = [...byId("channel-sidebar").querySelectorAll("button:not([hidden]):not(:disabled)")]; // 사용 가능한 목록 버튼
+        const focusIndex = focusableButtons.indexOf(document.activeElement); // 현재 목록 포커스 위치
+        if (focusableButtons.length === 0) // 초기 조회 중 사용할 버튼 없는 상태
         {
-            event.preventDefault(); // 비활성 대화 영역으로 이동 차단
+            uiEvent.preventDefault(); // 비활성 대화 영역으로 이동 차단
             byId("channel-sidebar").focus(); // 목록 영역 포커스 유지
             return; // 빈 목록 순환 종료
         }
-        if (index < 0 || (event.shiftKey && index === 0) || (!event.shiftKey && index === focusable.length - 1)) // 목록 경계 이동 여부
+        if (focusIndex < 0 || (uiEvent.shiftKey && focusIndex === 0) || (!uiEvent.shiftKey && focusIndex === focusableButtons.length - 1)) // 목록 경계 이동 여부
         {
-            event.preventDefault(); // 목록 바깥 포커스 이동 방지
-            focusable[event.shiftKey ? focusable.length - 1 : 0].focus(); // 목록 안 첫쪽 또는 끝쪽 이동
+            uiEvent.preventDefault(); // 목록 바깥 포커스 이동 방지
+            focusableButtons[uiEvent.shiftKey ? focusableButtons.length - 1 : 0].focus(); // 목록 안 첫쪽 또는 끝쪽 이동
         }
     }
 }); // 모바일 목록 키보드 제어 끝
 byId("open-auth").addEventListener("click", () => currentUser ? logout() : openAuth()); // 현재 인증 상태별 로그인과 로그아웃 연결
 byId("close-auth").addEventListener("click", () => authDialog.close()); // 요청 대기 중 비활성화된 닫기 버튼 연결
 byId("switch-auth").addEventListener("click", () => switchAuth(authMode === "login" ? "register" : "login")); // 인증 화면 전환 연결
-authForm.addEventListener("input", (event) => // 수정한 필드의 이전 오류 정리
+authForm.addEventListener("input", (uiEvent) => // 수정한 필드의 이전 오류 정리
 {
-    const field = event.target.name; // 수정한 인증 입력 이름
-    if (["username", "email", "password"].includes(field)) // 허용된 인증 필드 여부
+    const fieldName = uiEvent.target.name; // 수정한 인증 입력 이름
+    if (["username", "email", "password"].includes(fieldName)) // 허용된 인증 필드 여부
     {
-        event.target.setCustomValidity(""); // 수정 전 입력 오류 제거
-        event.target.removeAttribute("aria-invalid"); // 수정 전 접근성 오류 상태 제거
-        byId(`${field}-error`).textContent = ""; // 수정한 필드의 오류 문구 제거
+        uiEvent.target.setCustomValidity(""); // 수정 전 입력 오류 제거
+        uiEvent.target.removeAttribute("aria-invalid"); // 수정 전 접근성 오류 상태 제거
+        byId(`${fieldName}-error`).textContent = ""; // 수정한 필드의 오류 문구 제거
     }
 }); // 인증 입력 오류 정리 끝
 authForm.addEventListener("submit", submitAuth); // 실제 가입과 로그인 제출 연결
-authDialog.addEventListener("cancel", (event) => // 요청 중 Escape 닫기 제어
+authDialog.addEventListener("cancel", (uiEvent) => // 요청 중 Escape 닫기 제어
 {
     if (authBusy) // 실제 요청 진행 여부
     {
-        event.preventDefault(); // 응답 처리 전 모달 닫기 차단
+        uiEvent.preventDefault(); // 응답 처리 전 모달 닫기 차단
     }
 }); // 요청 중 Escape 닫기 제어 끝
 authDialog.addEventListener("close", () => // 인증 화면 닫힌 뒤 정리
@@ -1199,10 +1199,10 @@ authDialog.addEventListener("close", () => // 인증 화면 닫힌 뒤 정리
         lastAuthTrigger.focus(); // 이전 인증 버튼 포커스 복원
     }
 }); // 인증 닫기 정리 끝
-authDialog.addEventListener("click", (event) => // 모달 바깥 클릭 처리
+authDialog.addEventListener("click", (uiEvent) => // 모달 바깥 클릭 처리
 {
-    const bounds = authDialog.getBoundingClientRect(); // 모달 실제 화면 위치
-    if (!authBusy && event.target === authDialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) // 요청 대기 외 모달 배경 클릭 여부
+    const dialogBounds = authDialog.getBoundingClientRect(); // 모달 실제 화면 위치
+    if (!authBusy && uiEvent.target === authDialog && (uiEvent.clientX < dialogBounds.left || uiEvent.clientX > dialogBounds.right || uiEvent.clientY < dialogBounds.top || uiEvent.clientY > dialogBounds.bottom)) // 요청 대기 외 모달 배경 클릭 여부
     {
         authDialog.close(); // 인증 화면 닫기
     }

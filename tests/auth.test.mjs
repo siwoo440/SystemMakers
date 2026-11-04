@@ -7,8 +7,8 @@ import path from "node:path"; // 운영체제 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
 import test from "node:test"; // 기본 테스트 실행
 import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
-const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
-const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // 실제 PHP 경로
+const projectRoot = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
+const phpBinary = process.env.PHP_TEST_BIN || path.join(projectRoot, ".runtime/php/php.exe"); // 실제 PHP 경로
 const port = process.env.MYSQL_TEST_PORT || "33360"; // 테스트 MySQL 포트
 const database = "systemmakers_auth_test_" + randomBytes(6).toString("hex"); // 삭제 가능한 독립 DB
 function sql(statement, selected = true) // 실제 DB 요청
@@ -28,48 +28,48 @@ test("실제 PHP·MySQL 회원 인증 계약", async (context) => // 모의 구�
     assert.match(database, /^systemmakers_auth_test_[a-f0-9]{12}$/); // 삭제 대상 이름 제한
     assert.match(port, /^\d+$/); // 포트 형식 제한
     assert.notEqual(port, "3306"); // 기존 기본 DB 접근 차단
-    const work = path.join(root, ".runtime", database); // 외부 비공개 검증 폴더
-    mkdirSync(path.join(work, "sessions"), { recursive: true }); // 독립 세션 저장소
-    const base = root.replaceAll("\\", "/").replaceAll("'", "\\'"); // PHP 경로 인용
+    const testDirectory = path.join(projectRoot, ".runtime", database); // 외부 비공개 검증 폴더
+    mkdirSync(path.join(testDirectory, "sessions"), { recursive: true }); // 독립 세션 저장소
+    const base = projectRoot.replaceAll("\\", "/").replaceAll("'", "\\'"); // PHP 경로 인용
     const fixture = `<?php // 비공개 인증 테스트 라우터
 require '${base}/backend/includes/bootstrap.php'; // 실제 공통 처리
-$route = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); // 실제 요청 경로
-if ($route === '/ready') // 테스트 서버 준비 확인
+$fixtureRequestRoute = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); // 실제 요청 경로
+if ($fixtureRequestRoute === '/ready') // 테스트 서버 준비 확인
 {
     respond_success(['ready' => true]); // 준비 완료 응답
 }
-if ($route === '/expire') // 테스트 전용 수명 변경
+if ($fixtureRequestRoute === '/expire') // 테스트 전용 수명 변경
 {
     start_secure_session(); // 실제 세션 잠금
     $_SESSION['last_activity_at'] = time() - 1801; // 만료 시각 준비
     respond_success([]); // 세션 저장 후 응답
 }
-if ($route === '/key-missing') // 잘못된 로그인 설정 검사
+if ($fixtureRequestRoute === '/key-missing') // 잘못된 로그인 설정 검사
 {
     putenv('AUTH_RATE_LIMIT_KEY'); // 테스트 요청에만 키 제거
-    $route = '/api/login.php'; // 실제 로그인 실행 경로
+    $fixtureRequestRoute = '/api/login.php'; // 실제 로그인 실행 경로
 }
-$allowed = ['csrf', 'get_current_user', 'health', 'register', 'login', 'logout']; // 실제 API 목록
-$name = basename((string) $route, '.php'); // 엔드포인트 이름
-if (in_array($name, $allowed, true) && is_file('${base}/backend/api/' . $name . '.php')) // 실제 구현 존재 조건
+$fixtureAllowedEndpoints = ['csrf', 'get_current_user', 'health', 'register', 'login', 'logout']; // 실제 API 목록
+$fixtureEndpointName = basename((string) $fixtureRequestRoute, '.php'); // 엔드포인트 이름
+if (in_array($fixtureEndpointName, $fixtureAllowedEndpoints, true) && is_file('${base}/backend/api/' . $fixtureEndpointName . '.php')) // 실제 구현 존재 조건
 {
-    require '${base}/backend/api/' . $name . '.php'; // 실제 API 실행
+    require '${base}/backend/api/' . $fixtureEndpointName . '.php'; // 실제 API 실행
 }
 respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
 `; // 검증용 PHP 소스 종료
-    writeFileSync(path.join(work, "router.php"), fixture); // 공개 경로 밖 라우터 저장
+    writeFileSync(path.join(testDirectory, "router.php"), fixture); // 공개 경로 밖 라우터 저장
     const servers = []; // 이 테스트의 PHP 서버 목록
     const origins = []; // 독립 서버 접속 주소
     let logs = ""; // 시작 실패 진단
     sql("CREATE DATABASE " + database + " CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci;", false); // 독립 DB 생성
     try // 실패 시에도 정리 보장
     {
-        sql(readFileSync(path.join(root, "backend/sql/schema.sql"), "utf8")); // 실제 스키마 적용
+        sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 실제 스키마 적용
         for (let index = 0; index < 4; index++) // 병렬 요청용 독립 PHP 프로세스
         {
             const httpPort = await vacantPort(); // 서버별 전용 포트
-            const env = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "auth-test-only-secret-key-32-bytes-minimum" }; // 격리된 테스트 설정
-            const server = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(work, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", work, path.join(work, "router.php")], { cwd: root, env, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 실제 서버 시작
+            const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "auth-test-only-secret-key-32-bytes-minimum" }; // 격리된 테스트 설정
+            const server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { cwd: projectRoot, env: serverEnvironment, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 실제 서버 시작
             server.stderr.on("data", (value) => // 서버 진단 수집
             {
                 logs += value; // 실패 원인 기록
@@ -132,7 +132,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             assert.match(publicUser.id, /^[1-9]\d*$/); // 문자열 식별자
             assert.match(publicUser.created_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/); // UTC 시각
             const hash = sql("SELECT password_hash FROM users WHERE id=" + publicUser.id); // 실제 저장 해시
-            const verified = execFileSync(php, ["-r", "echo password_verify($argv[1], $argv[2]) ? 'verified' : 'invalid';", password, hash], { encoding: "utf8", windowsHide: true }); // 실제 PHP 비밀번호 검증
+            const verified = execFileSync(phpBinary, ["-r", "echo password_verify($argv[1], $argv[2]) ? 'verified' : 'invalid';", password, hash], { encoding: "utf8", windowsHide: true }); // 실제 PHP 비밀번호 검증
             assert.equal(verified, "verified"); // 원문 공백 포함 해시 일치
             expectError(await request("/api/get_current_user.php", { headers: { Cookie: session.cookie } }), 401, "UNAUTHORIZED"); // 가입 후 게스트 유지
             assert.equal(sql("SELECT COUNT(*) FROM server_members"), "0"); // 자동 멤버십 없음

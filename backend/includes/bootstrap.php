@@ -12,15 +12,15 @@ set_error_handler(function (int $severity, string $message, string $file, int $l
     }
     throw new ErrorException($message, 0, $severity, $file, $line); // 화면 출력 없는 예외 전환
 }); // 경고 처리기 등록
-set_exception_handler(function (Throwable $exception): void // 처리되지 않은 내부 예외
+set_exception_handler(function (Throwable $caughtException): void // 처리되지 않은 내부 예외
 {
     error_log('SystemMakers internal API failure.'); // 비밀 없는 서버 진단
     respond_error('INTERNAL_ERROR', '요청을 처리할 수 없습니다.', 500); // 상세 원인 비노출
 }); // 예외 처리기 등록
 register_shutdown_function(function (): void // 치명적인 종료 오류 처리
 {
-    $error = error_get_last(); // 마지막 PHP 오류
-    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true) && !headers_sent()) // 응답 가능한 치명 오류
+    $lastError = error_get_last(); // 마지막 PHP 오류
+    if ($lastError !== null && in_array($lastError['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true) && !headers_sent()) // 응답 가능한 치명 오류
     {
         respond_error('INTERNAL_ERROR', '요청을 처리할 수 없습니다.', 500); // 일반 JSON 오류 반환
     }

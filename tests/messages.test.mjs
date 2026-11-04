@@ -7,9 +7,9 @@ import path from "node:path"; // 운영체제 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
 import test from "node:test"; // 기본 테스트 실행
 import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
-const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
-const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // 실제 PHP 실행 파일
-const client = process.env.MYSQL_TEST_CLIENT || path.join(root, ".runtime/mysql/mysql-8.4.13-winx64/bin/mysql.exe"); // 실제 MySQL 클라이언트
+const projectRoot = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
+const phpBinary = process.env.PHP_TEST_BIN || path.join(projectRoot, ".runtime/php/php.exe"); // 실제 PHP 실행 파일
+const client = process.env.MYSQL_TEST_CLIENT || path.join(projectRoot, ".runtime/mysql/mysql-8.4.13-winx64/bin/mysql.exe"); // 실제 MySQL 클라이언트
 const port = process.env.MYSQL_TEST_PORT || "33360"; // 격리된 테스트 MySQL 포트
 const database = "systemmakers_messages_test_" + randomBytes(6).toString("hex"); // 삭제 가능한 독립 DB
 function mysqlArgs(selected = true) // 테스트 DB 전용 연결 인수
@@ -50,34 +50,34 @@ test("실제 PHP·MySQL 메시지 저장 계약", async (context) => // 모의 �
     assert.match(database, /^systemmakers_messages_test_[a-f0-9]{12}$/); // 삭제 대상 이름 제한
     assert.match(port, /^\d+$/); // 포트 형식 제한
     assert.notEqual(port, "3306"); // 기본 DB 사용 차단
-    const work = path.join(root, ".runtime", database); // 독립 비공개 검증 폴더
-    mkdirSync(path.join(work, "sessions"), { recursive: true }); // 독립 세션 저장소
-    const base = root.replaceAll("\\", "/").replaceAll("'", "\\'"); // PHP 경로 인용
+    const testDirectory = path.join(projectRoot, ".runtime", database); // 독립 비공개 검증 폴더
+    mkdirSync(path.join(testDirectory, "sessions"), { recursive: true }); // 독립 세션 저장소
+    const base = projectRoot.replaceAll("\\", "/").replaceAll("'", "\\'"); // PHP 경로 인용
     const fixture = `<?php // 비공개 메시지 검증 라우터
 require '${base}/backend/includes/bootstrap.php'; // 실제 공통 계층
-$route = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); // 요청 경로
-if ($route === '/ready') // 서버 준비 경로
+$fixtureRequestRoute = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); // 요청 경로
+if ($fixtureRequestRoute === '/ready') // 서버 준비 경로
 {
     respond_success(['ready' => true]); // 실제 준비 응답
 }
-if ($route === '/limited-wait') // 테스트 전용 짧은 잠금 제한
+if ($fixtureRequestRoute === '/limited-wait') // 테스트 전용 짧은 잠금 제한
 {
     db()->exec('SET SESSION innodb_lock_wait_timeout = 1'); // 테스트 연결의 대기 제한
-    $route = '/api/send_message.php'; // 실제 메시지 API 경로
+    $fixtureRequestRoute = '/api/send_message.php'; // 실제 메시지 API 경로
 }
-if ($route === '/connection-failure') // 연결 오류 비노출 검사
+if ($fixtureRequestRoute === '/connection-failure') // 연결 오류 비노출 검사
 {
     putenv('MYSQL_DATABASE=missing_messages_database'); // 요청 전용 없는 DB
-    $route = '/api/send_message.php'; // 실제 메시지 API 경로
+    $fixtureRequestRoute = '/api/send_message.php'; // 실제 메시지 API 경로
 }
-$name = basename((string) $route, '.php'); // API 이름
-if (in_array($name, ['csrf', 'register', 'login', 'get_current_user', 'send_message'], true) && is_file('${base}/backend/api/' . $name . '.php')) // 실제 API 허용 목록
+$fixtureEndpointName = basename((string) $fixtureRequestRoute, '.php'); // API 이름
+if (in_array($fixtureEndpointName, ['csrf', 'register', 'login', 'get_current_user', 'send_message'], true) && is_file('${base}/backend/api/' . $fixtureEndpointName . '.php')) // 실제 API 허용 목록
 {
-    require '${base}/backend/api/' . $name . '.php'; // 실제 구현 실행
+    require '${base}/backend/api/' . $fixtureEndpointName . '.php'; // 실제 구현 실행
 }
 respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
 `; // 검증용 PHP 소스 종료
-    writeFileSync(path.join(work, "router.php"), fixture); // 공개 경로 밖 라우터 저장
+    writeFileSync(path.join(testDirectory, "router.php"), fixture); // 공개 경로 밖 라우터 저장
     const servers = []; // 테스트 PHP 프로세스 목록
     const connections = []; // 직접 잠금 제어 연결 목록
     const origins = []; // 서버 접속 주소 목록
@@ -85,12 +85,12 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
     sql("CREATE DATABASE " + database + " CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci", false); // 독립 DB 생성
     try // 실패 시 자원 정리 보장
     {
-        sql(readFileSync(path.join(root, "backend/sql/schema.sql"), "utf8")); // 실제 스키마 적용
+        sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 실제 스키마 적용
         for (let index = 0; index < 4; index++) // 실제 네 PHP 프로세스
         {
             const httpPort = await vacantPort(); // 프로세스별 포트
-            const env = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "messages-test-only-key-at-least-32-bytes" }; // 격리된 테스트 환경
-            const server = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(work, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", work, path.join(work, "router.php")], { cwd: root, env, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 실제 서버 시작
+            const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "messages-test-only-key-at-least-32-bytes" }; // 격리된 테스트 환경
+            const server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { cwd: projectRoot, env: serverEnvironment, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 실제 서버 시작
             server.stderr.on("data", (value) => // 서버 오류 수집
             {
                 logs += value; // 시작 실패 원인 보관
@@ -217,9 +217,9 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
         }); // 검증 순서 검사 종료
         await context.test("ID 형식·유니코드 경계·공백·NUL·원문 길이", async () => // UTF-16과 바이트 길이 혼동 포착
         {
-            for (const channel_id of [1, null, "0", "01", "+1", " 1", "1.0", "18446744073709551616", [], "-1"]) // 잘못된 ID 목록
+            for (const invalidChannelId of [1, null, "0", "01", "+1", " 1", "1.0", "18446744073709551616", [], "-1"]) // 잘못된 ID 목록
             {
-                expectError(await post("send_message", { channel_id, content: "valid" }, member), 422, "VALIDATION_ERROR"); // 공통 ID 규칙
+                expectError(await post("send_message", { channel_id: invalidChannelId, content: "valid" }, member), 422, "VALIDATION_ERROR"); // 공통 ID 규칙
             }
             const before = sql("SELECT COUNT(*) FROM messages"); // 내용 오류 전 저장 수
             for (const content of ["", " ", "\t\n\r", "\u00a0\u1680\u2000\u2028\u202f\u205f\u3000\ufeff", "x\0y", "😀".repeat(2001), " " + "가".repeat(2000), 123, null, []]) // 내용 오류 경계

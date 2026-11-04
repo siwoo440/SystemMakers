@@ -7,8 +7,8 @@ import path from "node:path"; // 운영체제 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
 import test from "node:test"; // 기본 테스트 도구
 import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
-const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
-const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // PHP 실행 파일
+const projectRoot = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
+const phpBinary = process.env.PHP_TEST_BIN || path.join(projectRoot, ".runtime/php/php.exe"); // PHP 실행 파일
 const port = process.env.MYSQL_TEST_PORT || "33360"; // 격리 MySQL 포트
 const database = "systemmakers_backend_test_" + randomBytes(6).toString("hex"); // 전용 DB 이름
 function sql(statement, selectDatabase = true) // 실제 MySQL 요청
@@ -27,103 +27,103 @@ test("실제 PHP·MySQL 공통 API 계약", async (context) => // 공통 계층 
 {
     for (const file of ["backend/includes/bootstrap.php", "backend/api/csrf.php", "backend/api/get_current_user.php", "backend/api/health.php"]) // 필수 구현 경로
     {
-        assert.ok(existsSync(path.join(root, file)), file + " 미구현"); // 누락 구현 실패
+        assert.ok(existsSync(path.join(projectRoot, file)), file + " 미구현"); // 누락 구현 실패
     }
-    assert.ok(existsSync(php), "PHP_TEST_BIN 또는 portable PHP 준비 필요"); // 실행 환경 확인
+    assert.ok(existsSync(phpBinary), "PHP_TEST_BIN 또는 portable PHP 준비 필요"); // 실행 환경 확인
     assert.match(port, /^\d+$/); // 포트 형식 제한
     assert.notEqual(port, "3306"); // 기존 기본 DB 접근 방지
     assert.match(database, /^systemmakers_backend_test_[a-f0-9]{12}$/); // 삭제 대상 제한
-    const work = path.join(root, ".runtime", database); // 비공개 검증 폴더
-    mkdirSync(path.join(work, "sessions"), { recursive: true }); // 독립 세션 저장소
-    const basePhp = root.replaceAll("\\", "/").replaceAll("'", "\\'"); // PHP 경로 인용
+    const testDirectory = path.join(projectRoot, ".runtime", database); // 비공개 검증 폴더
+    mkdirSync(path.join(testDirectory, "sessions"), { recursive: true }); // 독립 세션 저장소
+    const basePhp = projectRoot.replaceAll("\\", "/").replaceAll("'", "\\'"); // PHP 경로 인용
     const router = `<?php // 검증 전용 라우터
 require '${basePhp}/backend/includes/bootstrap.php'; // 실제 공통 처리
-$route = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); // 요청 경로
-if ($route === '/ready') // 서버 준비 확인
+$fixtureRequestRoute = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); // 요청 경로
+if ($fixtureRequestRoute === '/ready') // 서버 준비 확인
 {
     respond_success(['ready' => true]); // 준비 응답
 }
-if ($route === '/fixture-auth') // 비공개 인증 시나리오
+if ($fixtureRequestRoute === '/fixture-auth') // 비공개 인증 시나리오
 {
     start_secure_session(); // 실제 세션 시작
     $_SESSION['user_id'] = $_GET['id'] ?? '1'; // 검증 사용자
     $_SESSION['authenticated_at'] = time() - (int) ($_GET['age'] ?? '0'); // 검증 로그인 시각
     $_SESSION['last_activity_at'] = time() - (int) ($_GET['idle'] ?? '0'); // 검증 활동 시각
-    $state = ['user_id' => $_SESSION['user_id'], 'authenticated_at' => $_SESSION['authenticated_at'], 'last_activity_at' => $_SESSION['last_activity_at']]; // 실제 저장 예정 인증 상태
+    $fixtureSessionState = ['user_id' => $_SESSION['user_id'], 'authenticated_at' => $_SESSION['authenticated_at'], 'last_activity_at' => $_SESSION['last_activity_at']]; // 실제 저장 예정 인증 상태
     session_write_close(); // 세션 잠금 해제
-    respond_success($state); // 실제 인증 준비 결과
+    respond_success($fixtureSessionState); // 실제 인증 준비 결과
 }
-if ($route === '/validate') // 실제 본문 검증 경로
+if ($fixtureRequestRoute === '/validate') // 실제 본문 검증 경로
 {
     require_method(['POST']); // 메서드 검증
-    $body = read_json_body(); // 입력 객체 검증
+    $fixtureRequestBody = read_json_body(); // 입력 객체 검증
     require_csrf(); // 실제 토큰 검사
-    require_body_fields($body, ['id'], ['text']); // 인증 보호 후 필드 검사
-    $id = validate_id($body['id'], 'id'); // ID 범위 검사
-    if (array_key_exists('text', $body)) // 선택 문자열 여부
+    require_body_fields($fixtureRequestBody, ['id'], ['text']); // 인증 보호 후 필드 검사
+    $fixtureValidatedId = validate_id($fixtureRequestBody['id'], 'id'); // ID 범위 검사
+    if (array_key_exists('text', $fixtureRequestBody)) // 선택 문자열 여부
     {
-        validate_string($body['text'], 'text', 1, 4); // 문자 수와 NUL 검사
+        validate_string($fixtureRequestBody['text'], 'text', 1, 4); // 문자 수와 NUL 검사
     }
     close_session(); // 세션 잠금 해제
-    respond_success(['id' => $id]); // 검증 결과
+    respond_success(['id' => $fixtureValidatedId]); // 검증 결과
 }
-if ($route === '/id') // 조회 ID 검증
+if ($fixtureRequestRoute === '/id') // 조회 ID 검증
 {
     require_query_fields(['value', 'zero']); // 알 수 없는 필드 검사
     respond_success(['id' => validate_id($_GET['value'] ?? null, 'value', isset($_GET['zero']), true)]); // 조회 ID 검증
 }
-if ($route === '/secure-cookie') // 운영 쿠키 보안 확인
+if ($fixtureRequestRoute === '/secure-cookie') // 운영 쿠키 보안 확인
 {
     putenv('APP_ENV=production'); // 운영 환경 조건
     putenv('SESSION_COOKIE_SECURE=0'); // 잘못된 해제 설정 조건
     require '${basePhp}/backend/api/csrf.php'; // 실제 토큰 API 실행
 }
-if ($route === '/member') // 실제 채널 권한 검사
+if ($fixtureRequestRoute === '/member') // 실제 채널 권한 검사
 {
     respond_success(require_channel_member(db(), $_GET['channel'] ?? '1', $_GET['user'] ?? '1')); // DB 소속 판정
 }
-if ($route === '/db') // 실제 PDO 연결 확인
+if ($fixtureRequestRoute === '/db') // 실제 PDO 연결 확인
 {
-    $pdo = db(); // 실제 DB 연결
-    $row = $pdo->query('SELECT @@session.time_zone AS timezone, @@character_set_connection AS charset')->fetch(); // 연결 속성 조회
-    respond_success(['timezone' => $row['timezone'], 'charset' => $row['charset'], 'emulated' => $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES), 'exception_mode' => $pdo->getAttribute(PDO::ATTR_ERRMODE)]); // 실제 연결 속성
+    $fixtureDatabaseConnection = db(); // 실제 DB 연결
+    $fixtureConnectionRow = $fixtureDatabaseConnection->query('SELECT @@session.time_zone AS timezone, @@character_set_connection AS charset')->fetch(); // 연결 속성 조회
+    respond_success(['timezone' => $fixtureConnectionRow['timezone'], 'charset' => $fixtureConnectionRow['charset'], 'emulated' => $fixtureDatabaseConnection->getAttribute(PDO::ATTR_EMULATE_PREPARES), 'exception_mode' => $fixtureDatabaseConnection->getAttribute(PDO::ATTR_ERRMODE)]); // 실제 연결 속성
 }
-if ($route === '/db-failure') // 잘못된 DB 설정 시나리오
+if ($fixtureRequestRoute === '/db-failure') // 잘못된 DB 설정 시나리오
 {
     putenv('MYSQL_DATABASE=missing_sensitive_database'); // 연결 실패 유도
     require '${basePhp}/backend/api/health.php'; // 실제 상태 API 실행
 }
-if ($route === '/config-missing') // 필수 DB 설정 누락
+if ($fixtureRequestRoute === '/config-missing') // 필수 DB 설정 누락
 {
     putenv('MYSQL_DATABASE'); // DB 이름 제거
     db(); // 필수 설정 검사
 }
-if ($route === '/boom') // 내부 예외 시나리오
+if ($fixtureRequestRoute === '/boom') // 내부 예외 시나리오
 {
     throw new RuntimeException('sensitive SQL password internal path'); // 내부 오류 유도
 }
-if ($route === '/warning') // 내부 경고 시나리오
+if ($fixtureRequestRoute === '/warning') // 내부 경고 시나리오
 {
     trigger_error('sensitive warning secret', E_USER_WARNING); // 경고 유도
 }
-$routes = ['/api/csrf.php' => 'csrf.php', '/api/get_current_user.php' => 'get_current_user.php', '/api/health.php' => 'health.php']; // 공개 API 목록
-if (isset($routes[$route])) // 허용 API 확인
+$fixtureApiRoutes = ['/api/csrf.php' => 'csrf.php', '/api/get_current_user.php' => 'get_current_user.php', '/api/health.php' => 'health.php']; // 공개 API 목록
+if (isset($fixtureApiRoutes[$fixtureRequestRoute])) // 허용 API 확인
 {
-    require '${basePhp}/backend/api/' . $routes[$route]; // 실제 엔드포인트 실행
+    require '${basePhp}/backend/api/' . $fixtureApiRoutes[$fixtureRequestRoute]; // 실제 엔드포인트 실행
 }
 respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
 `; // 검증 전용 PHP 소스
-    writeFileSync(path.join(work, "router.php"), router); // 공개 경로 밖 fixture 저장
+    writeFileSync(path.join(testDirectory, "router.php"), router); // 공개 경로 밖 fixture 저장
     sql("CREATE DATABASE " + database + " CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci;", false); // 무작위 전용 DB 생성
     let server; // 종료 대상 PHP 프로세스
     let stderr = ""; // 실패 진단 기록
     try // 실패 시에도 정리 보장
     {
-        sql(readFileSync(path.join(root, "backend/sql/schema.sql"), "utf8")); // 실제 스키마 적용
+        sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 실제 스키마 적용
         sql("INSERT INTO users (id,username,email,password_hash) VALUES (1,'member','member@example.com','unused'),(2,'outsider','outsider@example.com','unused'); INSERT INTO servers (id,name,owner_id) VALUES (1,'test',1); INSERT INTO server_members (server_id,user_id,role) VALUES (1,1,'owner'); INSERT INTO channels (id,server_id,name) VALUES (1,1,'general');"); // 실제 계정과 소속 준비
         const httpPort = await vacantPort(); // 검증 전용 HTTP 포트
-        const env = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "development", SESSION_COOKIE_SECURE: "0" }; // 격리 연결 환경
-        server = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(work, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", work, path.join(work, "router.php")], { cwd: root, env, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 숨김 PHP 서버 시작
+        const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "development", SESSION_COOKIE_SECURE: "0" }; // 격리 연결 환경
+        server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { cwd: projectRoot, env: serverEnvironment, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 숨김 PHP 서버 시작
         server.stderr.on("data", (chunk) => // 실행 오류 기록
         {
             stderr += chunk; // 실패 진단 누적
