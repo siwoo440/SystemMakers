@@ -5,6 +5,23 @@ header("X-Frame-Options: DENY"); // 외부 프레임 삽입 차단
 header("Referrer-Policy: same-origin"); // 외부 참조 정보 제한
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"); // 같은 출처 자원만 허용
 $requestPath = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH)); // 요청 경로 추출
+if ($requestPath === '/Team006') // 팀 폴더 주소 확인
+{
+    header('Location: /Team006/', true, 308); // 상대경로 기준을 위한 끝 슬래시 이동
+    exit; // 이동 응답 종료
+}
+if (str_starts_with($requestPath, '/Team006/')) // 정확한 팀 폴더 접두사 확인
+{
+    $requestPath = substr($requestPath, strlen('/Team006')); // 허용 목록 기준 경로 추출
+}
+if (str_starts_with($requestPath, '/backend/api/')) // 실제 API 폴더 접근 확인
+{
+    $requestPath = '/api/' . substr($requestPath, strlen('/backend/api/')); // 기존 API 허용 목록 연결
+}
+elseif (str_starts_with($requestPath, '/frontend/')) // 화면 자원 폴더 접근 확인
+{
+    $requestPath = substr($requestPath, strlen('/frontend')); // 기존 정적 파일 허용 목록 연결
+}
 $apiFiles = // 공개 API 허용 목록
 [ // API 경로 목록 시작
     '/api/csrf.php' => 'csrf.php', // CSRF 발급 API
@@ -78,5 +95,6 @@ header('Content-Type: ' . $assetMimeType); // 자원 형식 지정
 header('Cache-Control: no-store'); // 개발 중 이전 파일 캐시 차단
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') // 본문 전송 여부
 {
-    readfile(__DIR__ . '/frontend/' . $assetName); // 허용한 화면 파일 전송
+    $assetPath = $assetName === 'index.html' ? __DIR__ . '/index.html' : __DIR__ . '/frontend/' . $assetName; // 진입 파일과 화면 자원 위치 구분
+    readfile($assetPath); // 허용한 화면 파일 전송
 }

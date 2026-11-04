@@ -66,7 +66,7 @@ test("생성 성공은 새 채널 선택과 목록 재확인", async () => // �
     await testHarness.byId("create-channel").fire("click"); // 생성 화면
     testHarness.byId("channel-value").value = "새 채널"; // 이름 입력
     await testHarness.byId("channel-manage-form").fire("submit"); // 실제 요청
-    assert.deepEqual(calls, [{ path: "/api/create_channel.php", body: { server_id: "1", name: "새 채널" } }]); // 허용 필드만 전달
+    assert.deepEqual(calls, [{ path: "./backend/api/create_channel.php", body: { server_id: "1", name: "새 채널" } }]); // 허용 필드만 전달
     assert.equal(testHarness.manager.channel, "7"); // 새 채널 선택
     assert.equal(testHarness.reloads(), 1); // 실제 목록 확인
 });

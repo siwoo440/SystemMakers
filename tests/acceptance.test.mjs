@@ -35,7 +35,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
         session.request = async (endpoint, body = null, extra = {}) => // 실제 공개 API 호출
         {
             const headers = { Cookie: session.cookie, ...(body === null ? {} : { "Content-Type": "application/json", "X-CSRF-Token": session.token }), ...extra }; // 실제 인증과 요청 보호
-            const response = await fetch(origin + "/api/" + endpoint, { method: body === null ? "GET" : "POST", headers, body: body === null ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(5000) }); // 실제 HTTP와 PHP
+            const response = await fetch(origin + "/Team006/backend/api/" + endpoint, { method: body === null ? "GET" : "POST", headers, body: body === null ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(5000) }); // 실제 HTTP와 PHP
             const cookie = response.headers.get("set-cookie"); // 서버 쿠키 교체
             if (cookie) // 실제 쿠키 갱신 여부
             {

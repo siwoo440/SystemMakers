@@ -9,6 +9,7 @@
 - PHP 8.4와 `pdo_mysql`·`mbstring` 확장, MySQL 8.4, Node.js가 필요하다.
 - 개인 PHP·MySQL 도구와 DB, `.runtime/web-env.json`은 Git에 포함되지 않는다. 다른 컴퓨터에서는 따로 준비한다.
 - `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`를 명시한다. 실제 접속 값은 Git이나 공유 문서에 적지 않는다.
+- `MYSQL_HOST`는 웹 서버 주소와 별개이며 실제 MySQL 서비스의 주소에 따라 `127.0.0.1` 또는 `localhost` 등을 사용한다. 코드는 `MYSQL_PASSWORD`의 빈 값을 허용하지만 실제 접속 가능 여부는 MySQL 계정 설정에 달려 있다.
 - `AUTH_RATE_LIMIT_KEY`에는 암호학적 난수로 만든 32바이트 이상의 비밀 값을 지정하고 여러 서버 실행에서 안정적으로 유지한다. 누락되거나 짧으면 로그인은 실패한다.
 - 로컬 HTTP에서는 `APP_ENV=development`와 `SESSION_COOKIE_SECURE=0`을 명시한다. 운영 환경에서는 HTTPS와 기본 Secure 쿠키를 사용한다.
 
@@ -27,13 +28,15 @@
 ---
 ## 3. 로컬 웹 서버 실행
 
-- 프로젝트 루트에서 아래 명령을 실행한다. 현재 설정의 기본 주소는 `http://127.0.0.1:8088/`이다.
+- 저장소 전체를 웹 서버의 `htdocs/Team006/`에 배치하고 해당 프로젝트 루트에서 아래 명령을 실행한다. 이 경로에 복사하지 않은 기존 작업 폴더에서도 같은 PHP 라우터로 개발 주소를 실행할 수 있다.
+- 기본 주소는 `http://127.0.0.6:8088/Team006/index.html`이다. PHP 내장 서버가 `/Team006/` 요청을 프로젝트의 화면과 허용된 API에 연결한다.
 - `start-dev.ps1`은 개인 `.runtime/web-env.json`이 있으면 현재 프로세스 환경에 읽는다.
-- 다른 PHP 실행 파일은 `-PhpPath`, 다른 포트는 `-Port`로 지정한다. 이미 사용 중인 포트는 거절한다.
-- 웹에는 공개 화면과 API 허용 경로만 연결한다. 운영 배포에서는 비공개 설정·SQL·실행 파일에 대한 접근 차단을 별도로 구성한다.
+- 다른 PHP 실행 파일은 `-PhpPath`, 로컬 IPv4 주소는 `-WebHost`, 포트는 `-Port`로 지정한다. 지정한 주소와 포트의 사용 여부를 확인하고 PHP 서버에도 같은 값을 사용한다.
+- `router.php`를 사용하는 PHP 내장 서버는 공개 화면과 API 허용 경로만 연결한다. Apache/XAMPP에서 프로젝트를 직접 제공하면 이 라우터가 자동으로 적용되지 않으므로 별도의 경로 연결과 비공개 설정·SQL·실행 파일 접근 차단 구성이 필요하다.
 
 ```powershell
 .\scripts\start-dev.ps1 # 현재 로컬 설정으로 웹 서버 시작
+.\scripts\start-dev.ps1 -WebHost '127.0.0.6' -Port 8088 # 웹 주소와 포트 명시
 ```
 
 ---

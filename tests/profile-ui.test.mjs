@@ -58,7 +58,7 @@ test("본인 조회·취소 시 이메일과 입력 폐기·게스트 숨김", a
     assert.equal(testHarness.byId("profile-username").value, original.username); // 현재 사용자명
     assert.equal(testHarness.byId("profile-submit").disabled, false); // 확인된 정보만 변경 가능
     await testHarness.byId("profile-close").fire("click"); // 취소
-    assert.deepEqual(calls, [{ path: "/api/profile.php", body: null }]); // 취소는 변경 없음
+    assert.deepEqual(calls, [{ path: "./backend/api/profile.php", body: null }]); // 취소는 변경 없음
     assert.equal(testHarness.byId("profile-email").textContent, ""); // 닫은 이메일 폐기
     assert.equal(testHarness.byId("profile-username").value, ""); // 이전 입력 폐기
     testHarness.change(null); // 로그아웃 상태
@@ -85,7 +85,7 @@ test("저장은 PATCH 한 번·처리 중 중복 차단·확인된 본인만 적
     await testHarness.byId("profile-form").fire("submit"); // 중복 제출 시도
     release({ user: { ...original, username: "changed_name" } }); // 실제 커밋 응답
     await pending; // 화면 갱신 완료
-    assert.deepEqual(calls, [{ path: "/api/profile.php", body: { username: "Changed_Name" }, method: "PATCH" }]); // 허용 필드와 메서드
+    assert.deepEqual(calls, [{ path: "./backend/api/profile.php", body: { username: "Changed_Name" }, method: "PATCH" }]); // 허용 필드와 메서드
     assert.equal(testHarness.user().username, "changed_name"); // 확인된 이름 반영
     assert.equal(testHarness.byId("profile-username").value, "changed_name"); // 정규화 결과 표시
     assert.match(testHarness.byId("profile-status").textContent, /저장/); // 성공 응답 후 안내

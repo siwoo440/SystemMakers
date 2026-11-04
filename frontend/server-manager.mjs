@@ -75,7 +75,7 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
         this.onChange(); // 대기 화면
         try // 목록 검증과 적용
         {
-            const responseData = await this.request("/api/list_servers.php"); // 실제 서버 목록
+            const responseData = await this.request("./backend/api/list_servers.php"); // 실제 서버 목록
             if (requestVersion !== this.version || this.getUser()?.id !== userId) // 이전 계정·순서 결과
             {
                 return; // 늦은 응답 폐기
@@ -134,7 +134,7 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
         try // 자동 재전송 없는 실제 요청
         {
             const querySuffix = query ? "?" + new URLSearchParams(query).toString() : ""; // 검증된 조회 조건
-            const responseData = await this.request("/api/" + operation + ".php" + querySuffix, body, null, method); // 같은 출처와 명시한 PATCH 지원
+            const responseData = await this.request("./backend/api/" + operation + ".php" + querySuffix, body, null, method); // 같은 출처와 명시한 PATCH 지원
             if (requestVersion !== this.version || this.getUser()?.id !== userId) // 계정 종료 뒤 늦은 결과
             {
                 throw Object.assign(new Error("로그인 상태가 변경되었습니다."), { code: "STALE_RESPONSE" }); // 이전 결과 사용 중단

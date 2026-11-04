@@ -1,9 +1,9 @@
 "use strict"; // 엄격한 자바스크립트 검사
-import { MessageFeed } from "/message-feed.mjs"; // 채널 기록과 자동 갱신 수명 관리
-import { ServerManager } from "/server-manager.mjs"; // 실제 서버 소속 상태
-import { mountServerUI } from "/server-ui.mjs"; // 명시적 관리 화면
-import { mountChannelUI } from "/channel-ui.mjs"; // 역할별 채널 관리 화면
-import { mountProfileUI } from "/profile-ui.mjs"; // 본인 정보 조회·사용자명 수정
+import { MessageFeed } from "./message-feed.mjs"; // 채널 기록과 자동 갱신 수명 관리
+import { ServerManager } from "./server-manager.mjs"; // 실제 서버 소속 상태
+import { mountServerUI } from "./server-ui.mjs"; // 명시적 관리 화면
+import { mountChannelUI } from "./channel-ui.mjs"; // 역할별 채널 관리 화면
+import { mountProfileUI } from "./profile-ui.mjs"; // 본인 정보 조회·사용자명 수정
 const byId = (elementId) => document.getElementById(elementId); // 화면 요소 조회
 let channels = Object.create(null); // 서버에서 확인한 채널별 화면 자료
 const messageInput = byId("message-input"); // 메시지 작성 필드
@@ -65,7 +65,7 @@ function updateHistoryControls() // 기록 조회 버튼과 갱신 상태 표시
 }
 function createChannelFeed(channelId, channel, userId) // 실제 소속 채널의 조회 연결
 {
-    const channelFeed = new MessageFeed({ channelId, request: (messageQuery, abortSignal) => requestEndpoint("/api/get_messages.php?" + messageQuery, null, abortSignal), onChange: (feedChange) => // 동일 출처의 취소 가능한 기록 조회
+    const channelFeed = new MessageFeed({ channelId, request: (messageQuery, abortSignal) => requestEndpoint("./backend/api/get_messages.php?" + messageQuery, null, abortSignal), onChange: (feedChange) => // 동일 출처의 취소 가능한 기록 조회
     {
         if (currentUser?.id !== userId || channels[channelId] !== channel) // 이전 계정과 교체된 채널 응답
         {
@@ -377,7 +377,7 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
                 discardDepartedServer(serverId); // 채널 조회 실패 전 종료 자료 폐기
             }
         }
-        const responseData = await requestEndpoint("/api/get_channels.php"); // 쿼리 없는 실제 조회 요청
+        const responseData = await requestEndpoint("./backend/api/get_channels.php"); // 쿼리 없는 실제 조회 요청
         if (requestGeneration !== authGeneration || requestVersion !== channelLoadVersion || currentUser?.id !== userId) // 늦은 이전 계정 응답 여부
         {
             return; // 이전 계정 목록 적용 중단
@@ -456,7 +456,7 @@ async function sendMessage(uiEvent) // 실제 데이터베이스 메시지 저�
     updateComposer(); // 전송 버튼과 접근성 상태 갱신
     try // 실제 저장 성공 응답 확인
     {
-        const responseData = await requestEndpoint("/api/send_message.php", { channel_id: channelId, content: messageRequest.content }); // 최신 보호 토큰과 원문 전송
+        const responseData = await requestEndpoint("./backend/api/send_message.php", { channel_id: channelId, content: messageRequest.content }); // 최신 보호 토큰과 원문 전송
         if (messageRequest.generation !== authGeneration || currentUser?.id !== messageRequest.userId || channels[channelId] !== channel || channel.feed.blocked) // 계정·채널 교체와 조회 중 권한 상실 여부
         {
             return; // 이전 계정의 늦은 성공 무시
@@ -757,7 +757,7 @@ async function requestEndpoint(path, body = null, signal = null, method = null) 
 async function refreshCsrf(generation = authGeneration) // 실제 세션 보호 토큰 재조회
 {
     csrfToken = null; // 이전 토큰 사용 중단
-    const responseData = await requestEndpoint("/api/csrf.php"); // 현재 세션의 보호 토큰 조회
+    const responseData = await requestEndpoint("./backend/api/csrf.php"); // 현재 세션의 보호 토큰 조회
     if (typeof responseData.csrf_token !== "string" || !/^[a-f0-9]{64}$/.test(responseData.csrf_token)) // 보호 토큰 계약 확인
     {
         throw requestError("화면 보호 정보를 확인하지 못했습니다. 다시 시도하세요."); // 유효하지 않은 토큰 거절
@@ -769,7 +769,7 @@ async function refreshCsrf(generation = authGeneration) // 실제 세션 보호 
     const expectedUserId = currentUser?.id; // 토큰을 적용할 화면 계정
     if (expectedUserId) // 로그인 상태에서 보호 정보 교체 여부
     {
-        const identity = await requestEndpoint("/api/get_current_user.php"); // 새 토큰 조회 뒤 현재 세션과 기대 계정 확인
+        const identity = await requestEndpoint("./backend/api/get_current_user.php"); // 새 토큰 조회 뒤 현재 세션과 기대 계정 확인
         if (!validUser(identity.user) || identity.user.id !== expectedUserId) // 계정 응답의 추가 일치 검사
         {
             throw requestError("로그인 계정이 변경되었습니다. 다시 확인하세요.", 403, "SESSION_CHANGED"); // 다른 계정 토큰의 초안 사용 차단
@@ -809,7 +809,7 @@ async function restoreCurrentUser(generation) // 실제 로그인 세션 복원
 {
     try // 현재 사용자 응답 확인
     {
-        const responseData = await requestEndpoint("/api/get_current_user.php"); // 실제 로그인 세션 조회
+        const responseData = await requestEndpoint("./backend/api/get_current_user.php"); // 실제 로그인 세션 조회
         if (generation !== authGeneration) // 최신 인증 상태와 조회 순서 비교
         {
             return; // 이전 상태의 늦은 응답 무시
@@ -904,7 +904,7 @@ async function submitAuth(uiEvent) // 실제 가입 또는 로그인 처리
         {
             await refreshCsrf(); // 다음 요청의 실제 보호 토큰 발급
         }
-        const responseData = await requestEndpoint(`/api/${requestMode}.php`, authBody); // 실제 가입 또는 로그인 POST
+        const responseData = await requestEndpoint(`./backend/api/${requestMode}.php`, authBody); // 실제 가입 또는 로그인 POST
         if (!validUser(responseData.user) || (requestMode === "login" && !/^[a-f0-9]{64}$/.test(responseData.csrf_token || ""))) // 성공 응답의 사용자와 새 토큰 확인
         {
             throw requestError("서버 응답을 확인하지 못했습니다. 계정 상태를 확인한 뒤 다시 시도하세요."); // 불완전한 응답의 성공 추정 방지
@@ -987,7 +987,7 @@ async function logout() // 실제 로그인 세션 종료
         {
             await refreshCsrf(); // 누락된 토큰 재발급
         }
-        await requestEndpoint("/api/logout.php", {}); // 빈 JSON 객체로 실제 로그아웃
+        await requestEndpoint("./backend/api/logout.php", {}); // 빈 JSON 객체로 실제 로그아웃
         sessionNotice = "로그아웃됨"; // 실제 세션 종료 안내
         clearSessionView(); // 이전 사용자와 대화 및 초안 제거
         await refreshCsrf().catch(ignoreConnectionFailure); // 새 게스트 세션 보호 토큰 발급 시도
@@ -1024,7 +1024,7 @@ async function checkConnections() // 최초 세션과 실제 연결 확인
 {
     const requestGeneration = authGeneration; // 최초 확인 요청의 상태 번호
     await refreshCsrf().catch(ignoreConnectionFailure); // 병렬 조회 전 최초 세션 쿠키 발급 시도
-    const health = requestEndpoint("/api/health.php").then((responseData) => // 독립적인 데이터베이스 상태 확인
+    const health = requestEndpoint("./backend/api/health.php").then((responseData) => // 독립적인 데이터베이스 상태 확인
     {
         databaseReady = responseData.status === "ok"; // 실제 연결 성공 여부 보관
         renderAuthState(); // 확인한 연결 상태 표시

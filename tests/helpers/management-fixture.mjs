@@ -40,7 +40,7 @@ export async function fixture(context) // 독립 공개 API 검사 환경
         const session = { cookie: "", token: "", id: "" }; // 실제 인증 상태
         session.request = async (endpoint, body = null, extra = {}, method = body === null ? "GET" : "POST") => // 공개 API와 명시한 변경 메서드
         {
-            const response = await fetch(origin + "/api/" + endpoint, { method, headers: { Cookie: session.cookie, ...(session.id ? { "X-Expected-User-Id": session.id } : {}), ...(body === null ? {} : { "Content-Type": "application/json", "X-CSRF-Token": session.token }), ...extra }, body: body === null ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(5000) }); // 실제 HTTP
+            const response = await fetch(origin + "/Team006/backend/api/" + endpoint, { method, headers: { Cookie: session.cookie, ...(session.id ? { "X-Expected-User-Id": session.id } : {}), ...(body === null ? {} : { "Content-Type": "application/json", "X-CSRF-Token": session.token }), ...extra }, body: body === null ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(5000) }); // 실제 HTTP
             const cookie = response.headers.get("set-cookie"); // 서버 쿠키 교체
             if (cookie) // 새 쿠키 존재 여부
             {

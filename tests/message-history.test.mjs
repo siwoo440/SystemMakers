@@ -43,7 +43,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
     const origin = "http://127.0.0.1:" + httpPort; // 실제 테스트 주소
     async function request(query, authenticated = true, method = "GET") // 실제 공개 API 요청
     {
-        const response = await fetch(origin + "/api/get_messages.php" + query, { method, headers: authenticated ? { Cookie: cookie } : {}, signal: AbortSignal.timeout(5000) }); // 실제 HTTP 조회
+        const response = await fetch(origin + "/Team006/backend/api/get_messages.php" + query, { method, headers: authenticated ? { Cookie: cookie } : {}, signal: AbortSignal.timeout(5000) }); // 실제 HTTP 조회
         assert.match(response.headers.get("content-type"), /application\/json/); // 공통 JSON 응답
         assert.equal(response.headers.get("cache-control"), "no-store"); // 개인 대화 캐시 차단
         return { status: response.status, body: await response.json() }; // HTTP 상태와 실제 결과

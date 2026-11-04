@@ -65,13 +65,13 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
 }
 test("다른 탭의 계정 변경은 전송 중단과 이전 계정 자료 삭제", async (context) => // 다른 작성자의 초안 저장 방지
 {
-    const testHarness = setup((call) => call.url === "/api/csrf.php" ? { status: 200, data: { csrf_token: "b".repeat(64) } } : { status: 403, code: "SESSION_CHANGED" }); // B 세션의 사용자 불일치 응답
+    const testHarness = setup((call) => call.url === "./backend/api/csrf.php" ? { status: 200, data: { csrf_token: "b".repeat(64) } } : { status: 403, code: "SESSION_CHANGED" }); // B 세션의 사용자 불일치 응답
     context.after(testHarness.stop); // 검사 후 조회 종료
     await testHarness.send(); // A 화면에서 실제 제출
     assert.equal(testHarness.calls[0].headers["X-Expected-User-Id"], "1"); // 제출 의도 계정 전달
     assert.deepEqual(testHarness.state(), { userId: null, channelIds: [], draft: "" }); // 이전 계정 자료 전체 정리
     await testHarness.send(); // 정리된 화면의 추가 제출 시도
-    assert.equal(testHarness.calls.filter((call) => call.url === "/api/send_message.php").length, 1); // 자동 및 빈 화면 재전송 차단
+    assert.equal(testHarness.calls.filter((call) => call.url === "./backend/api/send_message.php").length, 1); // 자동 및 빈 화면 재전송 차단
 }); // 계정 변경 검사 끝
 test("CSRF 복구 중 다른 계정 확인 시 기존 초안 재전송 차단", async (context) => // 토큰만 교체하는 계정 혼동 포착
 {
@@ -79,7 +79,7 @@ test("CSRF 복구 중 다른 계정 확인 시 기존 초안 재전송 차단", 
     let sends = 0; // 메시지 제출 횟수
     const testHarness = setup((call) => // 공유 쿠키가 B로 바뀐 API 경계
     {
-        if (call.url === "/api/send_message.php") // 메시지 제출 여부
+        if (call.url === "./backend/api/send_message.php") // 메시지 제출 여부
         {
             sends += 1; // 실제 제출 수 집계
             if (sends === 1) // 오래된 A 토큰의 최초 제출
@@ -89,7 +89,7 @@ test("CSRF 복구 중 다른 계정 확인 시 기존 초안 재전송 차단", 
             stored += 1; // 위험한 B 계정 저장 관측
             return { status: 201, data: { message: { id: "2", channel_id: "1", user_id: "2", username: "user_b", content: call.body.content, created_at: "2026-10-21T00:00:00Z" } } }; // 잘못된 작성자의 저장 응답
         }
-        if (call.url === "/api/csrf.php") // 현재 공유 세션 토큰 조회
+        if (call.url === "./backend/api/csrf.php") // 현재 공유 세션 토큰 조회
         {
             return { status: 200, data: { csrf_token: "b".repeat(64) } }; // B 계정 보호 토큰
         }
@@ -107,11 +107,11 @@ test("같은 계정의 CSRF 교체는 초안 보존과 수동 재전송", async 
     let sends = 0; // 실제 전송 시도 수
     const testHarness = setup((call) => // 같은 사용자의 세션 교체 상황
     {
-        if (call.url === "/api/csrf.php") // 새 보호 토큰 조회
+        if (call.url === "./backend/api/csrf.php") // 새 보호 토큰 조회
         {
             return { status: 200, data: { csrf_token: "c".repeat(64) } }; // 같은 계정의 새 토큰
         }
-        if (call.url === "/api/get_current_user.php") // 현재 계정 재확인
+        if (call.url === "./backend/api/get_current_user.php") // 현재 계정 재확인
         {
             return { status: 200, data: { user: { id: "1", username: "user_a", email: "a@example.com", created_at: "2026-10-21T00:00:00Z" } } }; // 원래 사용자 정보
         }
@@ -167,7 +167,7 @@ test("프로필 PATCH는 기대 계정·CSRF·실제 변경 메서드 전달", a
 {
     const testHarness = setup(() => ({ status: 200, data: { user: { id: "1", username: "new_name" } } })); // 실제 성공 응답 경계
     context.after(testHarness.stop); // 검사 조회 정리
-    await testHarness.evaluate('requestEndpoint("/api/profile.php", { username: "new_name" }, null, "PATCH")'); // 실제 화면 요청
+    await testHarness.evaluate('requestEndpoint("./backend/api/profile.php", { username: "new_name" }, null, "PATCH")'); // 실제 화면 요청
     assert.equal(testHarness.calls[0].method, "PATCH"); // POST로 잘못 변경되는 문제 포착
     assert.equal(testHarness.calls[0].headers["X-Expected-User-Id"], "1"); // 본인 의도 계정
     assert.equal(testHarness.calls[0].headers["X-CSRF-Token"], "a".repeat(64)); // 기존 보호 토큰
@@ -193,7 +193,7 @@ test("프로필 CSRF 복구의 늦은 실패는 새 로그인 계정 유지", as
     const waiting = new Promise((resolve) => entered = resolve); // 실제 대기 경계
     const testHarness = setup((call) => // 실제 토큰 복구의 네트워크 경계
     {
-        if (call.url === "/api/csrf.php") // 새 보호 토큰
+        if (call.url === "./backend/api/csrf.php") // 새 보호 토큰
         {
             return { status: 200, data: { csrf_token: "b".repeat(64) } }; // 같은 계정 복구 시작
         }
@@ -246,11 +246,11 @@ test("전송 CSRF 복구의 늦은 실패는 새 계정·토큰 보존", async (
     const waiting=new Promise((resolve)=>entered=resolve); // 실제 비동기 복구 대기
     const testHarness=setup((call)=> // 실제 전송·토큰·계정 조회 연결
     {
-        if(call.url==="/api/send_message.php") // 처음 제출
+        if(call.url==="./backend/api/send_message.php") // 처음 제출
         {
             return {status:403,code:"CSRF_INVALID"}; // 토큰 복구 시작
         }
-        if(call.url==="/api/csrf.php") // 새 토큰
+        if(call.url==="./backend/api/csrf.php") // 새 토큰
         {
             return {status:200,data:{csrf_token:"b".repeat(64)}}; // 현재 계정 확인 전 대기
         }

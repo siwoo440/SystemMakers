@@ -35,11 +35,53 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
             }
         }
         assert.ok(ready, output); // 시작 실패 원인 보고
+        await context.test("Team006 하위 경로에서 진입 화면과 공개 자원 제공", async () => // 프로젝트 배치 경로 확인
+        {
+            const home = await fetch(origin + "/Team006/index.html"); // 팀 폴더 진입 화면 요청
+            assert.equal(home.status, 200); // 팀 폴더 진입 성공
+            const html = await home.text(); // 실제 HTML 본문
+            assert.match(html, /SystemMakers/); // 실제 프로젝트 화면 확인
+            assert.match(html, /href=["'](?:\.\/)?frontend\/app\.css["']/); // 팀 폴더 기준 스타일 경로
+            assert.match(html, /src=["'](?:\.\/)?frontend\/app\.js["']/); // 팀 폴더 기준 스크립트 경로
+            for (const file of ["app.css", "app.js", "message-feed.mjs", "server-manager.mjs", "server-ui.mjs", "channel-ui.mjs", "profile-ui.mjs"]) // 실제 정적 자원 목록
+            {
+                const asset = await fetch(origin + "/Team006/frontend/" + file); // 팀 폴더 기준 상대 자원 요청
+                assert.equal(asset.status, 200, file); // 각 자원 응답 확인
+                assert.equal(asset.headers.get("x-content-type-options"), "nosniff"); // 자원 형식 자동 추측 차단
+                assert.ok((await asset.text()).length > 0); // 실제 자원 본문 확인
+            }
+        }); // 팀 경로 자원 검사 종료
+        await context.test("Team006 하위 경로에서 실제 PHP API 연결", async () => // 팀 폴더 API 연결 확인
+        {
+            const token = await fetch(origin + "/Team006/backend/api/csrf.php"); // 상대 경로 CSRF 발급
+            assert.equal(token.status, 200); // 실제 API 실행 성공
+            assert.match((await token.json()).data.csrf_token, /^[a-f0-9]{64}$/); // 실제 CSRF 토큰 확인
+            const current = await fetch(origin + "/Team006/backend/api/get_current_user.php"); // 비로그인 사용자 조회
+            assert.equal(current.status, 401); // 실제 인증 검사 도달
+            const missing = await fetch(origin + "/Team006/backend/api/missing.php"); // 없는 API 요청
+            assert.equal(missing.status, 404); // 없는 API 차단
+        }); // 팀 경로 API 검사 종료
+        await context.test("Team006 하위 경로의 비공개 파일 차단", async () => // 팀 폴더 배치 시 보안 범위 확인
+        {
+            for (const file of ["backend/config/database.php", "backend/includes/auth.php", "backend/sql/schema.sql", "scripts/seed-dev.php", ".git/config", ".runtime/php.ini", "%2e%2e%2fbackend%2fconfig%2fdatabase.php"]) // 노출 금지 파일 목록
+            {
+                const response = await fetch(origin + "/Team006/" + file); // 팀 경로의 비공개 자원 요청
+                assert.equal(response.status, 404, file); // 비공개 파일 접근 거절
+            }
+            const similarPrefix = await fetch(origin + "/Team006extra/backend/api/csrf.php"); // 유사한 다른 폴더 접두사 요청
+            assert.equal(similarPrefix.status, 404); // 팀 폴더 경계 밖 접근 거절
+        }); // 팀 경로 비공개 파일 검사 종료
         await context.test("홈과 정적 파일 응답", async () => // 웹 파일 공개 확인
         {
             const home = await fetch(origin); // 홈 화면 조회
             assert.equal(home.status, 200); // 홈 응답 성공
             assert.match(await home.text(), /SystemMakers/); // 프로젝트 화면 확인
+            for (const path of ["/frontend/app.css", "/frontend/app.js", "/backend/api/csrf.php"]) // 기존 루트 화면의 상대 자원 경로
+            {
+                const response = await fetch(origin + path); // 실제 상대 경로 요청
+                assert.equal(response.status, 200, path); // 기존 경로 호환 확인
+                await response.arrayBuffer(); // 응답 본문 수신 완료
+            }
             for (const file of ["/app.css", "/app.js"]) // 화면 자원 조회
             {
                 const asset = await fetch(origin + file); // 정적 자원 요청

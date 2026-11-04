@@ -57,7 +57,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
         {
             try // 시작 전 연결 거절 허용
             {
-                await request("/api/csrf.php"); // 실제 공통 경로 확인
+                await request("/Team006/backend/api/csrf.php"); // 실제 공통 경로 확인
                 ready = true; // 시작 완료
                 break; // 준비 반복 종료
             }
@@ -72,19 +72,19 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
         const outsiderCookie = (await request("/fixture-auth?id=3")).response.headers.get("set-cookie").split(";")[0]; // 비소속 실제 인증 쿠키
         await context.test("소속 없는 계정의 빈 채널 목록", async () => // 임의 채널 공개와 자동 가입 포착
         {
-            const result = await request("/api/get_channels.php", { Cookie: ownerCookie }); // 실제 목록 요청
+            const result = await request("/Team006/backend/api/get_channels.php", { Cookie: ownerCookie }); // 실제 목록 요청
             assert.equal(result.response.status, 200); // 공개 경로 연결 확인
             assert.deepEqual(result.body.data.channels, []); // 소속 없는 계정의 빈 결과
             assert.equal(sql("SELECT COUNT(*) FROM server_members;"), "0"); // 조회 중 자동 가입 차단
         }); // 빈 목록 검사 종료
         await context.test("메서드·인증·조회 조건 검사", async () => // 인증 없는 목록과 입력 누락 검사 포착
         {
-            assert.equal((await request("/api/get_channels.php")).response.status, 401); // 게스트 목록 차단
-            assert.equal((await request("/api/get_channels.php?user_id=1")).response.status, 401); // 입력 검사보다 인증 우선
-            const method = await request("/api/get_channels.php", {}, "POST"); // 잘못된 메서드 요청
+            assert.equal((await request("/Team006/backend/api/get_channels.php")).response.status, 401); // 게스트 목록 차단
+            assert.equal((await request("/Team006/backend/api/get_channels.php?user_id=1")).response.status, 401); // 입력 검사보다 인증 우선
+            const method = await request("/Team006/backend/api/get_channels.php", {}, "POST"); // 잘못된 메서드 요청
             assert.equal(method.response.status, 405); // 메서드 검사 우선
             assert.equal(method.response.headers.get("allow"), "GET"); // 지원 메서드 안내
-            assert.equal((await request("/api/get_channels.php?user_id=2", { Cookie: ownerCookie })).response.status, 400); // 타인 식별자 조회 거절
+            assert.equal((await request("/Team006/backend/api/get_channels.php?user_id=2", { Cookie: ownerCookie })).response.status, 400); // 타인 식별자 조회 거절
         }); // 공통 보호 검사 종료
         const seedArgs = ["-c", path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/seed-dev.php"), "--owner=owner", "--member=member"]; // 명시적인 개발 데이터 대상
         await context.test("기존 계정의 개발 서버·멤버십·채널 준비", async () => // 개발 데이터 누락과 임의 계정 생성 포착
@@ -101,9 +101,9 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
         await context.test("실제 소속별 목록·문자열 ID·순서·공개 필드", async () => // 다른 서버 목록 유출과 ID 변형 포착
         {
             sql("INSERT INTO servers (id,name,owner_id) VALUES (99,'private',3); INSERT INTO server_members (server_id,user_id,role) VALUES (99,3,'owner'); INSERT INTO channels (id,server_id,name) VALUES (99,99,'private');"); // 타인 전용 채널 준비
-            const owner = await request("/api/get_channels.php", { Cookie: ownerCookie }); // 소유자 목록
-            const member = await request("/api/get_channels.php", { Cookie: memberCookie }); // 같은 서버 멤버 목록
-            const outsider = await request("/api/get_channels.php", { Cookie: outsiderCookie }); // 다른 서버 목록
+            const owner = await request("/Team006/backend/api/get_channels.php", { Cookie: ownerCookie }); // 소유자 목록
+            const member = await request("/Team006/backend/api/get_channels.php", { Cookie: memberCookie }); // 같은 서버 멤버 목록
+            const outsider = await request("/Team006/backend/api/get_channels.php", { Cookie: outsiderCookie }); // 다른 서버 목록
             assert.deepEqual(owner.body.data.channels.map(channel => channel.id), ["1", "2", "3"]); // DB ID 순서 유지
             assert.deepEqual(member.body.data.channels, owner.body.data.channels); // 같은 소속의 동일 목록
             assert.deepEqual(outsider.body.data.channels.map(channel => channel.id), ["99"]); // 타인 서버 분리

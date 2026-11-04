@@ -1,7 +1,7 @@
 ---
 # SystemMakers API 명세
 
-갱신일: 2026-10-22 · 계약 버전: 0.9 · 구현 담당: B·C · 연동 대상: A
+갱신일: 2026-11-04 · 계약 버전: 0.9 · 구현 담당: B·C · 연동 대상: A
 
 회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 0.4에서는 전체 인수 검증과 기대 사용자 헤더에 의한 계정 변경 차단을 추가했다. 서버·채널·프로필 관리 API 구현은 C의 담당이다.
 
@@ -12,8 +12,8 @@
 
 | 항목 | 계약 |
 |---|---|
-| 기본 경로 | `/api/`; 실제 배포 호스트는 아직 미정 |
-| 소스 위치 | `backend/api/`; 웹 서버에서 외부 `/api/`로 연결 |
+| 기본 경로 | 프로젝트 진입 화면 기준 `./backend/api/`; 개발 주소에서는 `/Team006/backend/api/` |
+| 소스 위치 | `backend/api/`; PHP 개발 라우터의 허용 목록을 통해 실제 파일 실행 |
 | 요청 | POST는 `Content-Type: application/json`; GET은 쿼리 매개변수 사용 |
 | 응답 | `Content-Type: application/json; charset=utf-8`, `Cache-Control: no-store` |
 | 인증 | 같은 출처의 PHP 세션 쿠키; 토큰을 localStorage에 저장하지 않음 |
@@ -69,7 +69,7 @@
 ---
 ## 2. 인증과 CSRF 흐름
 
-1. 화면 진입 시 `GET /api/csrf.php`로 세션 쿠키와 CSRF 토큰을 받는다.
+1. 화면 진입 시 `GET ./backend/api/csrf.php`로 세션 쿠키와 CSRF 토큰을 받는다.
 2. 회원가입·로그인 POST에 `X-CSRF-Token`을 보낸다.
 3. 회원가입 성공 후 별도의 로그인 요청을 보낸다. 가입만으로 서버 멤버십이나 로그인 상태가 생기지 않는다.
 4. 로그인 성공 시 세션 ID와 CSRF 토큰을 갱신한다. A는 응답의 새 토큰으로 기존 토큰을 교체한다.
@@ -89,24 +89,24 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 
 | 메서드 | 경로 | 로그인 | CSRF | 정상 상태 |
 |---|---|---|---|---|
-| GET | `/api/csrf.php` | 불필요 | 불필요 | 200 |
-| POST | `/api/register.php` | 불필요 | 필요 | 201 |
-| POST | `/api/login.php` | 불필요 | 필요 | 200 |
-| POST | `/api/logout.php` | 필요 | 필요 | 200 |
-| GET | `/api/get_current_user.php` | 필요 | 불필요 | 200 |
-| GET | `/api/get_channels.php` | 필요 | 불필요 | 200 |
-| GET | `/api/health.php` | 불필요 | 불필요 | 200 |
-| POST | `/api/send_message.php` | 필요 | 필요 | 201 |
-| GET | `/api/get_messages.php` | 필요 | 불필요 | 200 |
-| GET | `/api/list_servers.php` | 필요 | 불필요 | 200 |
-| POST | `/api/create_server.php` | 필요 | 필요 | 201 |
-| GET | `/api/get_server_invite.php` | 소유자 | 불필요 | 200 |
-| POST | `/api/create_server_invite.php` | 소유자 | 필요 | 201 |
-| POST | `/api/revoke_server_invite.php` | 소유자 | 필요 | 200 |
-| POST | `/api/join_server.php` | 필요 | 필요 | 201 / 200 |
-| POST | `/api/leave_server.php` | 소유자 제외 소속 | 필요 | 200 |
-| GET | `/api/get_deletion_preview.php` | 대상 관리 권한 | 불필요 | 200 |
-| POST | `/api/delete_server.php` | 소유자 | 필요 | 200 |
+| GET | `./backend/api/csrf.php` | 불필요 | 불필요 | 200 |
+| POST | `./backend/api/register.php` | 불필요 | 필요 | 201 |
+| POST | `./backend/api/login.php` | 불필요 | 필요 | 200 |
+| POST | `./backend/api/logout.php` | 필요 | 필요 | 200 |
+| GET | `./backend/api/get_current_user.php` | 필요 | 불필요 | 200 |
+| GET | `./backend/api/get_channels.php` | 필요 | 불필요 | 200 |
+| GET | `./backend/api/health.php` | 불필요 | 불필요 | 200 |
+| POST | `./backend/api/send_message.php` | 필요 | 필요 | 201 |
+| GET | `./backend/api/get_messages.php` | 필요 | 불필요 | 200 |
+| GET | `./backend/api/list_servers.php` | 필요 | 불필요 | 200 |
+| POST | `./backend/api/create_server.php` | 필요 | 필요 | 201 |
+| GET | `./backend/api/get_server_invite.php` | 소유자 | 불필요 | 200 |
+| POST | `./backend/api/create_server_invite.php` | 소유자 | 필요 | 201 |
+| POST | `./backend/api/revoke_server_invite.php` | 소유자 | 필요 | 200 |
+| POST | `./backend/api/join_server.php` | 필요 | 필요 | 201 / 200 |
+| POST | `./backend/api/leave_server.php` | 소유자 제외 소속 | 필요 | 200 |
+| GET | `./backend/api/get_deletion_preview.php` | 대상 관리 권한 | 불필요 | 200 |
+| POST | `./backend/api/delete_server.php` | 소유자 | 필요 | 200 |
 
 ---
 ## 4. 회원 API
@@ -114,14 +114,14 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 ---
 ### 4.1 CSRF 토큰 발급
 
-`GET /api/csrf.php` · 입력 없음 · 정상 200
+`GET ./backend/api/csrf.php` · 입력 없음 · 정상 200
 
 응답의 `data.csrf_token`은 32바이트 이상의 난수를 소문자 16진수로 표현한 문자열이다. 구현 기준은 32바이트, 64자리 문자열로 고정한다. 기존 세션에 유효한 토큰이 있으면 그대로 반환하고 없으면 발급한다. 로그인 전에도 사용할 수 있으며 사용자 인증 성공을 의미하지 않는다. 토큰은 세션에 보관하고 일정 시간마다가 아니라 로그인·세션 교체 시 갱신한다.
 
 ---
 ### 4.2 회원가입
 
-`POST /api/register.php` · 정상 201
+`POST ./backend/api/register.php` · 정상 201
 
 | 필드 | 형식·검증 |
 |---|---|
@@ -144,7 +144,7 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 ---
 ### 4.3 로그인
 
-`POST /api/login.php` · 정상 200
+`POST ./backend/api/login.php` · 정상 200
 
 입력은 문자열 `email`, `password` 두 개다. 이메일 정규화는 가입과 같고, 비밀번호는 가입과 같은 형식·길이 조건을 검사한 뒤 원문 그대로 검증한다.
 
@@ -166,14 +166,14 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 ---
 ### 4.4 로그아웃
 
-`POST /api/logout.php` · 입력은 빈 JSON 객체 · 정상 200
+`POST ./backend/api/logout.php` · 입력은 빈 JSON 객체 · 정상 200
 
 성공 시 `data.message`에 로그아웃 안내를 반환한다. 세션 데이터 삭제, 세션 종료, 같은 쿠키 속성으로 세션 쿠키 만료를 수행한다. 비로그인 상태는 401이다. 다음 로그인 전에는 CSRF 발급부터 다시 시작한다.
 
 ---
 ### 4.5 현재 로그인 사용자
 
-`GET /api/get_current_user.php` · 입력 없음 · 정상 200
+`GET ./backend/api/get_current_user.php` · 입력 없음 · 정상 200
 
 공통 성공 예시와 같은 `data.user`를 반환한다. 유효한 로그인 세션이나 사용자 계정이 없으면 401 `UNAUTHORIZED`다. `user.id`가 C의 서버 생성자·멤버십 사용자 식별 기준이며, C의 PHP 코드는 클라이언트가 보낸 ID 대신 공통 인증 함수의 반환값을 사용한다.
 
@@ -182,7 +182,7 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 ---
 ### 4.6 DB 연결 상태
 
-`GET /api/health.php` · 입력 없음 · 정상 200
+`GET ./backend/api/health.php` · 입력 없음 · 정상 200
 
 실제 PDO 연결로 SELECT 1을 실행한 뒤 success=true, data.status=ok를 반환한다. 실패는 공통 500 INTERNAL_ERROR이며 DB 호스트·계정·스키마·서버 버전은 반환하지 않는다. 회원·메시지 기능 전체의 준비 완료를 의미하지 않는다.
 
@@ -192,7 +192,7 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 ---
 ### 5.0 소속 채널 목록
 
-`GET /api/get_channels.php` · 쿼리 입력 없음 · 정상 200
+`GET ./backend/api/get_channels.php` · 쿼리 입력 없음 · 정상 200
 
 로그인 사용자의 server_members를 기준으로 소속 서버의 채널만 조회한다. 응답의 data.channels는 배열이며 참여 서버·채널이 없으면 빈 배열이다. 목록 조회가 멤버십이나 채널을 생성하지 않는다. 외부 user_id·server_id 등 쿼리는 400 INVALID_QUERY로 거절하고 비로그인은 먼저 401을 반환한다.
 
@@ -208,7 +208,7 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 ---
 ### 5.1 메시지 전송
 
-`POST /api/send_message.php` · 정상 201
+`POST ./backend/api/send_message.php` · 정상 201
 
 | 필드 | 형식·검증 |
 |---|---|
@@ -246,7 +246,7 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 ---
 ### 5.2 메시지 조회와 커서
 
-`GET /api/get_messages.php` · 정상 200
+`GET ./backend/api/get_messages.php` · 정상 200
 
 | 매개변수 | 필수 | 규칙 |
 |---|---|---|
@@ -259,9 +259,9 @@ before_id와 after_id의 동시 사용은 400 `INVALID_QUERY`다. 커서는 범�
 
 | 조회 종류 | 예시 | 선택 순서 | 반환 순서 |
 |---|---|---|---|
-| 최초 | `/api/get_messages.php?channel_id=1&limit=50` | 최신 N개 | ID 오름차순 |
-| 이전 | `/api/get_messages.php?channel_id=1&before_id=51&limit=50` | 51 미만에서 가까운 N개 | ID 오름차순 |
-| 신규 | `/api/get_messages.php?channel_id=1&after_id=100&limit=50` | 100 초과에서 작은 ID부터 N개 | ID 오름차순 |
+| 최초 | `./backend/api/get_messages.php?channel_id=1&limit=50` | 최신 N개 | ID 오름차순 |
+| 이전 | `./backend/api/get_messages.php?channel_id=1&before_id=51&limit=50` | 51 미만에서 가까운 N개 | ID 오름차순 |
+| 신규 | `./backend/api/get_messages.php?channel_id=1&after_id=100&limit=50` | 100 초과에서 작은 ID부터 N개 | ID 오름차순 |
 
 응답의 구조와 커서 예시:
 
@@ -392,15 +392,15 @@ ID는 기존 양의 uint64 문자열, 시각은 UTC ISO 8601이다. invite.activ
 
 | 메서드·경로 | 허용 입력 | 권한 | 정상 data·상태 |
 |---|---|---|---|
-| GET /api/list_servers.php | 없음 | 로그인 본인 | servers: server[]; ID 오름차순, 소속 없으면 빈 배열; 200 |
-| POST /api/create_server.php | name | 로그인 본인 | server, channel; 소유자·일반 채널까지 원자적 생성; 201 |
-| GET /api/get_server_invite.php | server_id | 소유자 | invite; 미발급도 active=false·날짜 null; 200 |
-| POST /api/create_server_invite.php | server_id | 소유자 | server_id, code, expires_at; 매번 새 코드로 교체; 201 |
-| POST /api/revoke_server_invite.php | server_id | 소유자 | server_id, revoked: true; 미발급·기폐기도 동일; 200 |
-| POST /api/join_server.php | code | 로그인 본인 | server, already_member; 신규 201·기참여 200 |
-| POST /api/leave_server.php | server_id | 본인 소속·소유자 제외 | server_id, left: true; 200 |
-| GET /api/get_deletion_preview.php | resource_type, resource_id | server는 소유자, channel은 소유자·관리자 | 아래 삭제 미리보기; 200 |
-| POST /api/delete_server.php | server_id, confirm_name | 소유자 | server_id, deleted: true; 200 |
+| GET ./backend/api/list_servers.php | 없음 | 로그인 본인 | servers: server[]; ID 오름차순, 소속 없으면 빈 배열; 200 |
+| POST ./backend/api/create_server.php | name | 로그인 본인 | server, channel; 소유자·일반 채널까지 원자적 생성; 201 |
+| GET ./backend/api/get_server_invite.php | server_id | 소유자 | invite; 미발급도 active=false·날짜 null; 200 |
+| POST ./backend/api/create_server_invite.php | server_id | 소유자 | server_id, code, expires_at; 매번 새 코드로 교체; 201 |
+| POST ./backend/api/revoke_server_invite.php | server_id | 소유자 | server_id, revoked: true; 미발급·기폐기도 동일; 200 |
+| POST ./backend/api/join_server.php | code | 로그인 본인 | server, already_member; 신규 201·기참여 200 |
+| POST ./backend/api/leave_server.php | server_id | 본인 소속·소유자 제외 | server_id, left: true; 200 |
+| GET ./backend/api/get_deletion_preview.php | resource_type, resource_id | server는 소유자, channel은 소유자·관리자 | 아래 삭제 미리보기; 200 |
+| POST ./backend/api/delete_server.php | server_id, confirm_name | 소유자 | server_id, deleted: true; 200 |
 
 list_servers는 채널과 독립하여 조회하고 채널이 0개인 서버도 반환한다. 서버명 중복은 허용한다. 생성은 서버·owner 소속·일반 채널 3개 삽입을 한 트랜잭션으로 처리하고 응답 유실 시 자동 재전송하지 않는다. 위 목록 API는 첫 버전에서 페이지·검색·필터 없이 전체 소속 목록을 반환한다.
 
@@ -422,12 +422,12 @@ confirm_name은 이름 입력 화면의 확인 값이다. 생성 이름과 같�
 
 | 메서드·경로 | 허용 입력 | 권한 | 정상 data·상태 |
 |---|---|---|---|
-| GET /api/get_channels.php | 없음 | 기존 본인 소속 | 기존 응답 유지; 200, 이미 구현 |
-| POST /api/create_channel.php | server_id, name | 소유자·관리자 | channel; 201 |
-| POST /api/update_channel.php | channel_id, name | 소유자·관리자 | channel; 200 |
-| POST /api/delete_channel.php | channel_id, confirm_name | 소유자·관리자 | channel_id, deleted: true; 200 |
-| GET /api/profile.php | 없음 | 로그인 본인 | user; 200 |
-| PATCH /api/profile.php | username | 로그인 본인 | user; 200 |
+| GET ./backend/api/get_channels.php | 없음 | 기존 본인 소속 | 기존 응답 유지; 200, 이미 구현 |
+| POST ./backend/api/create_channel.php | server_id, name | 소유자·관리자 | channel; 201 |
+| POST ./backend/api/update_channel.php | channel_id, name | 소유자·관리자 | channel; 200 |
+| POST ./backend/api/delete_channel.php | channel_id, confirm_name | 소유자·관리자 | channel_id, deleted: true; 200 |
+| GET ./backend/api/profile.php | 없음 | 로그인 본인 | user; 200 |
+| PATCH ./backend/api/profile.php | username | 로그인 본인 | user; 200 |
 
 9단계 채널 API 3개는 구현 완료다. 일반 회원은 직접 호출해도 403이며 소유자·관리자만 관리한다. 이름 변경은 ID·작성 대화·서버 소속을 유지하고 같은 이름 재저장도 200이다. 서버 ID 변경 입력은 거절한다. 같은 서버의 대소문자 무시 중복은 409이며 다른 서버의 같은 이름은 허용한다. 대상이나 부모가 동시 삭제되면 변경·삭제는 404 CHANNEL_NOT_FOUND다.
 
