@@ -4,16 +4,16 @@ import { existsSync } from "node:fs"; // 라우터 구현 확인
 import { createServer } from "node:net"; // 빈 포트 선택
 import { fileURLToPath } from "node:url"; // 로컬 경로 계산
 import test from "node:test"; // 통합 테스트 도구
-const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
+const projectRoot = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
 test("실제 웹 라우터와 비공개 경로 차단", async (context) => // 웹 공개 범위 검사
 {
-    assert.ok(existsSync(root + "router.php"), "router.php 미구현"); // 라우터 구현 확인
+    assert.ok(existsSync(projectRoot + "router.php"), "router.php 미구현"); // 라우터 구현 확인
     const socket = createServer(); // 임시 포트 검사
     await new Promise(resolve => socket.listen(0, "127.0.0.1", resolve)); // 빈 포트 예약
     const port = socket.address().port; // 선택 포트 읽기
     await new Promise(resolve => socket.close(resolve)); // 예약 포트 해제
-    const php = process.env.PHP_TEST_BIN || root + ".runtime/php/php.exe"; // PHP 실행 경로
-    const child = spawn(php, ["-c", root + ".runtime/php.ini", "-S", "127.0.0.1:" + port, "-t", root + "frontend", root + "router.php"], { cwd: root, windowsHide: true, stdio: "pipe" }); // 실제 라우터 서버
+    const phpBinary = process.env.PHP_TEST_BIN || projectRoot + ".runtime/php/php.exe"; // PHP 실행 경로
+    const child = spawn(phpBinary, ["-c", projectRoot + ".runtime/php.ini", "-S", "127.0.0.1:" + port, "-t", projectRoot + "frontend", projectRoot + "router.php"], { cwd: projectRoot, windowsHide: true, stdio: "pipe" }); // 실제 라우터 서버
     const origin = "http://127.0.0.1:" + port; // 테스트 사이트 주소
     let output = ""; // 준비·실패 진단
     child.stderr.on("data", chunk => output += chunk); // PHP 시작 로그 수집

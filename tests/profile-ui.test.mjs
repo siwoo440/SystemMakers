@@ -48,28 +48,28 @@ function setup(request) // 실제 화면과 상태 모듈
 test("본인 조회·취소 시 이메일과 입력 폐기·게스트 숨김", async () => // 본인 정보 수명
 {
     const calls = []; // 실제 경로 기록
-    const run = setup(async (path, body) => // 네트워크 경계
+    const testHarness = setup(async (path, body) => // 네트워크 경계
     {
         calls.push({ path, body }); // 공개 요청 관측
         return { user: original }; // 실제 응답 형태
     });
-    await run.byId("open-profile").fire("click"); // 내 프로필 열기
-    assert.equal(run.byId("profile-email").textContent, original.email); // 본인 이메일 표시
-    assert.equal(run.byId("profile-username").value, original.username); // 현재 사용자명
-    assert.equal(run.byId("profile-submit").disabled, false); // 확인된 정보만 변경 가능
-    await run.byId("profile-close").fire("click"); // 취소
+    await testHarness.byId("open-profile").fire("click"); // 내 프로필 열기
+    assert.equal(testHarness.byId("profile-email").textContent, original.email); // 본인 이메일 표시
+    assert.equal(testHarness.byId("profile-username").value, original.username); // 현재 사용자명
+    assert.equal(testHarness.byId("profile-submit").disabled, false); // 확인된 정보만 변경 가능
+    await testHarness.byId("profile-close").fire("click"); // 취소
     assert.deepEqual(calls, [{ path: "/api/profile.php", body: null }]); // 취소는 변경 없음
-    assert.equal(run.byId("profile-email").textContent, ""); // 닫은 이메일 폐기
-    assert.equal(run.byId("profile-username").value, ""); // 이전 입력 폐기
-    run.change(null); // 로그아웃 상태
-    run.ui.render(); // 실제 권한 갱신
-    assert.equal(run.byId("open-profile").hidden, true); // 게스트 진입 숨김
+    assert.equal(testHarness.byId("profile-email").textContent, ""); // 닫은 이메일 폐기
+    assert.equal(testHarness.byId("profile-username").value, ""); // 이전 입력 폐기
+    testHarness.change(null); // 로그아웃 상태
+    testHarness.ui.render(); // 실제 권한 갱신
+    assert.equal(testHarness.byId("open-profile").hidden, true); // 게스트 진입 숨김
 });
 test("저장은 PATCH 한 번·처리 중 중복 차단·확인된 본인만 적용", async () => // 실제 변경 메서드와 수명
 {
     const calls = []; // 변경 요청 기록
     let release; // 지연 저장 응답
-    const run = setup(async (path, body, signal, method) => // 실제 공통 요청 경계
+    const testHarness = setup(async (path, body, signal, method) => // 실제 공통 요청 경계
     {
         if (!body) // 최초 조회
         {
@@ -78,21 +78,21 @@ test("저장은 PATCH 한 번·처리 중 중복 차단·확인된 본인만 적
         calls.push({ path, body, method }); // 변경 메서드 관측
         return new Promise((resolve) => release = resolve); // 처리 중 상태
     });
-    await run.byId("open-profile").fire("click"); // 프로필 조회
-    run.byId("profile-username").value = "Changed_Name"; // 서버 정규화 대상
-    const pending = run.byId("profile-form").fire("submit"); // 실제 저장 시작
-    assert.equal(run.byId("profile-close").disabled, true); // 저장 중 닫기 제한
-    await run.byId("profile-form").fire("submit"); // 중복 제출 시도
+    await testHarness.byId("open-profile").fire("click"); // 프로필 조회
+    testHarness.byId("profile-username").value = "Changed_Name"; // 서버 정규화 대상
+    const pending = testHarness.byId("profile-form").fire("submit"); // 실제 저장 시작
+    assert.equal(testHarness.byId("profile-close").disabled, true); // 저장 중 닫기 제한
+    await testHarness.byId("profile-form").fire("submit"); // 중복 제출 시도
     release({ user: { ...original, username: "changed_name" } }); // 실제 커밋 응답
     await pending; // 화면 갱신 완료
     assert.deepEqual(calls, [{ path: "/api/profile.php", body: { username: "Changed_Name" }, method: "PATCH" }]); // 허용 필드와 메서드
-    assert.equal(run.user().username, "changed_name"); // 확인된 이름 반영
-    assert.equal(run.byId("profile-username").value, "changed_name"); // 정규화 결과 표시
-    assert.match(run.byId("profile-status").textContent, /저장/); // 성공 응답 후 안내
+    assert.equal(testHarness.user().username, "changed_name"); // 확인된 이름 반영
+    assert.equal(testHarness.byId("profile-username").value, "changed_name"); // 정규화 결과 표시
+    assert.match(testHarness.byId("profile-status").textContent, /저장/); // 성공 응답 후 안내
 });
 test("중복·형식 오류는 입력 보존과 필드 안내", async () => // 수동 수정 가능 상태
 {
-    const run = setup(async (path, body) => // 중복 응답 경계
+    const testHarness = setup(async (path, body) => // 중복 응답 경계
     {
         if (body) // 실제 변경
         {
@@ -100,17 +100,17 @@ test("중복·형식 오류는 입력 보존과 필드 안내", async () => // �
         }
         return { user: original }; // 본인 조회
     });
-    await run.byId("open-profile").fire("click"); // 현재 정보 확인
-    run.byId("profile-username").value = "duplicate"; // 수정할 입력
-    await run.byId("profile-form").fire("submit"); // 실제 거절
-    assert.equal(run.byId("profile-username").value, "duplicate"); // 입력 보존
-    assert.match(run.byId("profile-error").textContent, /다른 이름 입력/); // 구체 필드 안내
-    assert.equal(run.user().username, original.username); // 미확정 결과 적용 없음
+    await testHarness.byId("open-profile").fire("click"); // 현재 정보 확인
+    testHarness.byId("profile-username").value = "duplicate"; // 수정할 입력
+    await testHarness.byId("profile-form").fire("submit"); // 실제 거절
+    assert.equal(testHarness.byId("profile-username").value, "duplicate"); // 입력 보존
+    assert.match(testHarness.byId("profile-error").textContent, /다른 이름 입력/); // 구체 필드 안내
+    assert.equal(testHarness.user().username, original.username); // 미확정 결과 적용 없음
 });
 test("조회 실패는 저장 차단·명시적 재조회 후 복구", async () => // 캐시만으로 수정 방지
 {
     let calls = 0; // 조회 횟수
-    const run = setup(async () => // 최초 연결 실패
+    const testHarness = setup(async () => // 최초 연결 실패
     {
         if (++calls === 1) // 최초 요청
         {
@@ -118,15 +118,15 @@ test("조회 실패는 저장 차단·명시적 재조회 후 복구", async () 
         }
         return { user: original }; // 수동 재확인 성공
     });
-    await run.byId("open-profile").fire("click"); // 실패 화면
-    assert.equal(run.byId("profile-submit").disabled, true); // 저장 차단
-    await run.byId("profile-reload").fire("click"); // 명시적 복구
-    assert.equal(run.byId("profile-submit").disabled, false); // 확인 뒤 저장 허용
+    await testHarness.byId("open-profile").fire("click"); // 실패 화면
+    assert.equal(testHarness.byId("profile-submit").disabled, true); // 저장 차단
+    await testHarness.byId("profile-reload").fire("click"); // 명시적 복구
+    assert.equal(testHarness.byId("profile-submit").disabled, false); // 확인 뒤 저장 허용
 });
 test("보호 토큰 복구는 자동 저장 없이 입력 유지", async () => // 기존 CSRF 정책
 {
     let patches = 0; // 변경 요청 수
-    const run = setup(async (path, body) => // 보호 오류 경계
+    const testHarness = setup(async (path, body) => // 보호 오류 경계
     {
         if (body) // 변경 요청
         {
@@ -135,18 +135,18 @@ test("보호 토큰 복구는 자동 저장 없이 입력 유지", async () => /
         }
         return { user: original }; // 본인 조회
     });
-    await run.byId("open-profile").fire("click"); // 조회
-    run.byId("profile-username").value = "manual_retry"; // 변경 입력
-    await run.byId("profile-form").fire("submit"); // 보호 실패
+    await testHarness.byId("open-profile").fire("click"); // 조회
+    testHarness.byId("profile-username").value = "manual_retry"; // 변경 입력
+    await testHarness.byId("profile-form").fire("submit"); // 보호 실패
     assert.equal(patches, 1); // 자동 재전송 없음
-    assert.equal(run.byId("profile-username").value, "manual_retry"); // 같은 계정 입력 유지
-    assert.match(run.byId("profile-error").textContent, /다시 저장/); // 명시적 재제출 안내
+    assert.equal(testHarness.byId("profile-username").value, "manual_retry"); // 같은 계정 입력 유지
+    assert.match(testHarness.byId("profile-error").textContent, /다시 저장/); // 명시적 재제출 안내
 });
 test("저장 응답 유실은 GET 확인·입력 보존·PATCH 자동 반복 없음", async () => // 불확실한 커밋 복구
 {
     let gets = 0; // 실제 상태 조회
     let patches = 0; // 변경 횟수
-    const run = setup(async (path, body) => // 커밋 뒤 응답 유실 경계
+    const testHarness = setup(async (path, body) => // 커밋 뒤 응답 유실 경계
     {
         if (body) // 저장 요청
         {
@@ -155,34 +155,34 @@ test("저장 응답 유실은 GET 확인·입력 보존·PATCH 자동 반복 없
         }
         return { user: { ...original, username: ++gets === 1 ? original.username : "saved_name" } }; // 실제 저장 상태 재조회
     });
-    await run.byId("open-profile").fire("click"); // 최초 조회
-    run.byId("profile-username").value = "Saved_Name"; // 보존할 입력
-    await run.byId("profile-form").fire("submit"); // 불확실한 저장
+    await testHarness.byId("open-profile").fire("click"); // 최초 조회
+    testHarness.byId("profile-username").value = "Saved_Name"; // 보존할 입력
+    await testHarness.byId("profile-form").fire("submit"); // 불확실한 저장
     assert.equal(patches, 1); // 자동 변경 반복 없음
     assert.equal(gets, 2); // 실제 상태만 재조회
-    assert.equal(run.user().username, "saved_name"); // 확인된 DB 이름
-    assert.equal(run.byId("profile-username").value, "Saved_Name"); // 입력 보존
-    assert.match(run.byId("profile-status").textContent, /saved_name/); // 현재 저장 상태 안내
+    assert.equal(testHarness.user().username, "saved_name"); // 확인된 DB 이름
+    assert.equal(testHarness.byId("profile-username").value, "Saved_Name"); // 입력 보존
+    assert.match(testHarness.byId("profile-status").textContent, /saved_name/); // 현재 저장 상태 안내
 });
 test("이전 계정의 늦은 응답은 새 계정 정보와 오류에 반영하지 않음", async () => // 개인 정보 혼합 방지
 {
     let release; // 늦은 조회 결과
-    const run = setup(() => new Promise((resolve) => release = resolve)); // 실제 지연 요청
-    const pending = run.byId("open-profile").fire("click"); // 이전 계정 조회
-    run.ui.clear(); // 계정 종료 경계
-    run.change({ ...original, id: "2", username: "other_user" }); // 새 계정
-    run.manager.reset(); // 요청 수명 변경
+    const testHarness = setup(() => new Promise((resolve) => release = resolve)); // 실제 지연 요청
+    const pending = testHarness.byId("open-profile").fire("click"); // 이전 계정 조회
+    testHarness.ui.clear(); // 계정 종료 경계
+    testHarness.change({ ...original, id: "2", username: "other_user" }); // 새 계정
+    testHarness.manager.reset(); // 요청 수명 변경
     release({ user: original }); // 오래된 이메일 응답
     await pending; // 실제 응답 처리
-    assert.equal(run.applied.length, 0); // 이전 계정 적용 없음
-    assert.equal(run.failures(), 0); // 새 계정 인증 오류 전달 없음
-    assert.equal(run.byId("profile-email").textContent, ""); // 이전 이메일 비노출
-    assert.equal(run.byId("profile-dialog").open, false); // 이전 화면 닫힘
+    assert.equal(testHarness.applied.length, 0); // 이전 계정 적용 없음
+    assert.equal(testHarness.failures(), 0); // 새 계정 인증 오류 전달 없음
+    assert.equal(testHarness.byId("profile-email").textContent, ""); // 이전 이메일 비노출
+    assert.equal(testHarness.byId("profile-dialog").open, false); // 이전 화면 닫힘
 });
 test("다른 계정 ID의 성공 응답도 적용 차단", async () => // 잘못된 계약 결과 보호
 {
-    const run = setup(async () => ({ user: { ...original, id: "2" } })); // 실제 응답 계정 불일치
-    await run.byId("open-profile").fire("click"); // 본인 조회
-    assert.equal(run.applied.length, 0); // 잘못된 본인 적용 없음
-    assert.equal(run.byId("profile-submit").disabled, true); // 미확인 계정 수정 차단
+    const testHarness = setup(async () => ({ user: { ...original, id: "2" } })); // 실제 응답 계정 불일치
+    await testHarness.byId("open-profile").fire("click"); // 본인 조회
+    assert.equal(testHarness.applied.length, 0); // 잘못된 본인 적용 없음
+    assert.equal(testHarness.byId("profile-submit").disabled, true); // 미확인 계정 수정 차단
 });

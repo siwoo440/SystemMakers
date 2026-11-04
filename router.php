@@ -4,7 +4,7 @@ header("X-Content-Type-Options: nosniff"); // MIME 자동 추측 차단
 header("X-Frame-Options: DENY"); // 외부 프레임 삽입 차단
 header("Referrer-Policy: same-origin"); // 외부 참조 정보 제한
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"); // 같은 출처 자원만 허용
-$path = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH)); // 요청 경로 추출
+$requestPath = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH)); // 요청 경로 추출
 $apiFiles = // 공개 API 허용 목록
 [ // API 경로 목록 시작
     '/api/csrf.php' => 'csrf.php', // CSRF 발급 API
@@ -30,12 +30,12 @@ $apiFiles = // 공개 API 허용 목록
     '/api/delete_channel.php' => 'delete_channel.php', // 관리자 채널 삭제
     '/api/profile.php' => 'profile.php', // 본인 프로필 조회·사용자명 변경
 ]; // API 목록 종료
-if (isset($apiFiles[$path])) // 허용한 API 여부
+if (isset($apiFiles[$requestPath])) // 허용한 API 여부
 {
-    require __DIR__ . '/backend/api/' . $apiFiles[$path]; // 고정 경로 PHP 실행
+    require __DIR__ . '/backend/api/' . $apiFiles[$requestPath]; // 고정 경로 PHP 실행
     exit; // 정적 응답 중단
 }
-if (str_starts_with($path, '/api/')) // 정의되지 않은 API
+if (str_starts_with($requestPath, '/api/')) // 정의되지 않은 API
 {
     http_response_code(404); // 없는 API 상태
     header('Content-Type: application/json; charset=utf-8'); // JSON 응답 지정
@@ -43,7 +43,7 @@ if (str_starts_with($path, '/api/')) // 정의되지 않은 API
     echo json_encode(['success' => false, 'error' => ['code' => 'NOT_FOUND', 'message' => '요청한 API가 없습니다.']], JSON_UNESCAPED_UNICODE); // 공통 오류 응답
     exit; // 응답 종료
 }
-if ($path === '/favicon.ico') // 선택적 브라우저 아이콘 요청
+if ($requestPath === '/favicon.ico') // 선택적 브라우저 아이콘 요청
 {
     http_response_code(204); // 별도 아이콘 없음
     exit; // 아이콘 응답 종료
@@ -60,7 +60,7 @@ $staticFiles = // 공개 정적 파일 허용 목록
     '/channel-ui.mjs' => ['channel-ui.mjs', 'text/javascript; charset=utf-8'], // 역할별 채널 관리 대화상자
     '/profile-ui.mjs' => ['profile-ui.mjs', 'text/javascript; charset=utf-8'], // 본인 프로필 대화상자
 ]; // 정적 파일 목록 종료
-if (!isset($staticFiles[$path])) // 비공개 또는 없는 경로
+if (!isset($staticFiles[$requestPath])) // 비공개 또는 없는 경로
 {
     http_response_code(404); // 파일 미공개 상태
     header('Content-Type: text/plain; charset=utf-8'); // 일반 텍스트 응답
@@ -73,10 +73,10 @@ if (!in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) // �
     header('Allow: GET, HEAD'); // 허용 메서드 안내
     exit; // 요청 처리 종료
 }
-[$name, $mime] = $staticFiles[$path]; // 검증된 파일과 형식
-header('Content-Type: ' . $mime); // 자원 형식 지정
+[$assetName, $assetMimeType] = $staticFiles[$requestPath]; // 검증된 파일과 형식
+header('Content-Type: ' . $assetMimeType); // 자원 형식 지정
 header('Cache-Control: no-store'); // 개발 중 이전 파일 캐시 차단
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') // 본문 전송 여부
 {
-    readfile(__DIR__ . '/frontend/' . $name); // 허용한 화면 파일 전송
+    readfile(__DIR__ . '/frontend/' . $assetName); // 허용한 화면 파일 전송
 }

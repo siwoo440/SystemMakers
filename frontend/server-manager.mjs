@@ -1,4 +1,4 @@
-const validId = (value) => typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value) && (value.length < 20 || value <= "18446744073709551615"); // 문자열 ID 계약
+const validId = (identifierValue) => typeof identifierValue === "string" && /^[1-9][0-9]{0,19}$/.test(identifierValue) && (identifierValue.length < 20 || identifierValue <= "18446744073709551615"); // 문자열 ID 계약
 export class ServerManager // 계정별 서버 목록과 변경 요청 수명
 {
     constructor({ request, getUser, storage = null, onChange = () => undefined }) // 외부 경계 연결
@@ -9,8 +9,8 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
     {
         try // 저장소 제한 대응
         {
-            const value = JSON.parse(this.storage?.getItem("systemmakers.selection." + userId) || "null"); // 인증 자료 없는 선택
-            return value && validId(value.serverId) ? value : null; // 검증한 선택만 사용
+            const storedSelection = JSON.parse(this.storage?.getItem("systemmakers.selection." + userId) || "null"); // 인증 자료 없는 선택
+            return storedSelection && validId(storedSelection.serverId) ? storedSelection : null; // 검증한 선택만 사용
         }
         catch // 손상 또는 접근 차단
         {
@@ -66,26 +66,26 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
                 this.reset(); // 이전 선택 폐기
             }
             this.identity = userId; // 확인 중인 현재 계정
-            const saved = this.storageRead(userId); // 새로고침 전 선택
-            this.selected = saved?.serverId || null; // 유효성은 응답으로 재검사
-            this.channel = validId(saved?.channelId) ? saved.channelId : null; // 저장된 채널 ID
+            const savedSelection = this.storageRead(userId); // 새로고침 전 선택
+            this.selected = savedSelection?.serverId || null; // 유효성은 응답으로 재검사
+            this.channel = validId(savedSelection?.channelId) ? savedSelection.channelId : null; // 저장된 채널 ID
         }
-        const version = ++this.version; // 조회 순서
+        const requestVersion = ++this.version; // 조회 순서
         this.loading = true; // 목록 조회 상태
         this.onChange(); // 대기 화면
         try // 목록 검증과 적용
         {
-            const data = await this.request("/api/list_servers.php"); // 실제 서버 목록
-            if (version !== this.version || this.getUser()?.id !== userId) // 이전 계정·순서 결과
+            const responseData = await this.request("/api/list_servers.php"); // 실제 서버 목록
+            if (requestVersion !== this.version || this.getUser()?.id !== userId) // 이전 계정·순서 결과
             {
                 return; // 늦은 응답 폐기
             }
-            if (!Array.isArray(data.servers) || data.servers.some((s) => !validId(s?.id) || !validId(s.owner_id) || typeof s.name !== "string" || !s.name || !["owner", "admin", "member"].includes(s.role)) || new Set(data.servers.map((s) => s.id)).size !== data.servers.length) // 공개 객체 검사
+            if (!Array.isArray(responseData.servers) || responseData.servers.some((serverEntry) => !validId(serverEntry?.id) || !validId(serverEntry.owner_id) || typeof serverEntry.name !== "string" || !serverEntry.name || !["owner", "admin", "member"].includes(serverEntry.role)) || new Set(responseData.servers.map((serverEntry) => serverEntry.id)).size !== responseData.servers.length) // 공개 객체 검사
             {
                 throw new Error("서버 목록을 확인하지 못했습니다."); // 잘못된 계약 사용 차단
             }
-            this.servers = data.servers; // 확인한 소속만 보관
-            if (!this.servers.some((s) => s.id === this.selected)) // 탈퇴·삭제된 선택
+            this.servers = responseData.servers; // 확인한 소속만 보관
+            if (!this.servers.some((serverEntry) => serverEntry.id === this.selected)) // 탈퇴·삭제된 선택
             {
                 this.selected = this.servers[0]?.id || null; // 실제 첫 서버
                 this.channel = null; // 이전 서버 채널 제거
@@ -94,27 +94,27 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
         }
         finally // 최신 조회의 잠금만 해제
         {
-            if (version === this.version) // 현재 수명 확인
+            if (requestVersion === this.version) // 현재 수명 확인
             {
                 this.loading = false; // 조회 종료
                 this.onChange(); // 최신 서버 화면
             }
         }
     }
-    select(id) // 실제 소속 서버 선택
+    select(serverId) // 실제 소속 서버 선택
     {
-        if (!this.servers.some((s) => s.id === id) || this.busy) // 확인하지 않은 서버 차단
+        if (!this.servers.some((serverEntry) => serverEntry.id === serverId) || this.busy) // 확인하지 않은 서버 차단
         {
             return; // 현재 선택 유지
         }
-        this.selected = id; // 문자열 서버 ID
+        this.selected = serverId; // 문자열 서버 ID
         this.channel = null; // 다른 서버 채널 제거
         this.persist(); // 선택 복원 자료
         this.onChange(); // 버튼 상태 반영
     }
-    rememberChannel(id) // 실제 선택 채널 기억
+    rememberChannel(channelId) // 실제 선택 채널 기억
     {
-        this.channel = validId(id) ? id : null; // 잘못된 ID 배제
+        this.channel = validId(channelId) ? channelId : null; // 잘못된 ID 배제
         this.persist(); // 채널 ID만 저장
     }
     async execute(operation, body = null, query = null, method = null) // 사용자 한 번의 명시적 변경
@@ -124,7 +124,7 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
             throw new Error("요청 처리 중입니다."); // 단일 요청 경계
         }
         const userId = this.getUser()?.id; // 현재 계정
-        const version = this.version; // 계정 요청 수명
+        const requestVersion = this.version; // 계정 요청 수명
         if (!userId) // 게스트 요청 차단
         {
             throw new Error("로그인이 필요합니다."); // 화면 안내
@@ -133,25 +133,25 @@ export class ServerManager // 계정별 서버 목록과 변경 요청 수명
         this.onChange(); // 처리 중 화면
         try // 자동 재전송 없는 실제 요청
         {
-            const suffix = query ? "?" + new URLSearchParams(query).toString() : ""; // 검증된 조회 조건
-            const data = await this.request("/api/" + operation + ".php" + suffix, body, null, method); // 같은 출처와 명시한 PATCH 지원
-            if (version !== this.version || this.getUser()?.id !== userId) // 계정 종료 뒤 늦은 결과
+            const querySuffix = query ? "?" + new URLSearchParams(query).toString() : ""; // 검증된 조회 조건
+            const responseData = await this.request("/api/" + operation + ".php" + querySuffix, body, null, method); // 같은 출처와 명시한 PATCH 지원
+            if (requestVersion !== this.version || this.getUser()?.id !== userId) // 계정 종료 뒤 늦은 결과
             {
                 throw Object.assign(new Error("로그인 상태가 변경되었습니다."), { code: "STALE_RESPONSE" }); // 이전 결과 사용 중단
             }
-            return data; // 실제 성공 결과만 전달
+            return responseData; // 실제 성공 결과만 전달
         }
-        catch (error) // 늦은 실패에도 같은 계정 경계
+        catch (operationError) // 늦은 실패에도 같은 계정 경계
         {
-            if (version !== this.version || this.getUser()?.id !== userId) // 이전 수명의 인증 실패
+            if (requestVersion !== this.version || this.getUser()?.id !== userId) // 이전 수명의 인증 실패
             {
                 throw Object.assign(new Error("로그인 상태가 변경되었습니다."), { code: "STALE_RESPONSE" }); // 새 계정 종료로 전달하지 않음
             }
-            throw error; // 현재 계정의 실제 실패만 전달
+            throw operationError; // 현재 계정의 실제 실패만 전달
         }
         finally // 현재 수명만 잠금 해제
         {
-            if (version === this.version) // 이전 요청의 영향 차단
+            if (requestVersion === this.version) // 이전 요청의 영향 차단
             {
                 this.busy = false; // 제출 완료
                 this.onChange(); // 다시 조작 가능한 화면

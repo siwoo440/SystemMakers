@@ -7,8 +7,8 @@ import path from "node:path"; // 실행 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 주소 변환
 import test from "node:test"; // 기본 검사 도구
 import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
-const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
-const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // 실제 PHP
+const projectRoot = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
+const phpBinary = process.env.PHP_TEST_BIN || path.join(projectRoot, ".runtime/php/php.exe"); // 실제 PHP
 const port = process.env.MYSQL_TEST_PORT || "33361"; // 독립 MySQL 서버
 const database = "systemmakers_acceptance_" + randomBytes(6).toString("hex"); // 무작위 전용 DB
 function sql(statement, selected = true) // 독립 실제 SQL 요청
@@ -20,14 +20,14 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
     assert.match(database, /^systemmakers_acceptance_[a-f0-9]{12}$/); // 정리 대상 이름 제한
     assert.match(port, /^\d+$/); // DB 포트 형식
     assert.notEqual(port, "3306"); // 기존 기본 DB 차단
-    const work = path.join(root, ".runtime", database); // 비공개 세션 경로
-    mkdirSync(work, { recursive: true }); // 독립 세션 저장소
+    const sessionDirectory = path.join(projectRoot, ".runtime", database); // 비공개 세션 경로
+    mkdirSync(sessionDirectory, { recursive: true }); // 독립 세션 저장소
     const probe = createServer(); // 임의 HTTP 포트
     await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve)); // 빈 포트 확보
     const httpPort = probe.address().port; // 선택된 포트
     await new Promise((resolve) => probe.close(resolve)); // 예약 해제
     const origin = "http://127.0.0.1:" + httpPort; // 실제 라우터 주소
-    const env = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "acceptance-only-secret-key-at-least-32-bytes" }; // 독립 DB와 인증 설정
+    const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "acceptance-only-secret-key-at-least-32-bytes" }; // 독립 DB와 인증 설정
     let server; // 정리할 서버
     function client() // 브라우저와 같은 쿠키 세션 경계
     {
@@ -61,8 +61,8 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
     sql("CREATE DATABASE " + database + " CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci", false); // 빈 검증 DB
     try // 모든 테스트 자원 정리 보장
     {
-        sql(readFileSync(path.join(root, "backend/sql/schema.sql"), "utf8")); // 실제 테이블 생성
-        server = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-d", "session.save_path=" + work, "-S", "127.0.0.1:" + httpPort, "-t", path.join(root, "frontend"), path.join(root, "router.php")], { env, windowsHide: true, stdio: "ignore" }); // 실제 공개 라우터 실행
+        sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 실제 테이블 생성
+        server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + httpPort, "-t", path.join(projectRoot, "frontend"), path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 공개 라우터 실행
         for (let attempt = 0; attempt < 50; attempt++) // 제한된 시작 확인
         {
             try // 실제 DB 연결 상태 요청
@@ -97,7 +97,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
         }); // 가입과 인증 검사 종료
         await context.test("명시적 개발 소속·채널·원문 전송·다른 회원 조회", async () => // 개발 데이터와 실제 웹 계약 연결 포착
         {
-            execFileSync(php, ["-c", path.join(root, ".runtime/php.ini"), path.join(root, "scripts/seed-dev.php"), "--owner=accept_owner", "--member=accept_member"], { env, windowsHide: true }); // 기존 계정만 개발 서버 연결
+            execFileSync(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/seed-dev.php"), "--owner=accept_owner", "--member=accept_member"], { env: serverEnvironment, windowsHide: true }); // 기존 계정만 개발 서버 연결
             const channels = (await owner.request("get_channels.php")).data.channels; // 실제 소속 목록
             assert.deepEqual(channels.map((item) => item.name), ["일반", "개발", "공지"]); // 실제 준비 결과
             channel = channels[0].id; // 첫 실제 채널 ID

@@ -7,9 +7,9 @@ import path from "node:path"; // 실행 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
 import test from "node:test"; // 기본 테스트 도구
 import { querySql } from "./helpers/sql-query.mjs"; // 실제 DB 조회
-const root = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
+const projectRoot = fileURLToPath(new URL("../", import.meta.url)); // 프로젝트 루트
 const database = "systemmakers_history_test_" + randomBytes(6).toString("hex"); // 독립 테스트 DB
-const php = process.env.PHP_TEST_BIN || path.join(root, ".runtime/php/php.exe"); // 실제 PHP 경로
+const phpBinary = process.env.PHP_TEST_BIN || path.join(projectRoot, ".runtime/php/php.exe"); // 실제 PHP 경로
 const port = process.env.MYSQL_TEST_PORT || "33361"; // 독립 테스트 서버 포트
 function sql(statement, selected = true) // 실제 테스트 DB 요청
 {
@@ -20,13 +20,13 @@ test("실제 메시지 최초·이전·신규 HTTP 조회", async (context) => /
     assert.match(database, /^systemmakers_history_test_[a-f0-9]{12}$/); // 삭제 대상 제한
     assert.match(port, /^\d+$/); // 포트 형식 확인
     assert.notEqual(port, "3306"); // 기존 기본 DB 차단
-    const work = path.join(root, ".runtime", database); // 비공개 검증 폴더
-    mkdirSync(path.join(work, "sessions"), { recursive: true }); // 독립 세션 저장소
-    const base = root.replaceAll("\\", "/").replaceAll("'", "\\'"); // PHP 문자열 경로 인용
-    writeFileSync(path.join(work, "router.php"), `<?php // 비공개 조회 테스트 라우터
+    const testDirectory = path.join(projectRoot, ".runtime", database); // 비공개 검증 폴더
+    mkdirSync(path.join(testDirectory, "sessions"), { recursive: true }); // 독립 세션 저장소
+    const base = projectRoot.replaceAll("\\", "/").replaceAll("'", "\\'"); // PHP 문자열 경로 인용
+    writeFileSync(path.join(testDirectory, "router.php"), `<?php // 비공개 조회 테스트 라우터
 require '${base}/backend/includes/bootstrap.php'; // 실제 공통 처리
-$route = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); // 요청 경로
-if ($route === '/session') // 검증 계정의 서버 세션 준비
+$fixtureRequestRoute = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); // 요청 경로
+if ($fixtureRequestRoute === '/session') // 검증 계정의 서버 세션 준비
 {
     start_secure_session(); // 실제 세션 시작
     $_SESSION = ['user_id' => '1', 'authenticated_at' => time(), 'last_activity_at' => time()]; // 검증 계정 인증
@@ -57,11 +57,11 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
     sql("CREATE DATABASE " + database + " CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci", false); // 독립 DB 생성
     try // 실패 시 전용 자원 정리
     {
-        sql(readFileSync(path.join(root, "backend/sql/schema.sql"), "utf8")); // 실제 스키마
+        sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 실제 스키마
         sql("INSERT INTO users(id,username,email,password_hash) VALUES(1,'history_user','history@example.com','unused'),(2,'other_user','other@example.com','unused'); INSERT INTO servers(id,name,owner_id) VALUES(1,'first',1),(2,'second',2); INSERT INTO server_members(server_id,user_id,role) VALUES(1,1,'owner'),(2,2,'owner'); INSERT INTO channels(id,server_id,name) VALUES(1,1,'general'),(2,1,'empty'),(3,2,'private');"); // 격리된 권한과 빈 채널
         sql("INSERT INTO messages(id,channel_id,user_id,content) VALUES " + Array.from({ length: 125 }, (_, index) => "(" + (index * 2 + 2) + ",1,1,'history-" + (index + 1) + "')").join(",") + "; INSERT INTO messages(id,channel_id,user_id,content) VALUES(999,3,2,'private');"); // 틈이 있는 ID와 다른 채널
-        const env = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0" }; // 독립 DB 실행 설정
-        server = spawn(php, ["-c", path.join(root, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(work, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", work, path.join(work, "router.php")], { env, windowsHide: true, stdio: "ignore" }); // 실제 PHP 실행
+        const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0" }; // 독립 DB 실행 설정
+        server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 PHP 실행
         for (let attempt = 0; attempt < 50; attempt++) // 제한된 시작 확인
         {
             try // 실제 서버 연결

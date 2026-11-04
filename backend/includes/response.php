@@ -15,16 +15,16 @@ function send_json(array $payload, int $status): never // 공통 응답 출력
     echo $json; // 공통 JSON 출력
     exit; // 추가 출력 중단
 }
-function respond_success(array $data, int $status = 200): never // 공통 성공 응답
+function respond_success(array $responseData, int $status = 200): never // 공통 성공 응답
 {
-    send_json(['success' => true, 'data' => (object) $data], $status); // 성공 결과 객체 반환
+    send_json(['success' => true, 'data' => (object) $responseData], $status); // 성공 결과 객체 반환
 }
 function respond_error(string $code, string $message, int $status, array $fields = []): never // 공통 실패 응답
 {
-    $error = ['code' => $code, 'message' => $message]; // 안정적인 오류 구조
+    $errorDetails = ['code' => $code, 'message' => $message]; // 안정적인 오류 구조
     if ($fields !== []) // 필드 오류 존재 여부
     {
-        $error['fields'] = (object) $fields; // 필드별 오류 객체
+        $errorDetails['fields'] = (object) $fields; // 필드별 오류 객체
     }
-    send_json(['success' => false, 'error' => $error], $status); // 공통 오류 반환
+    send_json(['success' => false, 'error' => $errorDetails], $status); // 공통 오류 반환
 }

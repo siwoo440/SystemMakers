@@ -349,7 +349,9 @@ before_id와 after_id의 동시 사용은 400 `INVALID_QUERY`다. 커서는 범�
 | respond_success(array, int): never | backend/includes/response.php | data와 HTTP 상태를 가진 공통 JSON 출력 |
 | respond_error(string, string, int, array): never | backend/includes/response.php | 오류 코드·문구·HTTP 상태·선택적 fields 출력 |
 
-require_channel_member의 전체 시그니처는 `require_channel_member(PDO $pdo, string $channel_id, string $user_id): array`다. user_id는 반드시 require_user가 반환한 값이며 요청 본문의 값을 전달하지 않는다.
+require_channel_member의 전체 시그니처는 `require_channel_member(PDO $databaseConnection, string $channelId, string $userId): array`다. `$userId`는 반드시 require_user가 반환한 값이며 요청 본문의 값을 전달하지 않는다.
+
+PHP의 사용자 정의 변수·매개변수는 lowerCamelCase를 사용한다. HTTP JSON·쿼리의 `channel_id`·`user_id`와 DB 열 이름은 기존 계약을 유지한다. PHP 함수를 외부 코드에서 이름 지정 인수로 직접 호출했다면 변경된 매개변수 이름으로 수정해야 한다. 위치 순서로 전달하는 기존 호출과 HTTP API 계약은 유지한다. 자세한 기준은 [변수명 안내](VARIABLE-NAMING.md)를 따른다.
 
 단순 require_channel_member 조회는 트랜잭션 안의 저장 권한 검사를 대체하지 않는다. 메시지 저장은 store_message의 채널 FOR UPDATE·멤버십 FOR SHARE·INSERT·COMMIT 순서를 따른다. 외부 입력 검증은 호출 전에 수행하며, 권한 오류는 롤백 후 공통 JSON으로 변환한다.
 

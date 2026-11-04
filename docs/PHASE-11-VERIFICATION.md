@@ -105,7 +105,7 @@ SQL 도구+기존 스키마16개 통과 후 전체165개를 다시 실행했다.
 ---
 ## 7. 실행과 문서 기준
 
-PHP_TEST_BIN·MYSQL_TEST_CLIENT·MYSQL_TEST_PORT=33361 및 README의 웹 검사 환경을 설정한 뒤 실행한다. 개인 실행 파일은 새 체크아웃에 포함되지 않으므로 별도 준비한다.
+PHP_TEST_BIN·MYSQL_TEST_CLIENT·MYSQL_TEST_PORT=33361 및 [로컬 실행과 검사](LOCAL-SETUP.md)의 웹 검사 환경을 설정한 뒤 실행한다. 개인 실행 파일은 새 체크아웃에 포함되지 않으므로 별도 준비한다.
 
 ```powershell
 node --test # 전체165개 실제 DB·화면 상태 검사

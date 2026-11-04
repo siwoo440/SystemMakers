@@ -1,6 +1,8 @@
 ---
 # SystemMakers 데이터베이스 구조
 
+PHP 내부 변수는 lowerCamelCase를 사용하지만 `server_id`, `channel_id` 같은 DB 열 이름과 SQL 계약은 기존 표기 그대로 유지한다. 구분 예시는 [변수명 안내](VARIABLE-NAMING.md)에 기록한다.
+
 갱신일: 2026-10-22 · 계약 버전: 0.5 · 구조 담당: B · 서버·채널 기능 담당: C
 
 회원·서버·멤버십·채널·메시지의 관계와 API 구현 규칙을 정의한다. [schema.sql](../backend/sql/schema.sql)과 001 변경 파일을 MySQL 8.4.13에 적용했다. 최초 스키마 15개 검증은 [SCHEMA-VERIFICATION.md](SCHEMA-VERIFICATION.md), 최신 전체 165개와 seed 없는 관리·대화 흐름·기존 자료 보존 근거는 [11단계 결과](PHASE-11-VERIFICATION.md)에 있다. API 필드·인증·검증 규칙은 [API.md](API.md)와 함께 사용한다.

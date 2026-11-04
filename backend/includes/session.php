@@ -7,15 +7,15 @@ function start_secure_session(): void // 공통 세션 시작
         return; // 중복 시작 방지
     }
     $environment = getenv('APP_ENV') ?: 'production'; // 기본 운영 환경
-    $secure_setting = getenv('SESSION_COOKIE_SECURE'); // 명시된 개발 쿠키 설정
+    $secureSetting = getenv('SESSION_COOKIE_SECURE'); // 명시된 개발 쿠키 설정
     $secure = true; // 운영 기본 Secure 속성
-    if ($secure_setting !== false) // 쿠키 설정 존재 여부
+    if ($secureSetting !== false) // 쿠키 설정 존재 여부
     {
-        if (!in_array($secure_setting, ['0', '1'], true)) // 허용 값 검사
+        if (!in_array($secureSetting, ['0', '1'], true)) // 허용 값 검사
         {
             throw new RuntimeException('Invalid session configuration.'); // 잘못된 보안 설정 차단
         }
-        if ($secure_setting === '0' && in_array($environment, ['development', 'test'], true)) // 로컬 HTTP 개발 조건
+        if ($secureSetting === '0' && in_array($environment, ['development', 'test'], true)) // 로컬 HTTP 개발 조건
         {
             $secure = false; // 명시적 개발 환경 Secure 해제
         }
