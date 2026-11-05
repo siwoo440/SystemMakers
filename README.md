@@ -14,7 +14,7 @@ SystemMakers는 팀원이 **서버와 채널을 만들어 텍스트로 대화하
 
 | 기능 | 할 수 있는 일 | 관련 코드·문서 |
 | --- | --- | --- |
-| 회원가입 | 사용자명·이메일·비밀번호로 계정을 만듭니다. 사용자명과 이메일의 중복을 확인합니다. | [회원가입](backend/api/register.php) · [계정 검증](backend/includes/accounts.php) · [API 명세](docs/API.md) |
+| 회원가입 | 사용자명·이메일·비밀번호로 계정을 만듭니다. 사용자명은 한글·영문·숫자·밑줄 2~32자를 지원하며 사용자명과 이메일의 중복을 확인합니다. | [회원가입](backend/api/register.php) · [계정 검증](backend/includes/accounts.php) · [API 명세](docs/API.md) |
 | 로그인·로그아웃 | 이메일과 비밀번호로 로그인하고 사용을 마치면 로그아웃합니다. 가입 후에는 별도로 로그인해야 합니다. | [로그인](backend/api/login.php) · [로그아웃](backend/api/logout.php) · [API 명세](docs/API.md) |
 | 로그인 상태 확인 | 페이지를 새로고침하면 유효한 로그인 상태를 확인합니다. | [현재 사용자 조회](backend/api/get_current_user.php) · [화면 처리](frontend/app.js) |
 | 로그인 시도 제한 | 이메일과 IP별로 지나치게 많은 로그인 시도를 제한합니다. 비밀번호는 해시로 저장합니다. | [로그인 제한](backend/includes/login_rate_limit.php) · [API 명세](docs/API.md) |
@@ -37,6 +37,8 @@ SystemMakers는 팀원이 **서버와 채널을 만들어 텍스트로 대화하
 | 채널 생성·이름 변경 | 소유자와 관리자가 채널을 만들고 이름을 바꿉니다. 이름을 변경해도 기존 대화는 유지됩니다. | [채널 생성](backend/api/create_channel.php) · [이름 변경](backend/api/update_channel.php) |
 | 채널 삭제 | 소유자와 관리자가 삭제 대상과 메시지 수를 확인하고 이름을 입력해 삭제합니다. | [삭제 미리보기](backend/api/get_deletion_preview.php) · [채널 삭제](backend/api/delete_channel.php) |
 | 역할별 접근 | 일반 회원은 소속 채널에서 대화하고, 소유자와 관리자는 채널을 관리합니다. | [접근 권한](backend/includes/permissions.php) · [역할 규칙](docs/PHASE-7-RULES.md) |
+
+서버·채널 관리 버튼은 벡터 아이콘으로 표시합니다. 마우스를 올리거나 키보드로 선택하면 기능 이름이 나타납니다.
 
 ### 메시지와 대화
 
