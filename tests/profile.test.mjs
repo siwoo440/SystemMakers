@@ -36,7 +36,7 @@ test("10단계 본인 프로필의 조회·변경·보존", async (context) => /
         {
             assert.equal((await patch(owner, { username: "new_name", [field]: other.id })).status, 422); // 대상·비밀·권한 변경 차단
         }
-        for (const username of [null, 123, [], "ab", "한글이름", "has space", "a".repeat(33)]) // 가입과 같은 규칙
+        for (const username of [null, 123, [], "a", "has space", "a".repeat(33)]) // 가입과 같은 규칙
         {
             assert.equal((await patch(owner, { username })).status, 422); // 형식 오류
         }
@@ -46,6 +46,9 @@ test("10단계 본인 프로필의 조회·변경·보존", async (context) => /
     });
     await context.test("정규화 변경·동일 이름 저장·기존 작성 관계 보존", async () => // 핵심 정상 흐름
     {
+        const koreanName = await patch(owner, { username: "김하늘" }); // 한글 사용자명 변경
+        assert.equal(koreanName.status, 200); // 한글 이름 저장 성공
+        assert.equal(koreanName.data.user.username, "김하늘"); // 한글 이름 원문 유지
         const response = await patch(owner, { username: "  Profile_Changed  " }); // 대소문자와 공백
         assert.equal(response.status, 200); // 변경 성공
         assert.equal(response.data.user.username, "profile_changed"); // 기존 가입 정규화

@@ -123,7 +123,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
         sql("INSERT INTO users (id,username,email,password_hash) VALUES (1,'member','member@example.com','unused'),(2,'outsider','outsider@example.com','unused'); INSERT INTO servers (id,name,owner_id) VALUES (1,'test',1); INSERT INTO server_members (server_id,user_id,role) VALUES (1,1,'owner'); INSERT INTO channels (id,server_id,name) VALUES (1,1,'general');"); // 실제 계정과 소속 준비
         const httpPort = await vacantPort(); // 검증 전용 HTTP 포트
         const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "development", SESSION_COOKIE_SECURE: "0" }; // 격리 연결 환경
-        server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { cwd: projectRoot, env: serverEnvironment, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 숨김 PHP 서버 시작
+        server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { cwd: projectRoot, env: serverEnvironment, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 숨김 PHP 서버 시작
         server.stderr.on("data", (chunk) => // 실행 오류 기록
         {
             stderr += chunk; // 실패 진단 누적
@@ -195,7 +195,9 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
         {
             assert.deepEqual((await request("/api/health.php")).body, { success: true, data: { status: "ok" } }); // 민감 정보 없는 상태
             assert.equal((await request("/api/health.php")).response.headers.get("x-powered-by"), null); // 런타임 버전 비노출
-            assert.deepEqual((await request("/db")).body.data, { timezone: "+00:00", charset: "utf8mb4", emulated: false, exception_mode: 2 }); // UTC와 실제 prepare 속성
+            const databaseSettings = (await request("/db")).body.data; // 실제 PDO 설정 응답
+            assert.ok(databaseSettings.emulated === false || databaseSettings.emulated === 0); // PHP 버전별 비활성 속성 형식
+            assert.deepEqual({ ...databaseSettings, emulated: false }, { timezone: "+00:00", charset: "utf8mb4", emulated: false, exception_mode: 2 }); // UTC와 실제 prepare 속성
         }); // DB 검사 종료
         await context.test("본문 객체·크기·미디어 유형·필드·CSRF 검증", async () => // 잘못된 입력 수락 포착
         {

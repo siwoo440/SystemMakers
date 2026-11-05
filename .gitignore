@@ -1,5 +1,7 @@
 # 프로젝트 내부 검증 도구와 DB 파일
 .runtime/
+# Composer 외부 의존성
+/backend/realtime/vendor/
 # 개인 환경 설정과 접속 정보
 .env
 .env.*

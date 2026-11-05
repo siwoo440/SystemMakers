@@ -58,7 +58,7 @@ users와 servers의 다대다 소속 관계를 server_members가 연결한다. m
 | password_hash | VARCHAR(255) | 기본값 없음 | password_hash 결과 |
 | created_at | DATETIME | CURRENT_TIMESTAMP | 가입 시각 |
 
-사용자명은 영문·숫자·밑줄 3~32자이며 소문자로 저장한다. 이메일은 공백 제거·소문자 변환 후 최대 254자의 유효한 ASCII 주소만 허용한다. 애플리케이션 정규화와 DB의 대소문자 무시 UNIQUE 제약을 함께 적용한다. 동시 가입에 따른 UNIQUE 위반도 API의 409로 변환한다.
+사용자명은 한글·영문·숫자·밑줄 2~32자이며 소문자로 저장한다. 이메일은 공백 제거·소문자 변환 후 최대 254자의 유효한 ASCII 주소만 허용한다. 애플리케이션 정규화와 DB의 대소문자 무시 UNIQUE 제약을 함께 적용한다. 동시 가입에 따른 UNIQUE 위반도 API의 409로 변환한다.
 
 비밀번호 원문은 저장하지 않는다. PASSWORD_DEFAULT를 사용하고 password_verify로 비교한다. VARCHAR(255)는 향후 기본 해시 알고리즘 변경에 따른 길이 증가를 수용하기 위한 크기다. [PHP 공식 문서](https://www.php.net/manual/en/function.password-hash.php)
 

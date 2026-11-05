@@ -1,67 +1,110 @@
----
 # SystemMakers
 
-Discord 스타일의 팀 채팅 웹 프로젝트입니다.
+SystemMakers는 팀원이 **서버와 채널을 만들어 텍스트로 대화하는 웹 프로젝트**입니다.
 
-- 화면은 HTML·CSS·JavaScript, 서버는 PHP·MySQL을 사용합니다.
+- **서버**: 팀이나 모임이 함께 사용하는 공간입니다.
+- **채널**: 서버 안에서 주제별로 대화하는 공간입니다.
+- **사용 흐름**: 회원가입 → 로그인 → 서버 만들기 또는 초대받기 → 채널 선택 → 대화
 
-- 서버는 팀 공간, 채널은 서버 안의 주제별 대화방입니다.
+화면은 HTML·CSS·JavaScript, 서버는 PHP·MySQL을 사용합니다.
 
----
 ## 주요 기능
 
-- **회원 인증**: 회원가입·로그인·로그아웃과 세션 보호, 로그인 횟수 제한을 제공합니다.
+### 계정과 로그인
 
-- **서버와 초대**: 서버를 만들고 초대 코드로 참여하거나 탈퇴할 수 있습니다.
+| 기능 | 할 수 있는 일 | 관련 코드·문서 |
+| --- | --- | --- |
+| 회원가입 | 사용자명·이메일·비밀번호로 계정을 만듭니다. 사용자명은 한글·영문·숫자·밑줄 2~32자를 지원하며 사용자명과 이메일의 중복을 확인합니다. | [회원가입](backend/api/register.php) · [계정 검증](backend/includes/accounts.php) · [API 명세](docs/API.md) |
+| 로그인·로그아웃 | 이메일과 비밀번호로 로그인하고 사용을 마치면 로그아웃합니다. 가입 후에는 별도로 로그인해야 합니다. | [로그인](backend/api/login.php) · [로그아웃](backend/api/logout.php) · [API 명세](docs/API.md) |
+| 로그인 상태 확인 | 페이지를 새로고침하면 유효한 로그인 상태를 확인합니다. | [현재 사용자 조회](backend/api/get_current_user.php) · [화면 처리](frontend/app.js) |
+| 로그인 시도 제한 | 이메일과 IP별로 지나치게 많은 로그인 시도를 제한합니다. 비밀번호는 해시로 저장합니다. | [로그인 제한](backend/includes/login_rate_limit.php) · [API 명세](docs/API.md) |
 
-- **채널 관리**: 소유자·관리자가 채널을 만들고 이름을 바꾸거나 삭제할 수 있습니다.
+### 서버와 초대
 
-- **채팅**: 메시지를 저장하고 최근 대화·이전 기록·새 메시지를 조회합니다. 새 메시지는 요청이 끝난 뒤 약 2초 간격으로 확인합니다.
+| 기능 | 할 수 있는 일 | 관련 코드·문서 |
+| --- | --- | --- |
+| 서버 생성 | 팀 공간을 만듭니다. 생성자는 소유자가 되고 기본 채널이 함께 만들어집니다. | [서버 생성](backend/api/create_server.php) · [서버 관리](backend/includes/server_management.php) |
+| 서버 목록·선택 | 내가 참여 중인 서버를 확인하고 선택합니다. | [서버 목록](backend/api/list_servers.php) · [화면 상태](frontend/server-manager.mjs) |
+| 초대 발급·폐기 | 소유자가 초대 코드를 발급·복사·재발급·폐기합니다. 코드는 발급 후 24시간 유효합니다. | [초대 발급](backend/api/create_server_invite.php) · [초대 폐기](backend/api/revoke_server_invite.php) · [API 명세](docs/API.md) |
+| 초대 참여·탈퇴 | 초대 코드로 서버에 참여합니다. 소유자가 아닌 회원은 탈퇴할 수 있으며, 작성한 대화는 남습니다. | [서버 참여](backend/api/join_server.php) · [서버 탈퇴](backend/api/leave_server.php) |
+| 서버 삭제 | 소유자가 삭제 영향을 확인하고 서버 이름을 입력해 삭제합니다. 소속·채널·대화도 함께 삭제됩니다. | [삭제 미리보기](backend/api/get_deletion_preview.php) · [서버 삭제](backend/api/delete_server.php) |
 
-- **프로필**: 본인 정보 조회와 사용자명 변경을 지원합니다.
+### 채널
 
-- **접근 보호**: 로그인·CSRF·서버 소속을 확인하고, 다른 탭의 계정 변경이나 접근 종료를 감지하면 이전 화면 자료를 정리합니다.
+| 기능 | 할 수 있는 일 | 관련 코드·문서 |
+| --- | --- | --- |
+| 채널 조회 | 참여한 서버의 주제별 채널을 확인하고 대화할 채널을 선택합니다. | [채널 목록](backend/api/get_channels.php) · [채널 화면](frontend/channel-ui.mjs) |
+| 채널 생성·이름 변경 | 소유자와 관리자가 채널을 만들고 이름을 바꿉니다. 이름을 변경해도 기존 대화는 유지됩니다. | [채널 생성](backend/api/create_channel.php) · [이름 변경](backend/api/update_channel.php) |
+| 채널 삭제 | 소유자와 관리자가 삭제 대상과 메시지 수를 확인하고 이름을 입력해 삭제합니다. | [삭제 미리보기](backend/api/get_deletion_preview.php) · [채널 삭제](backend/api/delete_channel.php) |
+| 역할별 접근 | 일반 회원은 소속 채널에서 대화하고, 소유자와 관리자는 채널을 관리합니다. | [접근 권한](backend/includes/permissions.php) · [역할 규칙](docs/PHASE-7-RULES.md) |
 
----
+서버·채널 관리 버튼은 벡터 아이콘으로 표시합니다. 마우스를 올리거나 키보드로 선택하면 기능 이름이 나타납니다.
+
+### 메시지와 대화
+
+| 기능 | 할 수 있는 일 | 관련 코드·문서 |
+| --- | --- | --- |
+| 텍스트 메시지 | 한글·이모지·줄바꿈을 포함해 최대 2,000자까지 전송하고 대화를 저장합니다. | [메시지 전송](backend/api/send_message.php) · [메시지 처리](backend/includes/messages.php) |
+| 입력과 전송 | Enter로 메시지를 전송하고 Shift+Enter로 줄을 바꿉니다. | [화면](index.html) · [입력 처리](frontend/app.js) |
+| 최근·이전 대화 | 채널의 최근 대화 50개를 불러오고 이전 대화를 추가로 조회합니다. | [메시지 조회](backend/api/get_messages.php) · [조회 처리](backend/includes/message_history.php) |
+| 새 메시지 확인 | WebSocket 알림을 받으면 새 메시지를 조회하고, HTTP 주기 조회로 누락을 복구합니다. | [대화 갱신](frontend/message-feed.mjs) · [API 명세](docs/API.md) |
+| 읽는 위치·초안 | 이전 대화를 읽던 위치를 유지하고 채널 이동 시 현재 탭에 작성 중인 내용을 보관합니다. | [화면 상태](frontend/app.js) · [개발 방향](docs/DEVELOPMENT-DIRECTION.md) |
+| 오류·재조회 | 대화 조회에 실패하면 다시 연결할 수 있습니다. 전송 결과를 받지 못했을 때 같은 요청을 자동으로 반복하지 않습니다. | [화면 처리](frontend/app.js) · [대화 갱신](frontend/message-feed.mjs) |
+
+새 메시지는 **WebSocket 알림과 HTTP 조회**로 확인합니다. 알림 연결이 끊겨도 HTTP 주기 조회가 유지되며, 네트워크 상태나 브라우저 제한에 따라 반영이 늦어질 수 있습니다. 초안은 현재 탭의 메모리에 보관하므로 새로고침 후 복원되지 않습니다.
+
+### 프로필과 접근 보호
+
+| 기능 | 할 수 있는 일 | 관련 코드·문서 |
+| --- | --- | --- |
+| 내 프로필 | 본인의 사용자명·이메일·가입일을 확인하고 사용자명을 변경합니다. 기존 대화와 서버 소속은 유지됩니다. | [프로필 API](backend/api/profile.php) · [프로필 화면](frontend/profile-ui.mjs) |
+| 접근 권한 확인 | 서버 소속과 관리 권한을 확인해 권한 없는 조회·전송·관리를 차단합니다. | [권한 확인](backend/includes/permissions.php) · [관리 요청](backend/includes/management_endpoint.php) |
+| 계정과 요청 보호 | 세션과 CSRF 토큰을 확인하고 다른 탭에서 계정이 바뀌었을 때 잘못된 계정으로 요청하는 일을 방지합니다. | [세션](backend/includes/session.php) · [CSRF](backend/includes/csrf.php) · [API 명세](docs/API.md) |
+| 접근 종료 시 정리 | 서버 탈퇴나 채널 삭제가 확인되면 해당 대화·초안·선택 화면을 정리합니다. | [화면 처리](frontend/app.js) · [검증 결과](docs/PHASE-11-VERIFICATION.md) |
+
+## 현재 제공하지 않는 기능
+
+| 구분 | 현재 상태 |
+| --- | --- |
+| 운영 실시간 연결 | 로컬 WebSocket을 제공하며 운영 환경의 WSS·프록시 설정은 별도 검증이 필요합니다. |
+| 첨부·음성 | 파일·이미지 첨부와 음성 채팅은 제공하지 않습니다. |
+| 메시지 관리 | 개별 메시지 수정·삭제는 제공하지 않습니다. |
+| 서버·권한 확장 | 서버 이름 변경, 비공개 채널, 역할 편집, 강퇴, 소유권 이전은 현재 범위 밖입니다. |
+| 계정 확장 | 아바타, 이메일·비밀번호 변경, 회원 탈퇴는 제공하지 않습니다. |
+
 ## 로컬 실행
 
-- PHP 8.4·MySQL 8.4·Node.js와 개인 DB 설정이 필요합니다.
+PHP 8.3, MySQL 8.4, Node.js, Composer와 개인 DB 설정이 필요합니다. PHP의 `pdo_mysql`·`mbstring` 확장과 DB 초기 설정 방법은 [로컬 실행과 검사](docs/LOCAL-SETUP.md)를 참고하세요.
 
-- 프로젝트를 `htdocs/Team006/`에 배치하고 저장소 루트에서 아래 명령을 실행합니다. 접속 주소는 [http://127.0.0.6:8088/Team006/index.html](http://127.0.0.6:8088/Team006/index.html)입니다.
+프로젝트를 `htdocs/Team006/`에 배치하고 저장소 루트에서 다음 명령을 실행합니다.
 
 ```powershell
 .\scripts\start-dev.ps1 # 로컬 웹 서버 시작
+.\scripts\start-realtime.ps1 # 별도 터미널의 실시간 서버 시작
 ```
 
-- 스키마 적용, 개인 설정, 개발 데이터와 테스트 방법은 [로컬 실행과 검사](docs/LOCAL-SETUP.md)에 정리했습니다.
+접속 주소: [http://127.0.0.6:8088/Team006/index.html](http://127.0.0.6:8088/Team006/index.html)
 
 - 웹 주소는 `-WebHost`, 포트는 `-Port`로 지정합니다. MySQL 주소는 별도의 `MYSQL_HOST` 설정을 사용합니다.
-
 - 위 명령은 PHP 라우터로 공개 경로를 제한합니다. Apache에서 직접 제공하려면 별도의 접근 제한과 경로 설정이 필요합니다.
+- 스키마 적용, 개인 설정, 개발 데이터와 테스트 방법은 [로컬 실행과 검사](docs/LOCAL-SETUP.md)에 정리했습니다.
 
----
 ## 팀 역할
 
-- **A · 프론트엔드**: 화면·사용자 경험과 실제 기기 확인.
+| 담당 | 역할 |
+| --- | --- |
+| A · 프론트엔드 | 화면·사용자 경험과 실제 기기 확인 |
+| B · 백엔드 | DB·회원 인증·메시지 API와 관련 검증 |
+| C · 관리 기능 | 서버·초대·채널·프로필과 권한 관리 |
 
-- **B · 백엔드**: DB·회원 인증·메시지 API와 관련 검증.
-
-- **C · 관리 기능**: 서버·초대·채널·프로필과 권한 관리.
-
----
 ## 현재 상태
 
 - 1~10단계 기능 구현과 11단계 로컬 통합 검증을 진행했습니다.
-
 - 실제 휴대폰·Safari·Firefox와 운영 환경 검증은 남아 있습니다.
-
 - 12단계 운영 환경·HTTPS·백업 복원·성능 검증은 준비 단계입니다.
 
----
 ## 문서
 
-- [API 명세](docs/API.md) · [DB 구조](docs/DATABASE.md) · [개발 방향](docs/DEVELOPMENT-DIRECTION.md)
-
+- [실시간 연결](docs/REALTIME.md) · [API 명세](docs/API.md) · [DB 구조](docs/DATABASE.md) · [개발 방향](docs/DEVELOPMENT-DIRECTION.md)
 - [변수명 작성과 호환성](docs/VARIABLE-NAMING.md) · [로컬 실행과 검사](docs/LOCAL-SETUP.md)
-
 - [11단계 검증 결과](docs/PHASE-11-VERIFICATION.md) · [전체 문서 목록](docs/INDEX.md)

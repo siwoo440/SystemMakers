@@ -34,7 +34,7 @@ try // 부분 생성과 비밀 오류 노출 방지
     $usernames = array_values(array_unique($usernames)); // 중복 계정 제거
     foreach ($usernames as $username) // 허용된 사용자명 검증
     {
-        if (!preg_match('/\A[a-z0-9_]{3,32}\z/D', $username)) // 가입 계약과 같은 사용자명 범위
+        if (!preg_match('/\A[a-z0-9_가-힣]{2,32}\z/uD', $username)) // 가입 계약과 같은 사용자명 범위
         {
             throw new InvalidArgumentException('Invalid username.'); // 잘못된 계정 입력 거절
         }

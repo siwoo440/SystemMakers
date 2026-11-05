@@ -34,7 +34,7 @@ export async function fixture(context) // 독립 공개 API 검사 환경
     const address = probe.address().port; // 배정된 포트
     await new Promise((resolve) => probe.close(resolve)); // 포트 예약 종료
     const origin = "http://127.0.0.1:" + address; // 공개 라우터 주소
-    server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + address, path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 PHP 웹 서버
+    server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + address, path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 PHP 웹 서버
     function client() // 독립 회원 쿠키 경계
     {
         const session = { cookie: "", token: "", id: "" }; // 실제 인증 상태
@@ -80,11 +80,11 @@ export async function fixture(context) // 독립 공개 API 검사 환경
         session.id = login.data.user.id; // 실제 사용자 ID
         return session; // 인증된 클라이언트
     }
-    const migrate = () => execFileSync(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/migrate.php")], { env: serverEnvironment, encoding: "utf8", windowsHide: true }); // 실제 변경 실행 도구
+    const migrate = () => execFileSync(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/migrate.php")], { env: serverEnvironment, encoding: "utf8", windowsHide: true }); // 실제 변경 실행 도구
     async function hold(statement, after = "") // 별도 연결에서 실제 잠금 유지
     {
         const source = 'require ' + JSON.stringify(path.join(projectRoot, 'backend/config/database.php')) + '; $fixtureDatabaseConnection=db(); $fixtureDatabaseConnection->beginTransaction(); $fixtureDatabaseConnection->query(' + JSON.stringify(statement) + ')->fetchAll(); echo "LOCKED\\n"; fflush(STDOUT); fgets(STDIN); ' + (after ? '$fixtureDatabaseConnection->exec(' + JSON.stringify(after) + '); ' : '') + '$fixtureDatabaseConnection->commit();'; // 실제 잠금과 명시적 해제
-        const process = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-r", source], { env: serverEnvironment, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] }); // 실제 독립 DB 연결
+        const process = spawn(phpBinary, ["-c", globalThis.process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-r", source], { env: serverEnvironment, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] }); // 실제 독립 DB 연결
         locks.push(process); // DB 제거 전에 잠금 연결 정리
         await new Promise((resolve, reject) => // 잠금 획득 신호
         {
