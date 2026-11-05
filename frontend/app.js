@@ -646,9 +646,9 @@ function validateAuthForm() // 실제 API 계약에 맞는 입력 검사
     const emailInput = byId("auth-email"); // 공통 이메일 입력
     usernameInput.value = usernameInput.value.trim().toLowerCase(); // 사용자명 공백 제거와 소문자 정규화
     emailInput.value = emailInput.value.trim().toLowerCase(); // 이메일 공백 제거와 소문자 정규화
-    if (authMode === "register" && !/^[a-z0-9_]{3,32}$/.test(usernameInput.value)) // 사용자명 허용 범위 확인
+    if (authMode === "register" && !/^[a-z0-9_가-힣]{2,32}$/.test(usernameInput.value)) // 사용자명 허용 범위 확인
     {
-        usernameInput.setCustomValidity("사용자명은 영문·숫자·밑줄 3~32자로 입력하세요."); // 사용자명 입력 규칙 안내
+        usernameInput.setCustomValidity("사용자명은 한글·영문·숫자·밑줄 2~32자로 입력하세요."); // 사용자명 입력 규칙 안내
     }
     if (emailInput.value.length > 254 || /[^\x00-\x7F]/.test(emailInput.value)) // 이메일 ASCII와 길이 확인
     {

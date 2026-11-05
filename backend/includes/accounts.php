@@ -15,9 +15,9 @@ function validate_email(mixed $inputValue): string // ASCII 이메일 정규화
 }
 function validate_username(mixed $inputValue): string // 사용자명 정규화와 검증
 {
-    if (!is_string($inputValue) || !preg_match('/\A[a-zA-Z0-9_]{3,32}\z/D', trim($inputValue))) // 영문과 숫자 및 밑줄 허용
+    if (!is_string($inputValue) || !preg_match('/\A[a-zA-Z0-9_가-힣]{2,32}\z/uD', trim($inputValue))) // 한글과 영문·숫자·밑줄 허용
     {
-        respond_error('VALIDATION_ERROR', '입력값을 확인하세요.', 422, ['username' => '영문·숫자·밑줄 3~32자가 필요합니다.']); // 사용자명 형식 오류
+        respond_error('VALIDATION_ERROR', '입력값을 확인하세요.', 422, ['username' => '한글·영문·숫자·밑줄 2~32자가 필요합니다.']); // 사용자명 형식 오류
     }
     return strtolower(trim($inputValue)); // 소문자 고유 사용자명
 }

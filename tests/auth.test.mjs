@@ -141,6 +141,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
         {
             return; // 최초 누락 실패 결과 유지
         }
+
         await context.test("중복 이메일 우선과 사용자명 충돌 및 동시 가입 UNIQUE", async () => // 사전 검사만 사용하는 중복 처리 포착
         {
             expectError(await post("register", member, session), 409, "EMAIL_TAKEN"); // 두 중복의 이메일 우선
@@ -178,6 +179,16 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             assert.equal(sql("SELECT COUNT(*) FROM users"), usersBefore); // 검증 실패 가입 없음
             assert.equal(sql("SELECT COUNT(*) FROM auth_rate_limits"), "0"); // 검증 실패 시도 미누적
         }); // 검증 우선순위 종료
+        await context.test("한글 사용자명의 가입과 로그인", async () => // 한글 이름의 저장과 인증 확인
+        {
+            const koreanSession = await guest(); // 별도 게스트 세션
+            const registered = await post("register", { username: "김하늘", email: "korean@example.test", password }, koreanSession); // 한글 이름 회원가입
+            assert.equal(registered.response.status, 201); // 회원가입 성공
+            assert.equal(registered.body.data.user.username, "김하늘"); // 한글 이름 보존
+            const loggedIn = await post("login", { email: "korean@example.test", password }, koreanSession); // 기존 이메일 로그인
+            assert.equal(loggedIn.response.status, 200); // 로그인 성공
+            assert.equal(loggedIn.body.data.user.username, "김하늘"); // 로그인 응답의 한글 이름
+        }); // 한글 가입 검사 종료
         await context.test("비밀번호 문자·바이트 경계와 이메일·사용자명·알 수 없는 필드", async () => // bcrypt 입력 절단과 비문자 입력 포착
         {
             const invalidPasswords = ["x".repeat(11), "x".repeat(65), "가".repeat(25), "😀".repeat(19), "x".repeat(12) + "\0", 123, null]; // 잘못된 원문 경계
@@ -186,7 +197,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
                 expectError(await post("register", { ...member, password: value }, session), 422, "VALIDATION_ERROR"); // 가입 비밀번호 거절
                 expectError(await post("login", { email: member.email, password: value }, session), 422, "VALIDATION_ERROR"); // 로그인 동일 규칙
             }
-            for (const value of [{ username: "ab" }, { username: "가나다" }, { username: "x".repeat(33) }, { email: "가@example.com" }, { email: "x".repeat(255) + "@example.com" }, { unknown: true }]) // 나머지 필드 실패
+            for (const value of [{ username: "a" }, { username: "x".repeat(33) }, { email: "가@example.com" }, { email: "x".repeat(255) + "@example.com" }, { unknown: true }]) // 나머지 필드 실패
             {
                 expectError(await post("register", { ...member, ...value }, session), 422, "VALIDATION_ERROR"); // 잘못된 필드 거절
             }

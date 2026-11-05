@@ -52,7 +52,7 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
             return; // 화면과 작성자명 변경 중단
         }
         const user = responseData.user; // 공개 사용자 객체
-        if (!user || user.id !== targetId || !/^[a-z0-9_]{3,32}$/.test(user.username) || typeof user.email !== "string" || !user.email || typeof user.created_at !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(user.created_at) || Number.isNaN(Date.parse(user.created_at))) // 본인 공개 계약
+        if (!user || user.id !== targetId || !/^[a-z0-9_가-힣]{2,32}$/.test(user.username) || typeof user.email !== "string" || !user.email || typeof user.created_at !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(user.created_at) || Number.isNaN(Date.parse(user.created_at))) // 본인 공개 계약
         {
             throw new Error("본인 프로필 응답을 확인하지 못했습니다. 다시 조회하세요."); // 미확인 변경 차단
         }
