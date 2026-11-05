@@ -69,7 +69,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
         {
             const httpPort = await vacantPort(); // 서버별 전용 포트
             const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "auth-test-only-secret-key-32-bytes-minimum" }; // 격리된 테스트 설정
-            const server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { cwd: projectRoot, env: serverEnvironment, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 실제 서버 시작
+            const server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { cwd: projectRoot, env: serverEnvironment, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 실제 서버 시작
             server.stderr.on("data", (value) => // 서버 진단 수집
             {
                 logs += value; // 실패 원인 기록

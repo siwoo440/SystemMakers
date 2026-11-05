@@ -13,7 +13,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
     const port = socket.address().port; // 선택 포트 읽기
     await new Promise(resolve => socket.close(resolve)); // 예약 포트 해제
     const phpBinary = process.env.PHP_TEST_BIN || projectRoot + ".runtime/php/php.exe"; // PHP 실행 경로
-    const child = spawn(phpBinary, ["-c", projectRoot + ".runtime/php.ini", "-S", "127.0.0.1:" + port, "-t", projectRoot + "frontend", projectRoot + "router.php"], { cwd: projectRoot, windowsHide: true, stdio: "pipe" }); // 실제 라우터 서버
+    const child = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || projectRoot + ".runtime/php.ini", "-S", "127.0.0.1:" + port, "-t", projectRoot + "frontend", projectRoot + "router.php"], { cwd: projectRoot, windowsHide: true, stdio: "pipe" }); // 실제 라우터 서버
     const origin = "http://127.0.0.1:" + port; // 테스트 사이트 주소
     let output = ""; // 준비·실패 진단
     child.stderr.on("data", chunk => output += chunk); // PHP 시작 로그 수집
@@ -39,11 +39,12 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
         {
             const home = await fetch(origin + "/Team006/index.html"); // 팀 폴더 진입 화면 요청
             assert.equal(home.status, 200); // 팀 폴더 진입 성공
+            assert.match(home.headers.get("content-security-policy"), /ws:\/\/127\.0\.0\.6:8090/); // 지정한 로컬 실시간 연결만 허용
             const html = await home.text(); // 실제 HTML 본문
             assert.match(html, /SystemMakers/); // 실제 프로젝트 화면 확인
             assert.match(html, /href=["'](?:\.\/)?frontend\/app\.css["']/); // 팀 폴더 기준 스타일 경로
             assert.match(html, /src=["'](?:\.\/)?frontend\/app\.js["']/); // 팀 폴더 기준 스크립트 경로
-            for (const file of ["app.css", "app.js", "message-feed.mjs", "server-manager.mjs", "server-ui.mjs", "channel-ui.mjs", "profile-ui.mjs"]) // 실제 정적 자원 목록
+            for (const file of ["app.css", "app.js", "message-feed.mjs", "server-manager.mjs", "server-ui.mjs", "channel-ui.mjs", "profile-ui.mjs", "realtime.mjs"]) // 실제 정적 자원 목록
             {
                 const asset = await fetch(origin + "/Team006/frontend/" + file); // 팀 폴더 기준 상대 자원 요청
                 assert.equal(asset.status, 200, file); // 각 자원 응답 확인

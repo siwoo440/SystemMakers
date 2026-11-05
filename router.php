@@ -3,7 +3,7 @@ declare(strict_types=1); // 엄격한 자료형 검사
 header("X-Content-Type-Options: nosniff"); // MIME 자동 추측 차단
 header("X-Frame-Options: DENY"); // 외부 프레임 삽입 차단
 header("Referrer-Policy: same-origin"); // 외부 참조 정보 제한
-header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"); // 같은 출처 자원만 허용
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws://127.0.0.6:8090; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"); // 동일 출처와 로컬 실시간 연결만 허용
 $requestPath = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH)); // 요청 경로 추출
 if ($requestPath === '/Team006') // 팀 폴더 주소 확인
 {
@@ -76,6 +76,7 @@ $staticFiles = // 공개 정적 파일 허용 목록
     '/server-ui.mjs' => ['server-ui.mjs', 'text/javascript; charset=utf-8'], // 서버 관리 대화상자
     '/channel-ui.mjs' => ['channel-ui.mjs', 'text/javascript; charset=utf-8'], // 역할별 채널 관리 대화상자
     '/profile-ui.mjs' => ['profile-ui.mjs', 'text/javascript; charset=utf-8'], // 본인 프로필 대화상자
+    '/realtime.mjs' => ['realtime.mjs', 'text/javascript; charset=utf-8'], // 인증된 실시간 연결 모듈
 ]; // 정적 파일 목록 종료
 if (!isset($staticFiles[$requestPath])) // 비공개 또는 없는 경로
 {

@@ -47,11 +47,11 @@ SystemMakers는 팀원이 **서버와 채널을 만들어 텍스트로 대화하
 | 텍스트 메시지 | 한글·이모지·줄바꿈을 포함해 최대 2,000자까지 전송하고 대화를 저장합니다. | [메시지 전송](backend/api/send_message.php) · [메시지 처리](backend/includes/messages.php) |
 | 입력과 전송 | Enter로 메시지를 전송하고 Shift+Enter로 줄을 바꿉니다. | [화면](index.html) · [입력 처리](frontend/app.js) |
 | 최근·이전 대화 | 채널의 최근 대화 50개를 불러오고 이전 대화를 추가로 조회합니다. | [메시지 조회](backend/api/get_messages.php) · [조회 처리](backend/includes/message_history.php) |
-| 새 메시지 확인 | 이전 요청이 끝난 뒤 약 2초 간격으로 새 메시지를 확인합니다. | [대화 갱신](frontend/message-feed.mjs) · [API 명세](docs/API.md) |
+| 새 메시지 확인 | WebSocket 알림을 받으면 새 메시지를 조회하고, HTTP 주기 조회로 누락을 복구합니다. | [대화 갱신](frontend/message-feed.mjs) · [API 명세](docs/API.md) |
 | 읽는 위치·초안 | 이전 대화를 읽던 위치를 유지하고 채널 이동 시 현재 탭에 작성 중인 내용을 보관합니다. | [화면 상태](frontend/app.js) · [개발 방향](docs/DEVELOPMENT-DIRECTION.md) |
 | 오류·재조회 | 대화 조회에 실패하면 다시 연결할 수 있습니다. 전송 결과를 받지 못했을 때 같은 요청을 자동으로 반복하지 않습니다. | [화면 처리](frontend/app.js) · [대화 갱신](frontend/message-feed.mjs) |
 
-새 메시지 확인은 **HTTP 주기 조회** 방식입니다. WebSocket은 사용하지 않으며, 네트워크 상태나 브라우저 제한에 따라 반영이 늦어질 수 있습니다. 초안은 현재 탭의 메모리에 보관하므로 새로고침 후 복원되지 않습니다.
+새 메시지는 **WebSocket 알림과 HTTP 조회**로 확인합니다. 알림 연결이 끊겨도 HTTP 주기 조회가 유지되며, 네트워크 상태나 브라우저 제한에 따라 반영이 늦어질 수 있습니다. 초안은 현재 탭의 메모리에 보관하므로 새로고침 후 복원되지 않습니다.
 
 ### 프로필과 접근 보호
 
@@ -66,7 +66,7 @@ SystemMakers는 팀원이 **서버와 채널을 만들어 텍스트로 대화하
 
 | 구분 | 현재 상태 |
 | --- | --- |
-| 실시간 연결 | WebSocket은 미구현입니다. 현재는 HTTP 요청으로 새 메시지를 주기적으로 확인합니다. |
+| 운영 실시간 연결 | 로컬 WebSocket을 제공하며 운영 환경의 WSS·프록시 설정은 별도 검증이 필요합니다. |
 | 첨부·음성 | 파일·이미지 첨부와 음성 채팅은 제공하지 않습니다. |
 | 메시지 관리 | 개별 메시지 수정·삭제는 제공하지 않습니다. |
 | 서버·권한 확장 | 서버 이름 변경, 비공개 채널, 역할 편집, 강퇴, 소유권 이전은 현재 범위 밖입니다. |
@@ -74,12 +74,13 @@ SystemMakers는 팀원이 **서버와 채널을 만들어 텍스트로 대화하
 
 ## 로컬 실행
 
-PHP 8.4, MySQL 8.4, Node.js와 개인 DB 설정이 필요합니다. PHP의 `pdo_mysql`·`mbstring` 확장과 DB 초기 설정 방법은 [로컬 실행과 검사](docs/LOCAL-SETUP.md)를 참고하세요.
+PHP 8.3, MySQL 8.4, Node.js, Composer와 개인 DB 설정이 필요합니다. PHP의 `pdo_mysql`·`mbstring` 확장과 DB 초기 설정 방법은 [로컬 실행과 검사](docs/LOCAL-SETUP.md)를 참고하세요.
 
 프로젝트를 `htdocs/Team006/`에 배치하고 저장소 루트에서 다음 명령을 실행합니다.
 
 ```powershell
 .\scripts\start-dev.ps1 # 로컬 웹 서버 시작
+.\scripts\start-realtime.ps1 # 별도 터미널의 실시간 서버 시작
 ```
 
 접속 주소: [http://127.0.0.6:8088/Team006/index.html](http://127.0.0.6:8088/Team006/index.html)
@@ -104,6 +105,6 @@ PHP 8.4, MySQL 8.4, Node.js와 개인 DB 설정이 필요합니다. PHP의 `pdo_
 
 ## 문서
 
-- [API 명세](docs/API.md) · [DB 구조](docs/DATABASE.md) · [개발 방향](docs/DEVELOPMENT-DIRECTION.md)
+- [실시간 연결](docs/REALTIME.md) · [API 명세](docs/API.md) · [DB 구조](docs/DATABASE.md) · [개발 방향](docs/DEVELOPMENT-DIRECTION.md)
 - [변수명 작성과 호환성](docs/VARIABLE-NAMING.md) · [로컬 실행과 검사](docs/LOCAL-SETUP.md)
 - [11단계 검증 결과](docs/PHASE-11-VERIFICATION.md) · [전체 문서 목록](docs/INDEX.md)

@@ -4,6 +4,7 @@ import { ServerManager } from "./server-manager.mjs"; // 실제 서버 소속 �
 import { mountServerUI } from "./server-ui.mjs"; // 명시적 관리 화면
 import { mountChannelUI } from "./channel-ui.mjs"; // 역할별 채널 관리 화면
 import { mountProfileUI } from "./profile-ui.mjs"; // 본인 정보 조회·사용자명 수정
+import { createRealtimeClient } from "./realtime.mjs"; // 인증된 새 메시지 알림
 const byId = (elementId) => document.getElementById(elementId); // 화면 요소 조회
 let channels = Object.create(null); // 서버에서 확인한 채널별 화면 자료
 const messageInput = byId("message-input"); // 메시지 작성 필드
@@ -32,6 +33,8 @@ let savedDrafts = null; // 만료된 같은 계정의 미전송 초안
 let serverUI = null; // 초기화한 관리 화면 연결
 let channelUI = null; // 초기화한 채널 관리 연결
 let profileUI = null; // 초기화한 본인 프로필 화면
+let realtimeClient = null; // 선택 채널의 실시간 연결
+let realtimeStatus = "closed"; // WebSocket 구독 상태
 const serverManager = new ServerManager({ request: requestEndpoint, getUser: () => currentUser, storage: selectionStorage(), onChange: renderManagementUI }); // 계정별 서버 관리 수명
 function renderManagementUI() // 서버·채널 관리의 같은 처리 상태
 {
@@ -52,7 +55,30 @@ function selectionStorage() // 차단될 수 있는 선택 저장소
 }
 function pauseMessageFeeds() // 계정과 채널 전환 전 조회 중단
 {
+    realtimeClient?.stop(); // 이전 실시간 연결 종료
+    realtimeClient = null; // 이전 연결 참조 제거
     Object.values(channels).forEach((channel) => channel.feed?.pause()); // 예약과 진행 중 요청 취소
+}
+function startRealtime(channelId) // 선택 채널의 실시간 알림 연결
+{
+    if (!window.location || window.location.protocol !== "http:" || window.location.hostname !== "127.0.0.6" || typeof window.WebSocket !== "function") // 지원하는 로컬 실시간 환경 확인
+    {
+        return; // 기존 주기 조회 유지
+    }
+    const channel = channels[channelId]; // 선택한 채널 상태
+    const userId = currentUser?.id; // 연결을 시작한 사용자
+    realtimeClient = createRealtimeClient({ url: "ws://127.0.0.6:8090/Team006/realtime", WebSocketImpl: window.WebSocket, subscription: () => ({ channel_id: channelId, after_id: channel.feed.after }), onStateChange: (status) => // 현재 채널 커서로 구독
+    {
+        realtimeStatus = status; // 실제 연결 상태 보관
+        updateHistoryControls(); // 조회 방식 화면 갱신
+    }, onMessage: () => // 실시간 알림의 조회 연결
+    {
+        if (currentUser?.id === userId && activeChannel === channelId && channels[channelId] === channel && !channel.feed.blocked) // 계정과 채널 수명 확인
+        {
+            channel.feed.run(channel.feed.loaded ? "after" : "initial"); // 기존 권한 검사 조회로 신규 메시지 확인
+        }
+    } }); // 실시간 연결 준비 끝
+    realtimeClient.start(); // 선택 채널의 알림 구독 시작
 }
 function updateHistoryControls() // 기록 조회 버튼과 갱신 상태 표시
 {
@@ -61,7 +87,7 @@ function updateHistoryControls() // 기록 조회 버튼과 갱신 상태 표시
     byId("load-older").disabled = Boolean(channelFeed?.busy); // 조회 중 겹치는 이전 요청 차단
     byId("retry-messages").hidden = !channelFeed?.error || channelFeed.blocked; // 통신 실패의 수동 재시도
     byId("retry-messages").disabled = Boolean(channelFeed?.busy); // 재연결 중 중복 요청 차단
-    byId("history-status").textContent = !channelFeed ? currentUser ? "선택할 채널이 없습니다." : "로그인 후 대화를 불러옵니다." : channelFeed.blocked ? "채널 접근을 확인하세요." : channelFeed.error ? "대화를 갱신하지 못했습니다. 다시 연결하는 중입니다." : !channelFeed.loaded ? "이전 대화를 불러오는 중입니다." : channelFeed.busy ? "대화 확인 중…" : "대화 연결됨 · 2초 간격 자동 갱신"; // 빈 서버와 비로그인 구분
+    byId("history-status").textContent = !channelFeed ? currentUser ? "선택할 채널이 없습니다." : "로그인 후 대화를 불러옵니다." : channelFeed.blocked ? "채널 접근을 확인하세요." : channelFeed.error ? "대화를 갱신하지 못했습니다. 다시 연결하는 중입니다." : !channelFeed.loaded ? "이전 대화를 불러오는 중입니다." : channelFeed.busy ? "대화 확인 중…" : realtimeStatus === "subscribed" ? "실시간 연결됨 · 자동 갱신" : "대화 연결됨 · 2초 간격 자동 갱신"; // 실제 연결 상태 구분
 }
 function createChannelFeed(channelId, channel, userId) // 실제 소속 채널의 조회 연결
 {
@@ -290,6 +316,7 @@ function selectChannel(channelId) // 실제 소속 채널 전환
     }
     showNewMessages(); // 선택 채널의 새 메시지 안내
     channel.feed.activate(); // 최초 조회 또는 기존 커서의 신규 확인
+    startRealtime(channelId); // 현재 채널의 실시간 연결 시작
     if (sidebarOpen) // 모바일 목록 열림 여부
     {
         setSidebar(false); // 선택 후 대화 화면 복귀
@@ -1100,6 +1127,7 @@ window.addEventListener("pageshow", (uiEvent) => // 뒤로 가기 캐시에서 �
     if (uiEvent.persisted && currentUser && channels[activeChannel]) // 로그인한 기존 채널 복구 여부
     {
         channels[activeChannel].feed.activate(); // 남은 신규 기록 확인 재개
+        startRealtime(activeChannel); // 현재 채널의 알림 연결 복구
     }
 }); // 화면 수명 복구 연결 종료
 messageInput.addEventListener("input", () => // 입력 수정 상태 처리

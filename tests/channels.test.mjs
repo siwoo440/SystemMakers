@@ -44,7 +44,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
     {
         sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 실제 스키마 적용
         sql("INSERT INTO users (id,username,email,password_hash) VALUES (1,'owner','owner@example.com','unused'),(2,'member','member@example.com','unused'),(3,'outsider','outsider@example.com','unused');"); // 소속 없는 기존 계정 준비
-        server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 PHP 실행
+        server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 PHP 실행
         const origin = "http://127.0.0.1:" + httpPort; // 테스트 웹 주소
         async function request(route, headers = {}, method = "GET") // 실제 JSON 응답 조회
         {
@@ -86,7 +86,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.equal(method.response.headers.get("allow"), "GET"); // 지원 메서드 안내
             assert.equal((await request("/Team006/backend/api/get_channels.php?user_id=2", { Cookie: ownerCookie })).response.status, 400); // 타인 식별자 조회 거절
         }); // 공통 보호 검사 종료
-        const seedArgs = ["-c", path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/seed-dev.php"), "--owner=owner", "--member=member"]; // 명시적인 개발 데이터 대상
+        const seedArgs = ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/seed-dev.php"), "--owner=owner", "--member=member"]; // 명시적인 개발 데이터 대상
         await context.test("기존 계정의 개발 서버·멤버십·채널 준비", async () => // 개발 데이터 누락과 임의 계정 생성 포착
         {
             const result = spawnSync(phpBinary, seedArgs, { env: serverEnvironment, encoding: "utf8", windowsHide: true }); // 실제 CLI 준비 실행

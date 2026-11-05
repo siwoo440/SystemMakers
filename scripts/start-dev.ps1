@@ -2,6 +2,7 @@ param # 개발 서버 인수
 ( # 인수 목록 시작
     [int]$port = 8088, # 로컬 웹 포트
     [string]$phpPath = '', # 별도 PHP 실행 경로
+    [string]$phpIni = '', # PHP 8.3 실행 설정 경로
     [string]$webHost = '127.0.0.6' # 웹 서버 로컬 주소
 ) # 인수 목록 종료
 $ErrorActionPreference = 'Stop' # 실행 오류 즉시 중단
@@ -17,7 +18,7 @@ if (Test-Path -LiteralPath $siteLocalSettings) # 개인 설정 존재 여부
 }
 if ([string]::IsNullOrWhiteSpace($phpPath)) # PHP 경로 자동 선택
 {
-    $phpPath = Join-Path $siteProjectRoot '.runtime/php/php.exe' # 프로젝트 전용 PHP 선택
+    $phpPath = Join-Path $siteProjectRoot '.runtime/php83/php.exe' # 프로젝트 전용 PHP 8.3 선택
 }
 if (-not (Test-Path -LiteralPath $phpPath)) # 실행 도구 확인
 {
@@ -51,7 +52,11 @@ finally # 포트 검사 종료
     $sitePortProbe.Stop() # 임시 예약 해제
 }
 $sitePhpArguments = @() # PHP 실행 옵션
-$sitePhpIni = Join-Path $siteProjectRoot '.runtime/php.ini' # 검증용 PHP 설정
+$sitePhpIni = $phpIni # 전달받은 PHP 설정 경로
+if ([string]::IsNullOrWhiteSpace($sitePhpIni)) # 별도 설정 미지정
+{
+    $sitePhpIni = Join-Path $siteProjectRoot '.runtime/php83.ini' # PHP 8.3 전용 설정 선택
+}
 if (Test-Path -LiteralPath $sitePhpIni) # 별도 PHP 설정 여부
 {
     $sitePhpArguments += @('-c', $sitePhpIni) # MySQL 확장과 세션 설정 적용

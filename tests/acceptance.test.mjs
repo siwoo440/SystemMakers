@@ -62,7 +62,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
     try // 모든 테스트 자원 정리 보장
     {
         sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 실제 테이블 생성
-        server = spawn(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + httpPort, "-t", path.join(projectRoot, "frontend"), path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 공개 라우터 실행
+        server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + httpPort, "-t", path.join(projectRoot, "frontend"), path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 공개 라우터 실행
         for (let attempt = 0; attempt < 50; attempt++) // 제한된 시작 확인
         {
             try // 실제 DB 연결 상태 요청
@@ -97,7 +97,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
         }); // 가입과 인증 검사 종료
         await context.test("명시적 개발 소속·채널·원문 전송·다른 회원 조회", async () => // 개발 데이터와 실제 웹 계약 연결 포착
         {
-            execFileSync(phpBinary, ["-c", path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/seed-dev.php"), "--owner=accept_owner", "--member=accept_member"], { env: serverEnvironment, windowsHide: true }); // 기존 계정만 개발 서버 연결
+            execFileSync(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/seed-dev.php"), "--owner=accept_owner", "--member=accept_member"], { env: serverEnvironment, windowsHide: true }); // 기존 계정만 개발 서버 연결
             const channels = (await owner.request("get_channels.php")).data.channels; // 실제 소속 목록
             assert.deepEqual(channels.map((item) => item.name), ["일반", "개발", "공지"]); // 실제 준비 결과
             channel = channels[0].id; // 첫 실제 채널 ID

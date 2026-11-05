@@ -6,7 +6,7 @@
 ---
 ## 1. 실행 환경
 
-- PHP 8.4와 `pdo_mysql`·`mbstring` 확장, MySQL 8.4, Node.js가 필요하다.
+- PHP 8.3과 `pdo_mysql`·`mbstring` 확장, MySQL 8.4, Node.js가 필요하다.
 - 개인 PHP·MySQL 도구와 DB, `.runtime/web-env.json`은 Git에 포함되지 않는다. 다른 컴퓨터에서는 따로 준비한다.
 - `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`를 명시한다. 실제 접속 값은 Git이나 공유 문서에 적지 않는다.
 - `MYSQL_HOST`는 웹 서버 주소와 별개이며 실제 MySQL 서비스의 주소에 따라 `127.0.0.1` 또는 `localhost` 등을 사용한다. 코드는 `MYSQL_PASSWORD`의 빈 값을 허용하지만 실제 접속 가능 여부는 MySQL 계정 설정에 달려 있다.
@@ -57,7 +57,7 @@
 - 실제 PHP와 별도의 로컬 MySQL 검사 인스턴스가 필요하다. 프로젝트 검사 코드는 테스트 포트 `33361`과 무작위 테스트 DB 이름을 사용한다.
 - `PHP_TEST_BIN`, `MYSQL_TEST_CLIENT`, `MYSQL_TEST_PORT=33361`을 지정한다. 공개 웹 라우터 검사에는 위 MYSQL_*·APP_ENV·SESSION_COOKIE_SECURE 설정도 필요하다.
 - 테스트 인스턴스는 로컬 root·빈 비밀번호 기준이며 검사마다 전용 DB를 만들고 해당 DB만 정리한다. 개발 DB `33360`과 분리한다.
-- `.runtime/php.ini`에는 `pdo_mysql`, `mbstring`과 세션 저장 위치를 설정한다.
+- `PHP_TEST_INI`로 PHP 8.3용 설정 파일을 지정하며, `pdo_mysql`, `mbstring`과 세션 저장 위치를 설정한다.
 - 11단계의 검증 환경과 범위는 [11단계 결과](PHASE-11-VERIFICATION.md), 최신 변수명 정리 기준은 [변수명 안내](VARIABLE-NAMING.md)를 따른다.
 
 ```powershell
@@ -65,3 +65,5 @@ node --test # 전체 자동 검사
 node --test tests/integration-flow.test.mjs # 가입부터 대화와 삭제까지 확인
 node --check frontend/app.js # 웹 화면 스크립트 문법 확인
 ```
+
+실시간 서버의 별도 실행과 Composer 설치는 [실시간 연결](REALTIME.md)을 따른다.
