@@ -469,6 +469,37 @@ confirm_name은 이름 입력 화면의 확인 값이다. 생성 이름과 같�
 - 이 처리는 응답을 받은 뒤의 화면 보호다. 기본 2초 폴링은 즉시 동기화나 최대 반영 시간을 보장하지 않는다. 서버 목록 재조회로 다시 참여가 확인돼도 폐기한 초안을 되살리지 않는다.
 
 ---
+## 개인 대화·첨부·프로필 API
+
+모든 경로는 `/Team006/`의 `./backend/api/`를 기준으로 하며 인증된 세션을 사용한다. 쓰기 요청에는 기존 CSRF 토큰을 포함한다. ID는 정밀도 보존을 위해 십진 문자열이다.
+
+| 메서드와 파일 | 입력 | 결과 |
+| --- | --- | --- |
+| GET `search_users.php` | `q`: 사용자명 검색어 | 공개 `users` 목록, 이메일 제외 |
+| POST `create_dm.php` | JSON `user_id` | `conversation`: 본인과 대상의 고유 대화, 기존 대화 재사용 |
+| GET `list_dms.php` | 없음 | 본인이 참여한 `conversations` 목록 |
+| POST `send_dm.php` | JSON `conversation_id`, `content` | 저장된 `message` |
+| GET `get_dm_messages.php` | `conversation_id`, 선택 `limit`, `before_id` 또는 `after_id` | `messages`와 `pagination` |
+| POST `upload_attachment.php` | multipart `kind` (`channel` 또는 `direct`), `target_id`, `file` | 원자적으로 저장한 `message`, `attachment` |
+| GET `list_attachments.php` | `kind`, `target_id`, `message_ids` (쉼표로 구분한 최대 50개) | 허용된 대화의 첨부 ID·메시지 ID·파일명·바이트 크기 |
+| GET `download_attachment.php` | `id` | 현재 참여 권한을 확인한 원본 바이트; 강제 다운로드 |
+| GET `profile_details.php` | `user_id` | 공개 사용자명·상태 메시지·사진 유무 |
+| PATCH `profile_details.php` | JSON `status_message` | 본인 상태 메시지 저장; 최대 200자 |
+| GET `profile_picture.php` | `user_id` | 검증 후 재인코딩한 PNG 또는 JPEG |
+| POST `profile_picture.php` | multipart `picture` | 본인 사진 저장; 입력 최대 1 MiB |
+| DELETE `profile_picture.php` | 없음 | 본인 사진 제거 |
+| GET `user_blocks.php` | 없음 | 본인이 차단한 사용자 목록 |
+| POST/DELETE `user_blocks.php` | JSON `user_id` | 본인 차단 추가·해제 |
+| GET `friends.php` | 없음 | 수락된 `friends`, 받은 `incoming`, 보낸 `outgoing` 목록 |
+| POST `friends.php` | JSON `user_id`, `action` | `request`, `accept`, `decline`, `cancel`, `remove` 동작 |
+
+첨부 파일은 1바이트~5 MiB이고 MySQL `MEDIUMBLOB`에 보관한다. 파일명은 문자로만 표시하며 서버에서 실행하지 않는다. 다운로드는 `application/octet-stream`, `Content-Disposition: attachment`, `nosniff`를 사용한다. PHP 업로드·본문 크기와 MySQL `max_allowed_packet`은 5 MiB 파일을 수용해야 한다.
+
+개인 대화는 두 사용자만 조회할 수 있다. 한쪽이 차단하면 양쪽의 새 텍스트·파일 전송을 거부하며 기존 대화 및 파일 조회는 유지한다. WebSocket은 내용 없는 새 메시지 알림을 보내며 실제 내용은 권한을 다시 확인하는 HTTP 조회로 받는다.
+
+친구 요청은 상대방만 수락할 수 있다. 수락 후 양쪽 친구 목록에 표시되며 기존 개인 대화와는 별도로 보관한다. 차단 중인 두 계정은 새 요청과 수락을 할 수 없다. 요청과 차단 변경은 같은 사용자 잠금 순서로 처리한다.
+
+---
 ## 검색 참고
 
 - [PHP 비밀번호 해시와 bcrypt 입력 제한](https://www.php.net/manual/en/function.password-hash.php)

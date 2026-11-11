@@ -61,6 +61,7 @@ if (Test-Path -LiteralPath $sitePhpIni) # 별도 PHP 설정 여부
 {
     $sitePhpArguments += @('-c', $sitePhpIni) # MySQL 확장과 세션 설정 적용
 }
+$sitePhpArguments += @('-d', 'upload_max_filesize=6M', '-d', 'post_max_size=7M') # 5 MiB 파일과 요청 경계 허용
 $sitePhpArguments += @('-S', "${webHost}:$port", '-t', $siteProjectRoot, (Join-Path $siteProjectRoot 'router.php')) # 로컬 주소와 허용 목록 라우터
 Write-Output "SystemMakers: http://${webHost}:$port/Team006/index.html" # 사용자 접속 주소
 & $phpPath @sitePhpArguments # PHP 개발 서버 실행

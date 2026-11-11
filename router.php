@@ -45,6 +45,18 @@ $apiFiles = // 공개 API 허용 목록
     '/api/create_channel.php' => 'create_channel.php', // 관리자 채널 생성
     '/api/update_channel.php' => 'update_channel.php', // 관리자 채널 이름 변경
     '/api/delete_channel.php' => 'delete_channel.php', // 관리자 채널 삭제
+    '/api/search_users.php' => 'search_users.php', // 사용자 검색
+    '/api/create_dm.php' => 'create_dm.php', // 개인 대화 생성
+    '/api/list_dms.php' => 'list_dms.php', // 개인 대화 목록
+    '/api/send_dm.php' => 'send_dm.php', // 개인 메시지 저장
+    '/api/get_dm_messages.php' => 'get_dm_messages.php', // 개인 기록 조회
+    '/api/profile_details.php' => 'profile_details.php', // 확장 프로필
+    '/api/profile_picture.php' => 'profile_picture.php', // 프로필 사진
+    '/api/user_blocks.php' => 'user_blocks.php', // 사용자 차단 관리
+    '/api/friends.php' => 'friends.php', // 친구 요청과 수락
+    '/api/upload_attachment.php' => 'upload_attachment.php', // 첨부 파일 저장
+    '/api/list_attachments.php' => 'list_attachments.php', // 첨부 파일 목록
+    '/api/download_attachment.php' => 'download_attachment.php', // 첨부 파일 다운로드
     '/api/profile.php' => 'profile.php', // 본인 프로필 조회·사용자명 변경
 ]; // API 목록 종료
 if (isset($apiFiles[$requestPath])) // 허용한 API 여부
@@ -76,6 +88,9 @@ $staticFiles = // 공개 정적 파일 허용 목록
     '/server-ui.mjs' => ['server-ui.mjs', 'text/javascript; charset=utf-8'], // 서버 관리 대화상자
     '/channel-ui.mjs' => ['channel-ui.mjs', 'text/javascript; charset=utf-8'], // 역할별 채널 관리 대화상자
     '/profile-ui.mjs' => ['profile-ui.mjs', 'text/javascript; charset=utf-8'], // 본인 프로필 대화상자
+    '/direct-ui.mjs' => ['direct-ui.mjs', 'text/javascript; charset=utf-8'], // 개인 대화 화면
+    '/friends-ui.mjs' => ['friends-ui.mjs', 'text/javascript; charset=utf-8'], // 친구 목록과 요청 화면
+    '/attachments-ui.mjs' => ['attachments-ui.mjs', 'text/javascript; charset=utf-8'], // 첨부 파일 화면
     '/realtime.mjs' => ['realtime.mjs', 'text/javascript; charset=utf-8'], // 인증된 실시간 연결 모듈
 ]; // 정적 파일 목록 종료
 if (!isset($staticFiles[$requestPath])) // 비공개 또는 없는 경로

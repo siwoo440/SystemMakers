@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs"; // 실제 화면 코드 읽기
 import vm from "node:vm"; // 독립 브라우저 실행 영역
 import { MessageFeed } from "../frontend/message-feed.mjs"; // 실제 메시지 상태 관리
 import { ServerManager } from "../frontend/server-manager.mjs"; // 실제 서버 소속 상태
+import { createAttachmentView, uploadAttachment } from "../frontend/attachments-ui.mjs"; // 실제 파일 화면 경계
 const source = readFileSync(new URL("../frontend/app.js", import.meta.url), "utf8"); // 검사 대상 원본
 const noChange = () => undefined; // 상태 변화 없는 브라우저 경계
 function element() // 브라우저 요소의 외부 경계
@@ -26,7 +27,7 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
         }
     }
     const context = vm.createContext({ // 독립 화면 전역 준비
-        MessageFeed: BrowserFeed, ServerManager, AbortController, URLSearchParams, Date, console, // 실제 상태 모듈과 표준 도구
+        MessageFeed: BrowserFeed, ServerManager, createAttachmentView, uploadAttachment, AbortController, URLSearchParams, FormData, File, Date, console, // 실제 상태 모듈과 표준 도구
         window: { matchMedia: () => ({ matches: false }), setTimeout: setTimer, clearTimeout: clearTimer }, // 화면 크기와 시계 경계
         document: { getElementById: (id) => // 식별자별 동일 요소 반환
         {
@@ -38,7 +39,7 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
         }, createElement: element, querySelector: () => null }, // DOM 생성 경계
         fetch: async (url, options) => // 실제 요청 함수의 네트워크 경계
         {
-            const call = { url, method: options.method, headers: options.headers, body: options.body === undefined ? null : JSON.parse(options.body) }; // 전송된 사용자와 본문 관측
+            const call = { url, method: options.method, headers: options.headers, body: options.body === undefined ? null : options.body instanceof FormData ? options.body : JSON.parse(options.body) }; // 전송된 사용자와 본문 관측
             calls.push(call); // 자동 재전송 여부 기록
             const result = await handler(call); // 상황별 API 응답
             return { ok: result.status < 400, status: result.status, headers: { get: () => null }, json: async () => result.status < 400 ? { success: true, data: result.data } : { success: false, error: { code: result.code, message: result.code } } }; // 실제 JSON 응답 형태
@@ -63,6 +64,34 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
     const send = () => evaluate("sendMessage({ preventDefault: () => undefined })"); // 실제 폼 제출 경로
     return { calls, evaluate, state, send, stop: () => evaluate("pauseMessageFeeds()") }; // 검사 경계 반환
 }
+test("파일 본문은 보호 헤더를 유지하며 multipart로 직접 전송", async (context) => // 파일 본문의 JSON 변환과 경계 누락 차단
+{
+    const harness = setup(() => ({ status: 200, data: { saved: true } })); // 성공 응답 경계
+    context.after(harness.stop); // 조회 수명 종료
+    await harness.evaluate('requestEndpoint("./backend/api/profile_image.php", new FormData())'); // 실제 multipart 요청
+    assert.ok(harness.calls[0].body instanceof FormData); // 브라우저 본문 유지
+    assert.equal(harness.calls[0].headers["Content-Type"], undefined); // 브라우저 multipart 경계 생성
+    assert.equal(harness.calls[0].headers["X-Expected-User-Id"], "1"); // 요청 계정 보호
+    assert.equal(harness.calls[0].headers["X-CSRF-Token"], "a".repeat(64)); // 기존 보호 토큰 유지
+}); // multipart 검사 끝
+test("채널 파일 전송은 선택한 채널의 저장 메시지에 첨부 표시", async (context) => // 채널과 파일 연결 누락 차단
+{
+    const harness = setup((call) => // 실제 업로드 응답
+    {
+        if (call.url.includes("upload_attachment")) // 파일 업로드 요청
+        {
+            return { status: 201, data: { message: { id: "2", channel_id: "1", user_id: "1", username: "user_a", content: "파일: 문서.txt", created_at: "2026-10-21T00:00:00Z" }, attachment: { id: "9", message_id: "2", original_name: "문서.txt", file_size: 4 } } }; // 확인된 메시지와 파일
+        }
+        return { status: 200, data: { attachments: [] } }; // 첨부 없는 기록
+    }); // 업로드 경계 준비 끝
+    context.after(harness.stop); // 조회 수명 종료
+    harness.evaluate('byId("channel-file").files = [new File(["data"], "문서.txt")]; updateComposer();'); // 실제 파일 선택
+    await harness.evaluate("sendChannelFile()"); // 사용자 파일 전송
+    const upload = harness.calls.find((call) => call.url.includes("upload_attachment")); // 실제 업로드 요청
+    assert.equal(upload.body.get("kind"), "channel"); // 채널 대화 유형
+    assert.equal(upload.body.get("target_id"), "1"); // 확인한 채널 대상
+    assert.equal(harness.evaluate('channels["1"].messages.find((message) => message.id === "2").attachment.original_name'), "문서.txt"); // 저장된 메시지의 파일 정보
+}); // 채널 파일 전송 검사 끝
 test("다른 탭의 계정 변경은 전송 중단과 이전 계정 자료 삭제", async (context) => // 다른 작성자의 초안 저장 방지
 {
     const testHarness = setup((call) => call.url === "./backend/api/csrf.php" ? { status: 200, data: { csrf_token: "b".repeat(64) } } : { status: 403, code: "SESSION_CHANGED" }); // B 세션의 사용자 불일치 응답

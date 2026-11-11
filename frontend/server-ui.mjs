@@ -11,6 +11,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
         dialogVersion++; // 기존 비동기 화면 무효화
         managementInput.value = ""; // 이름과 붙여넣은 코드 제거
         byId("invite-code").value = ""; // 발급 원문 제거
+        byId("invite-link").value = ""; // 발급 링크 원문 제거
         byId("server-error").textContent = ""; // 이전 오류 제거
         byId("server-check").checked = false; // 새 확인 필요
     }
@@ -38,6 +39,10 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
         })); // 서버 버튼 준비 끝
         byId("selected-server").textContent = server?.name || "참여 서버 없음"; // 실제 서버 제목
         byId("server-status").textContent = manager.loading ? "서버 확인 중…" : server ? `내 역할: ${server.role === "owner" ? "소유자" : server.role === "admin" ? "관리자" : "일반 회원"}` : "서버를 만들거나 초대 코드로 참여하세요."; // 소속 상태
+        if (/^#invite=[a-f0-9]{64}$/.test(globalThis.location?.hash || "")) // 수신한 공유 링크 확인
+        {
+            byId("server-status").textContent = "초대 링크가 도착했습니다. 로그인 후 초대로 참여 버튼을 눌러 확인하세요."; // 명시적 참여 안내
+        }
         for (const elementId of ["create-server", "join-server", "refresh-servers"]) // 로그인 후 공통 동작
         {
             byId(elementId).disabled = managementBusy; // 게스트와 처리 중 차단
@@ -53,6 +58,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
         byId("server-close").disabled = manager.busy; // 응답 처리 중 닫기 차단
         byId("revoke-invite").disabled = manager.busy; // 폐기 중 중복 요청 차단
         byId("copy-invite").disabled = !byId("invite-code").value || manager.busy; // 확인한 원문만 복사
+        byId("copy-invite-link").disabled = !byId("invite-link").value || manager.busy; // 확인한 링크만 복사
         if (!manager.identity && managementDialog.open) // 계정 종료 확인
         {
             clear(); // 민감한 화면 원문 제거
@@ -95,6 +101,11 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
         byId("server-impact").textContent = managementTarget ? `대상 서버: ${managementTarget.name}` : ""; // 이름으로 대상 구분
         byId("server-submit").textContent = { create: "만들기", join: "참여", invite: "새 코드 발급", leave: "탈퇴 확인", delete: "영구 삭제 확인" }[nextOperation]; // 명시적 실행 버튼
         managementDialog.showModal(); // 배경 조작 차단
+        if (nextOperation === "join" && /^#invite=[a-f0-9]{64}$/.test(globalThis.location?.hash || "")) // 명시적으로 연 초대 화면
+        {
+            managementInput.value = globalThis.location.hash.slice(8); // 링크 코드 확인 입력
+            globalThis.history.replaceState(globalThis.history.state, "", globalThis.location.pathname + globalThis.location.search); // 주소 표시의 코드 제거
+        }
         render(); // 권한·처리 상태 반영
         try // 현재 초대와 삭제 영향 확인
         {
@@ -142,6 +153,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             if (managementMode === "invite") // 변경 결과가 불명확해질 수 있는 코드
             {
                 byId("invite-code").value = ""; // 이전 코드 즉시 폐기
+                byId("invite-link").value = ""; // 이전 링크 즉시 폐기
             }
             const responseData = await manager.execute(...managementOperations[managementMode]); // 자동 재전송 없는 변경
             if (requestViewVersion !== dialogVersion) // 닫힌 계정 화면
@@ -151,6 +163,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             if (managementMode === "invite") // 이번 응답에서만 코드 표시
             {
                 byId("invite-code").value = responseData.code; // 읽기 전용 원문
+                byId("invite-link").value = globalThis.location.origin + globalThis.location.pathname + "#invite=" + responseData.code; // 같은 출처의 fragment 공유 주소
                 byId("server-impact").textContent = `${managementTarget.name} · 만료 ${new Date(responseData.expires_at).toLocaleString("ko-KR")}`; // 실제 만료 시각
                 byId("server-check").checked = false; // 다음 재발급은 다시 확인
             }
@@ -203,6 +216,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
         try // 중복 가능 폐기 실행
         {
             byId("invite-code").value = ""; // 응답 유실 전 기존 원문 제거
+            byId("invite-link").value = ""; // 응답 유실 전 기존 링크 제거
             await manager.execute("revoke_server_invite", { server_id: managementTarget?.id }); // 소유자 전용 요청
             byId("invite-code").value = ""; // 무효 원문 즉시 제거
             byId("server-impact").textContent = "초대를 폐기했습니다. 기존 참여자는 유지됩니다."; // 실제 결과 안내
@@ -230,6 +244,19 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             byId("server-error").textContent = "선택한 코드를 직접 복사하세요."; // 대체 조작 안내
         }
     }); // 복사 연결 끝
+    byId("copy-invite-link").addEventListener("click", async () => // 사용자의 명시적 링크 복사
+    {
+        try // 클립보드 권한 경계
+        {
+            await navigator.clipboard.writeText(byId("invite-link").value); // 발급한 같은 출처 링크 복사
+            byId("server-error").textContent = "초대 링크를 복사했습니다."; // 복사 성공 안내
+        }
+        catch // 브라우저 복사 제한
+        {
+            byId("invite-link").select(); // 직접 복사할 링크 선택
+            byId("server-error").textContent = "선택한 링크를 직접 복사하세요."; // 대체 조작 안내
+        }
+    }); // 링크 복사 연결 끝
     managementDialog.addEventListener("cancel", (uiEvent) => // 요청 중 Escape 종료 방지
     {
         if (manager.busy) // 실제 요청 진행

@@ -47,6 +47,13 @@ final class MessageRelay implements MessageComponentInterface // 연결별 최�
         $latest = $query->fetchColumn(); // 최신 ID 또는 접근 불가
         return $latest === false ? null : (string) $latest; // 접근 불가와 빈 채널 구분
     }
+    private function latestForDirectMember(string $conversationId, string $userId): ?string // 참여 관계와 개인 대화 최신 커서
+    {
+        $query = $this->databaseConnection->prepare('SELECT COALESCE((SELECT id FROM direct_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1), 0) AS latest_id FROM direct_conversations c WHERE c.id = :conversation_id AND (c.user_a_id = :user_a OR c.user_b_id = :user_b) LIMIT 1'); // 대화 참여자와 최신 메시지 확인
+        $query->execute(['conversation_id' => $conversationId, 'user_a' => $userId, 'user_b' => $userId]); // 인증된 참여자 연결
+        $latest = $query->fetchColumn(); // 최신 ID 또는 접근 불가
+        return $latest === false ? null : (string) $latest; // 접근 불가와 빈 대화 구분
+    }
     private function isAuthenticated(array $connectionState): bool // 원래 계정 유지 검사
     {
         $user = $this->authenticatedUser($connectionState['session_id']); // 실제 세션 재조회
@@ -77,7 +84,7 @@ final class MessageRelay implements MessageComponentInterface // 연결별 최�
                 $connection->close(); // 인증 실패 종료
                 return; // 처리 종료
             }
-            $this->connections->attach($connection, ['session_id' => $sessionId, 'user_id' => $user['id'], 'channel_id' => null, 'cursor' => '0', 'opened_at' => time(), 'message_at' => 0.0]); // 연결별 인증과 구독 상태
+            $this->connections->attach($connection, ['session_id' => $sessionId, 'user_id' => $user['id'], 'channel_id' => null, 'conversation_id' => null, 'cursor' => '0', 'opened_at' => time(), 'message_at' => 0.0]); // 연결별 인증과 구독 상태
         }
         catch (Throwable $exception) // 내부 오류의 비공개 처리
         {
@@ -102,18 +109,21 @@ final class MessageRelay implements MessageComponentInterface // 연결별 최�
             }
             $state['message_at'] = $now; // 마지막 요청 시각 기록
             $request = json_decode((string) $message, true, 8, JSON_THROW_ON_ERROR); // 제한된 JSON 해석
-            if (!is_array($request) || count($request) !== 3 || ($request['type'] ?? null) !== 'subscribe' || !valid_id($request['channel_id'] ?? null) || !valid_id($request['after_id'] ?? null, true) || !$this->isAuthenticated($state)) // 정확한 구독 형식과 현재 인증
+            $isChannel = is_array($request) && ($request['type'] ?? null) === 'subscribe' && valid_id($request['channel_id'] ?? null); // 채널 구독 형식
+            $isDirect = is_array($request) && ($request['type'] ?? null) === 'subscribe_direct' && valid_id($request['conversation_id'] ?? null); // 개인 대화 구독 형식
+            if (!is_array($request) || count($request) !== 3 || (!$isChannel && !$isDirect) || !valid_id($request['after_id'] ?? null, true) || !$this->isAuthenticated($state)) // 정확한 구독 형식과 현재 인증
             {
                 $connection->close(); // 위조와 잘못된 입력 차단
                 return; // 처리 종료
             }
-            $latest = $this->latestForMember($request['channel_id'], $state['user_id']); // 현재 채널 소속 검사
+            $latest = $isDirect ? $this->latestForDirectMember($request['conversation_id'], $state['user_id']) : $this->latestForMember($request['channel_id'], $state['user_id']); // 현재 참여 권한 검사
             if ($latest === null) // 삭제 채널과 미소속 사용자
             {
                 $connection->close(); // 권한 없는 구독 차단
                 return; // 처리 종료
             }
-            $state['channel_id'] = $request['channel_id']; // 승인된 채널 저장
+            $state['channel_id'] = $isChannel ? $request['channel_id'] : null; // 승인된 채널 저장
+            $state['conversation_id'] = $isDirect ? $request['conversation_id'] : null; // 승인된 개인 대화 저장
             $state['cursor'] = realtime_compare_ids($request['after_id'], $latest) > 0 ? $latest : $request['after_id']; // 미래 커서로 인한 누락 방지
             $this->connections[$connection] = $state; // 검증된 구독 반영
             $connection->send('{"type":"subscribed"}'); // 구독 승인 확인
@@ -134,16 +144,16 @@ final class MessageRelay implements MessageComponentInterface // 연결별 최�
                     continue; // 다음 연결 검사
                 }
                 $state = $this->connections[$connection]; // 연결별 승인 상태
-                if (!$this->isAuthenticated($state) || ($state['channel_id'] === null && time() - $state['opened_at'] >= 15)) // 인증 폐기와 구독 지연 검사
+                if (!$this->isAuthenticated($state) || ($state['channel_id'] === null && $state['conversation_id'] === null && time() - $state['opened_at'] >= 15)) // 인증 폐기와 구독 지연 검사
                 {
                     $connection->close(); // 만료 연결 종료
                     continue; // 다음 연결 검사
                 }
-                if ($state['channel_id'] === null) // 아직 구독하지 않은 연결
+                if ($state['channel_id'] === null && $state['conversation_id'] === null) // 아직 구독하지 않은 연결
                 {
                     continue; // 채널 정보 조회 생략
                 }
-                $latest = $this->latestForMember($state['channel_id'], $state['user_id']); // 알림 직전 채널 소속 검사
+                $latest = $state['conversation_id'] !== null ? $this->latestForDirectMember($state['conversation_id'], $state['user_id']) : $this->latestForMember($state['channel_id'], $state['user_id']); // 알림 직전 참여 권한 검사
                 if ($latest === null) // 채널 또는 멤버십 제거
                 {
                     $connection->close(); // 권한 상실 연결 종료

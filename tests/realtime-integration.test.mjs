@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'; // 결과 검증
 import { randomBytes } from 'node:crypto'; // 마스킹 난수
-import { spawn } from 'node:child_process'; // 실제 서버 실행
+import { execFileSync, spawn } from 'node:child_process'; // 실제 서버와 변경 실행
 import { connect, createServer } from 'node:net'; // 실제 WebSocket 연결
 import path from 'node:path'; // 실행 경로
 import test from 'node:test'; // 검사 도구
@@ -153,3 +153,49 @@ test('실제 멤버만 새 메시지 알림을 받고 로그아웃 이후 연결
     await until(() => ownSocket.messages.length === 2); // 유지된 연결 알림
     assert.equal(memberSocket.messages.length, 1); // 폐기된 연결 알림 차단
 }); // 실제 통합 검사 종료
+
+test('개인 대화 참여자만 본문 없는 알림을 받고 세션 종료 시 연결 폐기', async (context) => // 개인 대화 실시간 권한 검사
+{
+    const environment = await fixture(context); // 독립 DB와 인증 세션
+    execFileSync(environment.php, ['-c', process.env.PHP_TEST_INI || path.join(environment.root, '.runtime/php.ini'), path.join(environment.root, 'scripts/migrate-002.php')], { env: environment.env, windowsHide: true }); // 개인 대화 스키마 적용
+    const alice = await environment.account('relay_dm_alice'); // 첫 참여자
+    const bob = await environment.account('relay_dm_bob'); // 둘째 참여자
+    const outsider = await environment.account('relay_dm_outside'); // 제3자
+    const conversationId = (await alice.request('create_dm.php', { user_id: bob.id })).data.conversation.id; // 실제 개인 대화
+    const port = await freePort(); // 독립 실시간 포트
+    const settings = { ...environment.env, REALTIME_LISTEN_HOST: '127.0.0.1', REALTIME_LISTEN_PORT: String(port), REALTIME_ALLOWED_ORIGIN: 'http://127.0.0.6:8088' }; // 검사 전용 서버 설정
+    const sessionDirectory = path.join(environment.root, '.runtime', environment.env.MYSQL_DATABASE); // HTTP와 공유할 세션
+    const relay = spawn(environment.php, ['-c', process.env.PHP_TEST_INI || path.join(environment.root, '.runtime/php.ini'), '-d', 'session.save_path=' + sessionDirectory, path.join(environment.root, 'backend/realtime/server.php')], { env: settings, windowsHide: true, stdio: 'ignore' }); // 실제 Ratchet 프로세스
+    context.after(() => relay.kill()); // 실시간 서버 종료
+    await new Promise((resolve) => setTimeout(resolve, 2500)); // 서버 시작 대기
+    const aliceSocket = await websocket(port, alice.cookie, 'http://127.0.0.6:8088'); // 첫 참여자 연결
+    const bobSocket = await websocket(port, bob.cookie, 'http://127.0.0.6:8088'); // 둘째 참여자 연결
+    const outsideSocket = await websocket(port, outsider.cookie, 'http://127.0.0.6:8088'); // 제3자 연결
+    context.after(() => [aliceSocket, bobSocket, outsideSocket].forEach((socket) => socket.close())); // 검사 연결 종료
+    const subscription = { type: 'subscribe_direct', conversation_id: conversationId, after_id: '0' }; // 개인 대화 구독
+    aliceSocket.send(subscription); // 첫 참여자 구독
+    bobSocket.send(subscription); // 둘째 참여자 구독
+    outsideSocket.send(subscription); // 제3자 구독 시도
+    await until(() => outsideSocket.isClosed() && aliceSocket.messages.length === 1 && bobSocket.messages.length === 1); // 승인과 제3자 거절
+    assert.deepEqual(aliceSocket.messages.shift(), { type: 'subscribed' }); // 첫 참여자 승인
+    assert.deepEqual(bobSocket.messages.shift(), { type: 'subscribed' }); // 둘째 참여자 승인
+    assert.equal((await alice.request('send_dm.php', { conversation_id: conversationId, content: '비공개 본문' })).status, 201); // 실제 개인 메시지
+    await until(() => aliceSocket.messages.length === 1 && bobSocket.messages.length === 1); // 두 참여자 알림
+    assert.deepEqual(bobSocket.messages, [{ type: 'message.created' }]); // 본문 없는 신호
+    const futureSocket = await websocket(port, alice.cookie, 'http://127.0.0.6:8088'); // 미래 커서 연결
+    context.after(() => futureSocket.close()); // 추가 연결 종료
+    futureSocket.send({ type: 'subscribe_direct', conversation_id: conversationId, after_id: '18446744073709551615' }); // 최신보다 큰 커서
+    await until(() => futureSocket.messages.length === 1); // 구독 승인 대기
+    assert.deepEqual(futureSocket.messages.shift(), { type: 'subscribed' }); // 구독 승인
+    assert.equal((await bob.request('send_dm.php', { conversation_id: conversationId, content: '다음 메시지' })).status, 201); // 추가 메시지 저장
+    await until(() => futureSocket.messages.length === 1); // 미래 커서 보정 확인
+    assert.deepEqual(futureSocket.messages, [{ type: 'message.created' }]); // 보정 후 신규 알림
+    environment.sql('INSERT INTO user_blocks (blocker_id,blocked_id) VALUES (' + bob.id + ',' + alice.id + ')'); // 참여자 차단
+    await new Promise((resolve) => setTimeout(resolve, 700)); // 권한 재검사 주기
+    assert.equal(aliceSocket.isClosed(), false); // 차단 중 기존 대화 조회 유지
+    assert.equal(bobSocket.isClosed(), false); // 차단한 참여자 조회 유지
+    assert.equal((await bob.request('logout.php', {})).status, 200); // 실제 세션 폐기
+    await until(() => bobSocket.isClosed()); // 로그아웃 연결 종료
+    environment.sql('DELETE FROM direct_conversations WHERE id=' + conversationId); // 대화 제거 경합
+    await until(() => aliceSocket.isClosed()); // 삭제된 대화 구독 종료
+}); // 개인 대화 실시간 검사 끝

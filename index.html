@@ -24,6 +24,7 @@
                 <div class="eyebrow">YOUR WORKSPACE</div> <!-- 작업 공간 보조 제목 -->
                 <h1>SystemMakers<span class="workspace-dot" aria-hidden="true"></span></h1> <!-- 서비스 이름 -->
             </header> <!-- 작업 공간 제목 끝 -->
+            <div class="sidebar-scroll" tabindex="0" aria-label="서버와 대화 목록"> <!-- 스크롤할 탐색 영역 -->
             <section class="server-tools" aria-label="서버 관리"> <!-- 실제 소속 관리 -->
                 <strong id="selected-server">참여 서버 없음</strong> <!-- 현재 서버 이름 -->
                 <p id="server-status" role="status">로그인 후 서버를 확인합니다.</p> <!-- 소속과 역할 -->
@@ -37,7 +38,15 @@
                 <p class="channel-status" id="channel-status" role="status">로그인 후 참여 채널이 표시됩니다.</p> <!-- 빈 목록과 조회 상태 -->
                 <button type="button" class="channel-retry" id="retry-channels" hidden>채널 목록 다시 확인</button> <!-- 실패한 실제 조회 재시도 -->
             </nav> <!-- 채널 탐색 끝 -->
+            <section class="direct-navigation" aria-label="개인 대화"> <!-- 개인 대화 탐색 -->
+                <p class="section-label">개인 대화 <button type="button" id="direct-refresh" class="history-button" disabled>목록 새로고침</button></p> <!-- 개인 대화와 목록 갱신 -->
+                <form id="direct-search-form" class="direct-search"><label class="visually-hidden" for="direct-search-input">사용자명 검색</label><input id="direct-search-input" maxlength="32" placeholder="사용자명 검색" autocomplete="off" disabled><button type="submit" id="direct-search-submit" class="search-action icon-action" aria-label="사용자 검색" title="사용자 검색" data-tooltip="사용자 검색" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></svg></button></form> <!-- 사용자 검색 -->
+                <div id="direct-search-results"></div> <!-- 검색한 사용자 목록 -->
+                <p id="direct-status" class="channel-status" role="status">로그인 후 개인 대화를 이용하세요.</p> <!-- 조회와 오류 안내 -->
+                <div id="direct-list"></div> <!-- 참여 중인 개인 대화 -->
+            </section> <!-- 개인 대화 탐색 끝 -->
             <div class="connection-status" id="connection-status" role="status">연결 확인 중</div> <!-- 실제 연결 상태 -->
+            </div> <!-- 탐색 스크롤 영역 끝 -->
             <footer class="user-panel"> <!-- 사용자 영역 -->
                 <div class="avatar guest-avatar" id="user-avatar" aria-hidden="true">G</div> <!-- 현재 사용자 이니셜 -->
                 <div class="user-details"><strong id="current-user">게스트</strong><span id="session-state" role="status" aria-live="polite">세션 확인 중</span></div> <!-- 사용자 상태와 인증 결과 안내 -->
@@ -45,7 +54,7 @@
                 <button type="button" class="login-button" id="open-auth" disabled>로그인</button> <!-- 실제 인증 상태별 로그인과 로그아웃 -->
             </footer> <!-- 사용자 영역 끝 -->
         </aside> <!-- 채널 영역 끝 -->
-        <main class="conversation"> <!-- 대화 영역 -->
+        <main class="conversation" id="channel-conversation"> <!-- 채널 대화 영역 -->
             <header class="conversation-header"> <!-- 현재 채널 제목 -->
                 <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-controls="channel-sidebar" aria-expanded="false" aria-label="채널 목록 열기">☰</button> <!-- 모바일 채널 열기 -->
                 <span class="header-hash" aria-hidden="true">#</span> <!-- 채널 기호 -->
@@ -63,11 +72,25 @@
                 <form class="composer" id="message-form"> <!-- 실제 메시지 저장 폼 -->
                     <label class="visually-hidden" for="message-input" id="message-label">메시지 작성</label> <!-- 메시지 필드 레이블 -->
                     <textarea id="message-input" rows="2" placeholder="로그인 후 메시지를 작성하세요" disabled aria-describedby="composer-help message-count composer-feedback"></textarea> <!-- 여러 줄 메시지 입력 -->
-                    <div class="composer-footer"><span class="message-count" id="message-count">0 / 2,000</span><span class="composer-help" id="composer-help">Enter 전송 <span>·</span> Shift+Enter 줄바꿈</span><button type="submit" class="send-button" id="send-button" disabled>전송 <span aria-hidden="true">↗</span></button></div> <!-- 입력 수와 전송 버튼 -->
+                    <div class="composer-footer"><span class="message-count" id="message-count">0 / 2,000</span><div class="attachment-controls"><input type="file" id="channel-file" class="visually-hidden attachment-input" aria-label="파일 선택" disabled><label for="channel-file" class="attachment-picker icon-action" title="파일 선택" data-tooltip="파일 선택"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 12.5 15 5.5a4 4 0 0 1 5.7 5.7l-9 9a6 6 0 0 1-8.5-8.5l9-9M7 16l8-8"/></svg></label><button type="button" id="channel-upload" disabled>파일 전송</button><span id="channel-file-status" role="status">최대 5 MiB</span></div><span class="composer-help" id="composer-help">Enter 전송 <span>·</span> Shift+Enter 줄바꿈</span><button type="submit" class="send-button" id="send-button" disabled>전송 <span aria-hidden="true">↗</span></button></div> <!-- 입력 수와 전송 버튼 -->
                 </form> <!-- 실제 메시지 저장 폼 끝 -->
                 <p class="composer-feedback" id="composer-feedback" role="status">로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다.</p> <!-- 실제 전송 조건 안내 -->
             </div> <!-- 메시지 작성 영역 끝 -->
         </main> <!-- 대화 영역 끝 -->
+        <main class="conversation" id="direct-conversation" hidden> <!-- 개인 대화 영역 -->
+            <header class="conversation-header"><button type="button" class="sidebar-toggle" id="direct-sidebar-toggle" aria-controls="channel-sidebar" aria-expanded="false" aria-label="대화 목록 열기">☰</button><span class="header-hash" aria-hidden="true">@</span><div class="channel-heading"><h2 id="direct-title">개인 대화</h2><p>개인 대화 · 자동 갱신</p></div></header> <!-- 상대방 제목과 모바일 탐색 -->
+            <section class="message-scroll" id="direct-scroll" aria-label="개인 대화 내역"><div class="history-controls"><button type="button" id="direct-older" class="history-button" hidden>이전 대화 더 보기</button></div><div class="messages" id="direct-messages" aria-label="개인 메시지"></div></section> <!-- 개인 기록과 이전 조회 -->
+            <div class="composer-region"><form class="composer" id="direct-form"><label class="visually-hidden" for="direct-input">개인 메시지 작성</label><textarea id="direct-input" rows="2" placeholder="개인 메시지 작성" disabled></textarea><div class="composer-footer"><div class="attachment-controls"><input type="file" id="direct-file" class="visually-hidden attachment-input" aria-label="파일 선택" disabled><label for="direct-file" class="attachment-picker icon-action" title="파일 선택" data-tooltip="파일 선택"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 12.5 15 5.5a4 4 0 0 1 5.7 5.7l-9 9a6 6 0 0 1-8.5-8.5l9-9M7 16l8-8"/></svg></label><button type="button" id="direct-upload" disabled>파일 전송</button><span id="direct-file-status" role="status">최대 5 MiB</span></div><span class="composer-help">최대 2,000자</span><button type="submit" class="send-button" id="direct-send" disabled>전송 ↗</button></div></form></div> <!-- 개인 메시지와 파일 전송 -->
+        </main> <!-- 개인 대화 끝 -->
+        <aside class="friend-sidebar" id="friend-panel" aria-label="친구 목록"> <!-- 오른쪽 친구 패널 -->
+            <header class="friend-heading"><h2>친구</h2><button type="button" id="friend-refresh" title="친구 목록 새로고침" aria-label="친구 목록 새로고침" disabled>↻</button></header> <!-- 친구 제목과 새로고침 -->
+            <form id="friend-search-form" class="friend-search"><label class="visually-hidden" for="friend-search-input">친구 사용자명 검색</label><input id="friend-search-input" placeholder="사용자명 검색" autocomplete="off" disabled><button type="submit" id="friend-search-submit" class="search-action icon-action" aria-label="친구 검색" title="친구 검색" data-tooltip="친구 검색" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></svg></button></form> <!-- 친구 요청 대상 검색 -->
+            <p id="friend-status" class="friend-status" role="status">로그인 후 친구를 확인하세요.</p> <!-- 친구 요청 상태 -->
+            <div id="friend-search-results" class="friend-list"></div> <!-- 검색 결과 -->
+            <div class="friend-section"><h3>받은 요청</h3><div id="friend-incoming" class="friend-list"></div></div> <!-- 수락 대기 요청 -->
+            <div class="friend-section"><h3>보낸 요청</h3><div id="friend-outgoing" class="friend-list"></div></div> <!-- 취소 가능한 요청 -->
+            <div class="friend-section"><h3>친구 목록</h3><div id="friend-list" class="friend-list"></div></div> <!-- 수락된 친구 목록 -->
+        </aside> <!-- 친구 패널 끝 -->
     </div> <!-- 메신저 전체 배치 끝 -->
     <button type="button" class="sidebar-backdrop" id="sidebar-backdrop" aria-label="채널 목록 닫기" hidden></button> <!-- 모바일 목록 배경 -->
     <dialog class="auth-dialog" id="auth-dialog" aria-labelledby="auth-title" aria-describedby="auth-note"> <!-- 인증 화면 대화상자 -->
@@ -90,7 +113,7 @@
             <p id="server-help"></p> <!-- 사용자 작업 안내 -->
             <p id="server-impact" role="status"></p> <!-- 현재 대상과 삭제 영향 -->
             <div id="server-input-row"><label id="server-value-label" for="server-value">서버 이름</label><input id="server-value" name="value" autocomplete="off" maxlength="1000"></div> <!-- 필수 입력 레이블 -->
-            <div id="invite-panel" hidden><label for="invite-code">이번에 발급한 초대 코드</label><input id="invite-code" readonly autocomplete="off"><div class="server-actions"><button type="button" id="copy-invite" disabled>코드 복사</button><button type="button" id="revoke-invite">초대 폐기</button></div></div> <!-- 원문 한 번 표시와 복사 -->
+            <div id="invite-panel" hidden><label for="invite-code">이번에 발급한 초대 코드</label><input id="invite-code" readonly autocomplete="off"><label for="invite-link">공유 초대 링크</label><input id="invite-link" readonly autocomplete="off"><div class="server-actions"><button type="button" id="copy-invite" disabled>코드 복사</button><button type="button" id="copy-invite-link" disabled>링크 복사</button><button type="button" id="revoke-invite">초대 폐기</button></div></div> <!-- 원문과 링크 표시 및 복사 -->
             <label id="server-check-row" hidden><input type="checkbox" id="server-check">이전 코드를 무효화하고 새 코드를 발급합니다.</label> <!-- 재발급 영향 확인 -->
             <p id="server-error" role="alert"></p> <!-- 실제 실패와 처리 안내 -->
             <div class="server-actions"><button type="button" id="server-close">취소·닫기</button><button type="submit" id="server-submit">확인</button></div> <!-- 최종 명시적 변경 -->
@@ -108,16 +131,49 @@
         </form> <!-- 채널 관리 폼 끝 -->
     </dialog> <!-- 채널 관리 대화상자 끝 -->
     <dialog id="profile-dialog" class="server-dialog" aria-labelledby="profile-title" aria-describedby="profile-help"> <!-- 본인 프로필 대화상자 -->
+        <button type="button" id="profile-close-top" class="profile-close-top" aria-label="프로필 창 닫기" title="프로필 창 닫기">×</button> <!-- 왼쪽 위 닫기 버튼 -->
         <form id="profile-form"> <!-- 명시적 사용자명 저장 -->
             <h2 id="profile-title">내 프로필</h2> <!-- 본인 정보 제목 -->
             <p id="profile-help">사용자명은 한글·영문·숫자·밑줄 2~32자이며 소문자로 저장됩니다. 이름을 바꿔도 기존 대화와 서버 소속은 유지됩니다.</p> <!-- 실제 변경 범위 -->
             <dl><dt>이메일</dt><dd id="profile-email"></dd><dt>가입일</dt><dd id="profile-created"></dd></dl> <!-- 본인에게만 제공하는 읽기 정보 -->
             <label for="profile-username">사용자명</label> <!-- 항상 보이는 입력 레이블 -->
-            <input id="profile-username" name="username" autocomplete="username" required aria-describedby="profile-help profile-error"> <!-- 가입과 동일한 서버 검증 -->
+            <div class="profile-username-row"><input id="profile-username" name="username" autocomplete="username" required aria-describedby="profile-help profile-error"><button type="submit" id="profile-submit">사용자명 저장</button></div> <!-- 사용자명 입력과 오른쪽 저장 -->
             <p id="profile-status" role="status"></p> <!-- 조회·저장 확인 결과 -->
             <p id="profile-error" role="alert"></p> <!-- 입력 보존과 실제 오류 안내 -->
-            <div class="server-actions"><button type="button" id="profile-reload">다시 조회</button><button type="button" id="profile-close">닫기</button><button type="submit" id="profile-submit">사용자명 저장</button></div> <!-- 수동 재확인과 저장 -->
+            <div class="server-actions"><button type="button" id="profile-reload">다시 조회</button></div> <!-- 수동 재확인 -->
         </form> <!-- 본인 정보 폼 끝 -->
+        <section class="profile-extra" aria-labelledby="profile-extra-title"> <!-- 확장 프로필 영역 -->
+            <div class="profile-extra-heading"> <!-- 추가 설정 제목과 조회 -->
+                <div><p class="profile-extra-eyebrow">PROFILE SETTINGS</p><h3 id="profile-extra-title">상태·사진·차단 관리</h3><p class="profile-extra-description">추가 정보를 조회한 뒤 각 설정을 변경할 수 있습니다.</p></div> <!-- 설정과 사용 안내 -->
+                <button type="button" id="profile-extra-load" class="profile-extra-load">추가 정보 조회</button> <!-- 저장 정보 확인 -->
+            </div> <!-- 추가 설정 제목 끝 -->
+            <p id="profile-extra-status" class="profile-extra-status" role="status" aria-live="polite"></p> <!-- 처리 상태 -->
+            <div class="profile-extra-cards"> <!-- 설정별 카드 목록 -->
+                <section class="profile-card" aria-labelledby="profile-message-title"> <!-- 상태 메시지 설정 -->
+                    <div class="profile-card-heading"><span class="profile-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4V5Z"/></svg></span><div><h4 id="profile-message-title">상태 메시지</h4><p>다른 사용자에게 보이는 한마디</p></div></div> <!-- 상태 설정 안내 -->
+                    <label for="profile-message">메시지</label> <!-- 상태 입력 레이블 -->
+                    <input id="profile-message" maxlength="200" placeholder="상태 메시지를 입력하세요" disabled> <!-- 상태 메시지 입력 -->
+                    <div class="profile-card-actions"><span class="profile-card-hint">최대 200자</span><button type="button" id="profile-message-save" class="profile-action-primary" disabled>상태 저장</button></div> <!-- 상태 저장 -->
+                    <p id="profile-message-feedback" class="profile-card-feedback" role="status" aria-live="polite"></p> <!-- 상태 메시지 결과 -->
+                </section> <!-- 상태 메시지 설정 끝 -->
+                <section class="profile-card" aria-labelledby="profile-picture-title"> <!-- 프로필 사진 설정 -->
+                    <div class="profile-card-heading"><span class="profile-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="1.5"/><path d="m5 18 5-5 3 3 2-2 4 4"/></svg></span><div><h4 id="profile-picture-title">프로필 사진</h4><p>PNG 또는 JPEG · 최대 1 MiB</p></div></div> <!-- 사진 설정 안내 -->
+                    <div class="profile-picture-row"><div class="profile-picture-frame"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><img id="profile-picture-preview" alt="내 프로필 사진" width="96" height="96" hidden></div><div class="profile-picture-controls"><label for="profile-picture-file">사진 파일</label><input type="file" id="profile-picture-file" accept="image/png,image/jpeg" disabled></div></div> <!-- 사진 미리보기와 파일 선택 -->
+                    <div class="profile-card-actions"><button type="button" id="profile-picture-delete" class="profile-action-secondary" disabled>사진 삭제</button><button type="button" id="profile-picture-save" class="profile-action-primary" disabled>사진 저장</button></div> <!-- 사진 변경 -->
+                    <p id="profile-picture-feedback" class="profile-card-feedback" role="status" aria-live="polite"></p> <!-- 사진 처리 결과 -->
+                </section> <!-- 사진 설정 끝 -->
+                <section class="profile-card" aria-labelledby="profile-block-title"> <!-- 사용자 차단 설정 -->
+                    <div class="profile-card-heading"><span class="profile-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="m6.5 6.5 11 11"/></svg></span><div><h4 id="profile-block-title">사용자 차단</h4><p>개인 대화의 새 메시지 전송 제한</p></div></div> <!-- 차단 설정 안내 -->
+                    <label for="profile-block-search">사용자명 검색</label> <!-- 차단 대상 검색 -->
+                    <div class="profile-control-row"><input id="profile-block-search" maxlength="32" placeholder="차단할 사용자명" disabled><button type="button" id="profile-block-find" class="profile-action-secondary" disabled>검색</button></div> <!-- 사용자명과 검색 -->
+                    <label for="profile-block-results">검색 결과</label> <!-- 검색 결과 레이블 -->
+                    <div class="profile-control-row"><select id="profile-block-results" aria-label="차단할 검색 결과" disabled></select><button type="button" id="profile-block-add" class="profile-action-secondary" disabled>사용자 차단</button></div> <!-- 확인한 사용자 차단 -->
+                    <label for="profile-block-list">차단한 사용자</label> <!-- 차단 목록 레이블 -->
+                    <div class="profile-control-row"><select id="profile-block-list" aria-label="차단한 사용자" disabled></select><button type="button" id="profile-block-remove" class="profile-action-secondary" disabled>차단 해제</button></div> <!-- 확인한 사용자 차단 해제 -->
+                    <p id="profile-block-feedback" class="profile-card-feedback" role="status" aria-live="polite"></p> <!-- 차단 처리 결과 -->
+                </section> <!-- 사용자 차단 설정 끝 -->
+            </div> <!-- 설정별 카드 목록 끝 -->
+        </section> <!-- 확장 프로필 영역 끝 -->
     </dialog> <!-- 본인 프로필 대화상자 끝 -->
 </body> <!-- 화면 끝 -->
 </html> <!-- 한국어 문서 끝 -->

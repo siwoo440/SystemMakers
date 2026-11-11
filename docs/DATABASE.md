@@ -277,6 +277,24 @@ invite_issue_user는 10회/600초, invite_join_user는 10회/600초, invite_join
 별도 검사 DB에서 변경 적용·재실행 거절·기존 자료 보존·강제 실패 롤백·만료·중복 역할 보존·CASCADE·잠금 경합·횟수 제한을 확인했다. 9단계 채널 관리에 이어 10단계는 users.username의 기존 고유 키를 재사용한다. 이름 변경 전후 ID·이메일·password_hash·가입일·서버 소유자·소속·작성 대화를 비교하고, 잠금 대기 중 다른 계정의 이름 선점은 409·강제 DB 실패는 500으로 무변경을 확인했다. 개발 자료 보존과 실제 웹 확인 범위는 [10단계 결과](PHASE-10-VERIFICATION.md)를 따른다. 운영 백업 복원·부하 검증은 후속 범위다.
 
 ---
+## 개인 대화·프로필·첨부 파일 구조
+
+| 테이블 | 주요 열과 관계 | 용도 |
+| --- | --- | --- |
+| `direct_conversations` | `id`, `user_a_id`, `user_b_id` | 정렬된 두 사용자 조합을 고유하게 보관 |
+| `direct_messages` | `id`, `conversation_id`, `user_id`, `content`, `created_at` | 개인 대화의 작성자와 메시지 기록 |
+| `user_blocks` | `blocker_id`, `blocked_id`, `created_at` | 사용자별 단방향 차단 관계 |
+| `user_profiles` | `user_id`, `status_message`, `picture_mime`, `picture_data` | 사용자별 상태와 재인코딩한 사진 |
+| `message_attachments` | `id`, `channel_message_id`, `direct_message_id`, `original_name`, `file_size`, `file_data` | 채널 또는 개인 메시지 하나에 연결된 파일과 원본 바이트 |
+| `friendships` | `user_a_id`, `user_b_id`, `requester_id`, `status`, `created_at` | 두 사용자 사이의 요청과 상호 수락 상태 |
+
+첨부는 두 메시지 외래 키 중 하나만 사용하며 메시지당 최대 하나다. 메시지가 삭제되면 첨부도 삭제된다. 사용자 차단은 기존 대화와 파일을 지우지 않는다. 차단 변경과 개인 메시지 전송은 같은 순서로 사용자 행을 잠가 경합을 처리한다.
+
+친구는 정렬된 사용자 쌍으로 한 관계만 저장한다. 요청 대상이 수락하면 양쪽 목록에 표시한다. 차단 관계가 있으면 새 요청과 수락을 거절한다. 친구 삭제는 개인 메시지를 삭제하지 않는다.
+
+기존 DB에서는 `scripts/migrate.php`의 001 적용 상태를 먼저 확인하고 `scripts/migrate-002.php`부터 `scripts/migrate-005.php`까지 순서대로 각 한 번만 실행한다. 새 DB도 기존 `schema.sql`과 001 이후 같은 순서를 따른다. 도구는 새 테이블이 이미 있으면 중단한다. MySQL DDL이 일부만 적용된 경우 자동 재실행하지 않고 실제 구조를 확인한다.
+
+---
 ## 검색 참고
 
 - [MySQL 외래 키와 참조 동작](https://dev.mysql.com/doc/refman/8.4/en/create-table-foreign-keys.html)

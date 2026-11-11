@@ -58,7 +58,8 @@ export function createRealtimeClient({ url, subscription, WebSocketImpl = global
             try // 현재 채널과 조회 기준 구독
             { // 구독 시작
                 const currentSubscription = subscription(); // 최신 구독 기준
-                connection.send(JSON.stringify({ type: "subscribe", channel_id: currentSubscription.channel_id, after_id: currentSubscription.after_id })); // 인증된 구독 요청
+                const request = currentSubscription.conversation_id !== undefined ? { type: "subscribe_direct", conversation_id: currentSubscription.conversation_id, after_id: currentSubscription.after_id } : { type: "subscribe", channel_id: currentSubscription.channel_id, after_id: currentSubscription.after_id }; // 구독 대상별 요청
+                connection.send(JSON.stringify(request)); // 인증된 구독 요청
             } // 구독 끝
             catch // 구독 정보 또는 전송 오류
             { // 구독 실패 시작

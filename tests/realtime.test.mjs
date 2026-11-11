@@ -79,6 +79,29 @@ test("연결마다 최신 채널 구독과 서버 승인 전달", () => // 구�
     assert.deepEqual(fixture.sockets[1].sent, [{ type: "subscribe", channel_id: "1", after_id: "45" }]); // 최신 기준 재구독
     fixture.client.stop(); // 연결 정리
 }); // 검사 끝
+test("개인 대화 구독은 대화 ID와 최신 커서를 전송", () => // 채널과 개인 구독 구분
+{
+    let socket; // 생성된 연결
+    class FakeSocket // 전송 경계 대체
+    {
+        constructor() // 연결 생성
+        {
+            socket = this; // 현재 연결 보관
+        }
+        send(data) // 구독 전송
+        {
+            this.sent = JSON.parse(data); // 전송 결과 보관
+        }
+        close() // 연결 종료
+        {
+        }
+    }
+    const client = createRealtimeClient({ url: "ws://localhost", WebSocketImpl: FakeSocket, subscription: () => ({ conversation_id: "42", after_id: "99" }) }); // 개인 대화 연결
+    client.start(); // 연결 시작
+    socket.onopen(); // 연결 완료
+    assert.deepEqual(socket.sent, { type: "subscribe_direct", conversation_id: "42", after_id: "99" }); // 개인 대화 요청 계약
+    client.stop(); // 연결 종료
+}); // 개인 구독 검사 끝
 test("연결 종료와 오류 뒤 재시도 간격 제한 및 성공 후 복구", () => // 재시도 폭주 방지 검증
 { // 검사 시작
     const fixture = setup(); // 연결 준비

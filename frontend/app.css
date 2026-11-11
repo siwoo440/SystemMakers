@@ -45,13 +45,14 @@ button:disabled /* 비활성 버튼 */
 .workspace /* 메신저 전체 틀 */
 {
     display: grid; /* 세 영역 격자 */
-    grid-template-columns: 76px 256px minmax(0, 1fr); /* 서버와 채널 너비 */
+    grid-template-columns: 76px 256px minmax(0, 1fr) 220px; /* 왼쪽 서버와 오른쪽 친구 목록 */
     height: 100dvh; /* 화면 전체 높이 */
     min-height: 480px; /* 최소 사용 높이 */
     overflow: hidden; /* 화면 바깥 넘침 방지 */
 }
 .server-rail /* 서버 레일 */
 {
+    position: relative; /* 서버 선택 표시 기준 */
     display: flex; /* 세로 요소 정렬 */
     flex-direction: column; /* 세로 흐름 */
     align-items: center; /* 가운데 정렬 */
@@ -114,6 +115,7 @@ button:disabled /* 비활성 버튼 */
 }
 .workspace-heading /* 작업 공간 소개 */
 {
+    flex: 0 0 auto; /* 스크롤과 무관한 상단 고정 */
     padding: 27px 23px 24px; /* 제목 여백 */
     border-bottom: 1px solid var(--line); /* 제목 아래 구분선 */
 }
@@ -214,6 +216,7 @@ button:disabled /* 비활성 버튼 */
 .user-panel /* 사용자 하단 패널 */
 {
     display: flex; /* 아바타와 사용자 배치 */
+    flex: 0 0 auto; /* 스크롤과 무관한 하단 고정 */
     align-items: center; /* 수직 가운데 */
     gap: 10px; /* 사용자 요소 간격 */
     padding: 18px 15px; /* 사용자 패널 여백 */
@@ -531,6 +534,7 @@ button:disabled /* 비활성 버튼 */
 .composer-footer /* 작성 필드 하단 */
 {
     display: flex; /* 글자 수와 버튼 정렬 */
+    flex-wrap: wrap; /* 좁은 화면의 하단 줄바꿈 */
     align-items: center; /* 수직 가운데 */
     gap: 14px; /* 하단 요소 간격 */
     padding: 4px 10px 10px 18px; /* 하단 여백 */
@@ -789,7 +793,7 @@ button:disabled /* 비활성 버튼 */
 {
     .workspace /* 넓은 화면 열 구성 */
     {
-        grid-template-columns: 86px 290px minmax(0, 1fr); /* 넓은 채널 목록 */
+        grid-template-columns: 86px 290px minmax(0, 1fr) 240px; /* 넓은 서버와 친구 목록 */
     }
     .message-scroll /* 넓은 화면 대화 여백 */
     {
@@ -820,7 +824,7 @@ button:disabled /* 비활성 버튼 */
         width: min(280px, 85vw); /* 모바일 목록 너비 */
         z-index: 12; /* 배경보다 높은 목록 */
         visibility: hidden; /* 접힌 목록 포커스 방지 */
-        transform: translateX(-100%); /* 접힌 목록 화면 밖 이동 */
+        transform: translateX(-100%); /* 접힌 목록 왼쪽 이동 */
     }
     body.sidebar-open .channel-sidebar /* 열린 모바일 목록 */
     {
@@ -924,10 +928,10 @@ button:disabled /* 비활성 버튼 */
         margin-left: auto; /* 오른쪽 전송 정렬 */
     }
 }
-.channel-navigation /* 실제 채널 목록 스크롤 */
+.channel-navigation /* 실제 채널 목록 */
 {
     min-height: 0; /* 긴 목록의 축소 허용 */
-    overflow-y: auto; /* 사이드바 안 채널 스크롤 */
+    overflow: visible; /* 전체 탐색 영역에서 스크롤 */
 }
 .channel-button /* 서버 이름을 포함한 채널 버튼 */
 {
@@ -1092,5 +1096,572 @@ button:disabled /* 비활성 버튼 */
 }
 .channel-sidebar /* 관리와 긴 목록의 공존 */
 {
-    overflow-y: auto; /* 작은 화면 탐색 보장 */
+    overflow: hidden; /* 사용자 영역 외부 스크롤 방지 */
+}
+.sidebar-scroll /* 서버와 대화 목록 스크롤 */
+{
+    flex: 1 1 auto; /* 고정 사용자 영역을 제외한 높이 */
+    min-height: 0; /* 작은 화면의 내용 축소 */
+    overflow-y: auto; /* 서버와 대화 목록만 스크롤 */
+}
+.direct-navigation /* 개인 대화 탐색 영역 */
+{
+    padding: 12px 13px 20px; /* 목록 안쪽 여백 */
+    border-top: 1px solid var(--line); /* 채널 영역 구분선 */
+}
+.direct-search /* 사용자 검색 배치 */
+{
+    display: flex; /* 입력과 검색 버튼 정렬 */
+    gap: 6px; /* 입력과 버튼 간격 */
+}
+.direct-search input /* 사용자 검색 입력 */
+{
+    min-width: 0; /* 좁은 화면 너비 제한 */
+    width: 100%; /* 남은 너비 사용 */
+    padding: 8px; /* 입력 안쪽 여백 */
+    border: 1px solid var(--line); /* 입력 테두리 */
+    border-radius: 5px; /* 입력 모서리 */
+    background: #111b29; /* 입력 배경 */
+    color: #f5f8ff; /* 입력 글자색 */
+}
+.direct-search button /* 검색 실행 버튼 */
+{
+    padding: 8px; /* 버튼 안쪽 여백 */
+    border: 1px solid var(--line); /* 버튼 테두리 */
+    border-radius: 5px; /* 버튼 모서리 */
+    background: #263344; /* 버튼 배경 */
+    color: #edf1f7; /* 버튼 글자색 */
+}
+.attachment-controls /* 파일 선택과 전송 */
+{
+    display: flex; /* 파일 제어 가로 배치 */
+    align-items: center; /* 제어 세로 정렬 */
+    flex-wrap: wrap; /* 좁은 화면 줄바꿈 */
+    gap: 8px; /* 제어 간격 */
+    margin: 0 0 0 auto; /* 입력 하단 오른쪽 정렬 */
+    color: #b5c3d5; /* 안내 글자색 */
+    font-size: 11px; /* 안내 글자 크기 */
+}
+.attachment-picker /* 파일 선택 아이콘 */
+{
+    position: relative; /* 설명 말풍선 기준 */
+    display: inline-grid; /* 아이콘 중앙 정렬 */
+    place-items: center; /* 가로 세로 중앙 정렬 */
+    width: 36px; /* 선택 영역 너비 */
+    height: 36px; /* 선택 영역 높이 */
+    border: 1px solid var(--line); /* 선택 영역 테두리 */
+    border-radius: 6px; /* 선택 영역 모서리 */
+    background: #263344; /* 선택 영역 배경 */
+    color: #edf1f7; /* 아이콘 색상 */
+    cursor: pointer; /* 선택 가능한 포인터 */
+}
+.attachment-picker::after /* 파일 선택 설명 위치 */
+{
+    top: auto; /* 아래쪽 말풍선 위치 해제 */
+    bottom: calc(100% + 6px); /* 아이콘 위쪽 설명 */
+}
+.attachment-input:focus-visible + .attachment-picker /* 키보드 선택 표시 */
+{
+    outline: 2px solid #74e8d2; /* 선택 테두리 */
+    outline-offset: 2px; /* 테두리 간격 */
+}
+.attachment-input:focus-visible + .attachment-picker::after /* 키보드 기능 안내 */
+{
+    opacity: 1; /* 설명 표시 */
+    visibility: visible; /* 설명 노출 */
+}
+.attachment-input:disabled + .attachment-picker /* 파일 선택 비활성 */
+{
+    opacity: .45; /* 비활성 투명도 */
+    cursor: not-allowed; /* 비활성 포인터 */
+}
+.friend-sidebar /* 오른쪽 친구 목록 */
+{
+    min-width: 0; /* 좁은 화면 넘침 방지 */
+    min-height: 0; /* 세로 영역 축소 허용 */
+    overflow-y: auto; /* 긴 친구 목록 스크롤 */
+    padding: 24px 14px; /* 목록 안쪽 여백 */
+    border-left: 1px solid var(--line); /* 친구 영역 구분선 */
+    background: #191f29; /* 기존 목록 배경 */
+}
+.friend-heading /* 친구 제목과 새로고침 */
+{
+    display: flex; /* 제목과 버튼 가로 배치 */
+    align-items: center; /* 세로 중앙 정렬 */
+    justify-content: space-between; /* 양쪽 정렬 */
+    gap: 8px; /* 제목과 버튼 간격 */
+}
+.friend-heading h2 /* 친구 제목 */
+{
+    margin: 0; /* 기본 여백 제거 */
+    font-size: 16px; /* 제목 크기 */
+}
+.friend-sidebar button /* 친구 동작 버튼 */
+{
+    padding: 6px 8px; /* 버튼 안쪽 여백 */
+    border: 1px solid var(--line); /* 버튼 테두리 */
+    border-radius: 6px; /* 버튼 모서리 */
+    background: #263344; /* 버튼 배경 */
+    color: #edf1f7; /* 버튼 글자색 */
+    white-space: nowrap; /* 버튼 글자 줄바꿈 방지 */
+    cursor: pointer; /* 버튼 포인터 */
+}
+.friend-sidebar button:disabled /* 친구 동작 비활성 */
+{
+    opacity: .45; /* 비활성 투명도 */
+    cursor: not-allowed; /* 비활성 포인터 */
+}
+.friend-search /* 사용자 검색 */
+{
+    display: flex; /* 검색과 버튼 가로 배치 */
+    gap: 5px; /* 검색 요소 간격 */
+    margin-top: 15px; /* 제목 아래 간격 */
+}
+.friend-search input /* 친구 검색어 */
+{
+    min-width: 0; /* 작은 패널 입력 축소 */
+    width: 100%; /* 남은 공간 사용 */
+    padding: 8px; /* 검색어 여백 */
+    border: 1px solid var(--line); /* 검색 테두리 */
+    border-radius: 6px; /* 검색 모서리 */
+    background: #111822; /* 검색 배경 */
+    color: #edf1f7; /* 검색 글자색 */
+}
+.direct-search input, .friend-search input /* 검색 입력 높이 */
+{
+    height: 36px; /* 간결한 입력 높이 */
+    padding: 6px 8px; /* 검색어 안쪽 여백 */
+}
+.direct-search .search-action, .friend-search .search-action /* 정사각형 돋보기 버튼 */
+{
+    position: relative; /* 기능 설명 위치 기준 */
+    display: grid; /* 돋보기 중앙 배치 */
+    place-items: center; /* 가로 세로 중앙 정렬 */
+    flex: 0 0 36px; /* 정사각형 버튼 너비 유지 */
+    width: 36px; /* 버튼 너비 */
+    height: 36px; /* 버튼 높이 */
+    padding: 7px; /* 돋보기 주위 여백 */
+}
+.search-action::after /* 검색 버튼의 설명 위치 */
+{
+    right: 0; /* 검색 영역 안쪽 정렬 */
+    left: auto; /* 왼쪽 기준 해제 */
+}
+.friend-status /* 친구 상태 안내 */
+{
+    color: #9eafc2; /* 보조 안내 색상 */
+    font-size: 11px; /* 상태 글자 크기 */
+    overflow-wrap: anywhere; /* 긴 오류 줄바꿈 */
+}
+.friend-section /* 친구와 요청 구역 */
+{
+    margin-top: 20px; /* 구역 간격 */
+}
+.friend-section h3 /* 구역 이름 */
+{
+    margin: 0 0 8px; /* 목록 위 간격 */
+    color: #9eafc2; /* 보조 제목 색상 */
+    font-size: 11px; /* 작은 구역 제목 */
+}
+.friend-list /* 친구 항목 세로 목록 */
+{
+    display: flex; /* 목록 배치 */
+    flex-direction: column; /* 항목 세로 정렬 */
+    gap: 7px; /* 항목 사이 간격 */
+}
+.friend-row /* 사용자별 칸 */
+{
+    display: flex; /* 이름과 동작 가로 배치 */
+    align-items: center; /* 세로 중앙 정렬 */
+    gap: 5px; /* 사용자와 버튼 간격 */
+    padding: 6px; /* 항목 안쪽 여백 */
+    border: 1px solid #303c4c; /* 항목 구분 테두리 */
+    border-radius: 7px; /* 항목 모서리 */
+}
+.friend-row .friend-name /* 사용자 이름 */
+{
+    flex: 1; /* 남은 너비 사용 */
+    min-width: 0; /* 긴 이름 축소 */
+    overflow-wrap: anywhere; /* 긴 이름 줄바꿈 */
+    text-align: left; /* 이름 왼쪽 정렬 */
+}
+@media (min-width: 761px) and (max-width: 1100px) /* 중간 크기 화면 */
+{
+    .workspace /* 대화와 두 목록 */
+    {
+        grid-template-columns: 230px minmax(0, 1fr) 200px; /* 대화 공간 확보 */
+    }
+    .server-rail /* 작은 화면의 서버 장식 */
+    {
+        display: none; /* 두 목록을 위한 공간 확보 */
+    }
+}
+@media (max-width: 760px) /* 모바일 왼쪽 목록 */
+{
+    .channel-sidebar /* 채널 목록 위쪽 배치 */
+    {
+        bottom: 45%; /* 친구 목록 공간 확보 */
+        overflow: hidden; /* 사용자 영역 고정 유지 */
+    }
+    .friend-sidebar /* 친구 목록 아래쪽 배치 */
+    {
+        position: fixed; /* 화면 위 목록 배치 */
+        top: 55%; /* 채널 목록 아래 위치 */
+        left: 0; /* 왼쪽 정렬 */
+        bottom: 0; /* 화면 아래까지 표시 */
+        width: min(280px, 85vw); /* 채널 목록과 동일 너비 */
+        z-index: 12; /* 배경 위 표시 */
+        visibility: hidden; /* 닫힌 목록 포커스 방지 */
+        transform: translateX(-100%); /* 왼쪽 화면 밖 이동 */
+    }
+    body.sidebar-open .friend-sidebar /* 열린 모바일 친구 목록 */
+    {
+        visibility: visible; /* 친구 목록 표시 */
+        transform: translateX(0); /* 화면 안으로 이동 */
+    }
+}
+.attachment-controls button /* 파일 전송 버튼 */
+{
+    padding: 6px 9px; /* 버튼 안쪽 여백 */
+    border: 1px solid var(--line); /* 버튼 테두리 */
+    border-radius: 5px; /* 버튼 모서리 */
+    background: #263344; /* 버튼 배경 */
+    color: #edf1f7; /* 버튼 글자색 */
+}
+.attachment-link /* 첨부 다운로드 링크 */
+{
+    display: inline-block; /* 파일 링크 영역 */
+    margin-top: 6px; /* 본문과 링크 간격 */
+    color: #72e1d2; /* 링크 강조색 */
+    overflow-wrap: anywhere; /* 긴 파일명 줄바꿈 */
+}
+#profile-form dl /* 프로필 읽기 정보 배치 */
+{
+    display: grid; /* 항목과 내용을 격자로 정렬 */
+    grid-template-columns: auto minmax(0, 1fr); /* 이름과 내용의 가로 배치 */
+    align-items: center; /* 항목의 세로 중앙 정렬 */
+    gap: 10px 12px; /* 항목 간격 */
+    margin: 16px 0; /* 프로필 정보 여백 */
+}
+.profile-close-top /* 프로필 왼쪽 위 닫기 */
+{
+    position: sticky; /* 긴 프로필 스크롤에도 버튼 유지 */
+    top: 0; /* 창 위쪽 고정 */
+    z-index: 2; /* 프로필 내용 위 표시 */
+    display: block; /* 독립 버튼 배치 */
+    width: 34px; /* 버튼 너비 */
+    height: 34px; /* 버튼 높이 */
+    margin: 0 0 12px; /* 제목과 버튼 간격 */
+    border: 1px solid var(--line); /* 버튼 테두리 */
+    border-radius: 6px; /* 버튼 모서리 */
+    color: #edf1f7; /* 닫기 기호 색상 */
+    background: #263344; /* 버튼 배경 */
+    font-size: 21px; /* 닫기 기호 크기 */
+    cursor: pointer; /* 클릭 안내 */
+}
+#profile-form dt /* 프로필 항목 이름 */
+{
+    color: #b5c3d5; /* 항목 이름 색상 */
+    font-weight: 600; /* 항목 이름 강조 */
+}
+.profile-username-row /* 사용자명과 저장 버튼 */
+{
+    display: flex; /* 입력과 버튼 가로 배치 */
+    align-items: stretch; /* 같은 높이 정렬 */
+    gap: 8px; /* 입력과 버튼 간격 */
+}
+.profile-username-row input /* 사용자명 입력 */
+{
+    min-width: 0; /* 좁은 화면 입력 축소 */
+    flex: 1; /* 남은 너비 사용 */
+}
+.profile-username-row button /* 사용자명 저장 */
+{
+    flex: none; /* 저장 버튼 크기 유지 */
+    padding: 8px 10px; /* 버튼 안쪽 여백 */
+    border: 1px solid var(--line); /* 버튼 테두리 */
+    border-radius: 6px; /* 버튼 모서리 */
+    background: #263344; /* 버튼 배경 */
+    color: #edf1f7; /* 버튼 글자색 */
+    white-space: nowrap; /* 버튼 글자 한 줄 */
+}
+#profile-form dd /* 변경할 수 없는 프로필 내용 */
+{
+    min-width: 0; /* 긴 내용의 격자 축소 */
+    margin: 0; /* 기본 들여쓰기 제거 */
+    padding: 10px 12px; /* 내용 안쪽 여백 */
+    border: 1px solid var(--line); /* 읽기 정보 테두리 */
+    border-radius: 6px; /* 읽기 정보 모서리 */
+    background: #151b24; /* 읽기 정보 배경 */
+    overflow-wrap: anywhere; /* 긴 이메일 줄바꿈 */
+}
+.profile-extra /* 추가 프로필 설정 */
+{
+    margin-top: 28px; /* 기본 정보와 간격 */
+    padding-top: 24px; /* 구분선 아래 간격 */
+    border-top: 1px solid #354153; /* 기본 정보 구분선 */
+}
+.profile-extra-heading /* 추가 설정 제목과 조회 버튼 */
+{
+    display: flex; /* 제목과 버튼 가로 배치 */
+    align-items: flex-start; /* 위쪽 정렬 */
+    justify-content: space-between; /* 양쪽 배치 */
+    flex-wrap: wrap; /* 작은 화면 줄바꿈 */
+    gap: 14px; /* 제목과 버튼 간격 */
+}
+.profile-extra-eyebrow /* 설정 작은 제목 */
+{
+    margin: 0 0 6px; /* 제목 위 간격 */
+    color: #65cfc4; /* 청록 보조 색상 */
+    font-size: 10px; /* 작은 영문 크기 */
+    font-weight: 700; /* 보조 제목 강조 */
+    letter-spacing: .1em; /* 보조 제목 자간 */
+}
+.profile-extra-heading h3 /* 설정 제목 */
+{
+    margin: 0; /* 기본 제목 여백 제거 */
+    font-size: 17px; /* 제목 크기 */
+}
+.profile-extra .profile-extra-description /* 조회 조건 안내 */
+{
+    margin: 6px 0 0; /* 제목 아래 간격 */
+    color: #a9b8cb; /* 보조 안내 색상 */
+    font-size: 12px; /* 안내 글자 크기 */
+}
+.profile-extra button /* 추가 설정 버튼 */
+{
+    min-height: 38px; /* 터치 가능한 높이 */
+    padding: 8px 12px; /* 버튼 안쪽 여백 */
+    border: 1px solid #46566c; /* 버튼 테두리 */
+    border-radius: 7px; /* 버튼 모서리 */
+    background: #293649; /* 보조 버튼 배경 */
+    color: #eef6fc; /* 버튼 글자색 */
+    font-size: 12px; /* 버튼 글자 크기 */
+    font-weight: 600; /* 버튼 글자 강조 */
+    white-space: nowrap; /* 버튼 글자 줄바꿈 방지 */
+}
+.profile-extra button:hover:not(:disabled) /* 사용 가능한 버튼 강조 */
+{
+    border-color: #69cfc4; /* 마우스 테두리 강조 */
+    background: #32465a; /* 마우스 배경 강조 */
+}
+.profile-extra .profile-extra-load /* 추가 정보 조회 */
+{
+    border-color: #418c89; /* 조회 버튼 강조 테두리 */
+    color: #b2f3e9; /* 조회 버튼 강조 글자 */
+    background: #193d42; /* 조회 버튼 배경 */
+}
+.profile-extra-status /* 추가 설정 결과 */
+{
+    margin: 12px 0 0; /* 제목 아래 상태 간격 */
+    padding: 9px 12px; /* 상태 안내 여백 */
+    border-radius: 7px; /* 상태 안내 모서리 */
+    background: #203a3d; /* 상태 안내 배경 */
+    color: #b4eee4; /* 상태 안내 글자색 */
+    font-size: 12px; /* 상태 글자 크기 */
+}
+.profile-extra-status:empty /* 안내가 없는 상태 */
+{
+    display: none; /* 빈 안내 영역 숨김 */
+}
+.profile-extra-status[data-state="error"] /* 추가 설정 실패 안내 */
+{
+    background: #492b34; /* 오류 안내 배경 */
+    color: #ffd3d5; /* 오류 안내 글자색 */
+}
+.profile-extra .profile-card-feedback /* 카드별 처리 결과 */
+{
+    margin: 10px 0 0; /* 버튼 아래 결과 간격 */
+    color: #a6e7dc; /* 처리 결과 색상 */
+    font-size: 12px; /* 결과 글자 크기 */
+    overflow-wrap: anywhere; /* 긴 오류 줄바꿈 */
+}
+.profile-card-feedback:empty /* 결과가 없는 카드 */
+{
+    display: none; /* 빈 결과 영역 숨김 */
+}
+.profile-extra .profile-card-feedback[data-state="error"] /* 카드별 오류 */
+{
+    color: #ffc1c5; /* 오류 글자색 */
+}
+.profile-extra-cards /* 추가 설정 카드 목록 */
+{
+    display: grid; /* 카드 세로 배치 */
+    gap: 12px; /* 카드 사이 간격 */
+    margin-top: 18px; /* 제목과 카드 간격 */
+}
+.profile-card /* 설정별 독립 카드 */
+{
+    min-width: 0; /* 긴 내용의 너비 축소 */
+    padding: 16px; /* 카드 안쪽 여백 */
+    border: 1px solid #354254; /* 카드 구분 테두리 */
+    border-radius: 10px; /* 카드 둥근 모서리 */
+    background: #1b2533; /* 카드 배경 */
+}
+.profile-card-heading /* 카드 아이콘과 제목 */
+{
+    display: flex; /* 아이콘과 제목 가로 배치 */
+    align-items: center; /* 세로 중앙 정렬 */
+    gap: 10px; /* 아이콘과 제목 간격 */
+    margin-bottom: 14px; /* 입력과 제목 간격 */
+}
+.profile-card-icon /* 카드 기능 아이콘 */
+{
+    display: grid; /* 아이콘 가운데 배치 */
+    place-items: center; /* 가로 세로 중앙 정렬 */
+    flex: 0 0 36px; /* 아이콘 크기 유지 */
+    width: 36px; /* 아이콘 너비 */
+    height: 36px; /* 아이콘 높이 */
+    border-radius: 9px; /* 아이콘 모서리 */
+    background: #214047; /* 청록 아이콘 배경 */
+    color: #80ded0; /* 아이콘 선 색상 */
+}
+.profile-card-icon svg, .profile-picture-frame svg /* 벡터 아이콘 */
+{
+    width: 20px; /* 아이콘 너비 */
+    height: 20px; /* 아이콘 높이 */
+    fill: none; /* 아이콘 내부 투명 */
+    stroke: currentColor; /* 현재 글자색 선 */
+    stroke-width: 1.7; /* 아이콘 선 두께 */
+    stroke-linecap: round; /* 둥근 선 끝 */
+    stroke-linejoin: round; /* 둥근 선 연결 */
+}
+.profile-card-heading h4 /* 카드 제목 */
+{
+    margin: 0; /* 기본 제목 여백 제거 */
+    font-size: 14px; /* 카드 제목 크기 */
+}
+.profile-extra .profile-card-heading p /* 카드 보조 설명 */
+{
+    margin: 3px 0 0; /* 제목 아래 간격 */
+    color: #9eafc2; /* 보조 설명 색상 */
+    font-size: 11px; /* 보조 설명 크기 */
+}
+.profile-card label /* 설정 입력 이름 */
+{
+    display: block; /* 입력 위에 배치 */
+    margin: 10px 0 6px; /* 입력 이름 간격 */
+    color: #c5d2e0; /* 입력 이름 색상 */
+    font-size: 12px; /* 입력 이름 크기 */
+    font-weight: 600; /* 입력 이름 강조 */
+}
+#profile-dialog .profile-card input, #profile-dialog .profile-card select /* 추가 설정 입력 */
+{
+    width: 100%; /* 사용 가능한 너비 */
+    min-width: 0; /* 좁은 화면 축소 */
+    min-height: 40px; /* 터치 가능한 높이 */
+    margin: 0; /* 기본 입력 여백 제거 */
+    padding: 9px 10px; /* 입력 안쪽 여백 */
+    border: 1px solid #526279; /* 입력 경계 */
+    border-radius: 7px; /* 입력 모서리 */
+    background: #111b29; /* 입력 배경 */
+    color: #edf3fa; /* 입력 글자색 */
+    font: inherit; /* 본문 글꼴 상속 */
+    font-size: 12px; /* 입력 글자 크기 */
+}
+#profile-dialog .profile-card input::placeholder /* 입력 예시 색상 */
+{
+    color: #8090a5; /* 보조 예시 색상 */
+}
+.profile-card-actions /* 카드 하단 동작 */
+{
+    display: flex; /* 안내와 버튼 가로 배치 */
+    align-items: center; /* 세로 중앙 정렬 */
+    justify-content: flex-end; /* 버튼 오른쪽 정렬 */
+    flex-wrap: wrap; /* 좁은 화면 줄바꿈 */
+    gap: 8px; /* 동작 사이 간격 */
+    margin-top: 12px; /* 입력 아래 간격 */
+}
+.profile-card-hint /* 글자 수 안내 */
+{
+    margin-right: auto; /* 왼쪽 안내 정렬 */
+    color: #9eafc2; /* 보조 글자색 */
+    font-size: 11px; /* 작은 안내 크기 */
+}
+.profile-extra .profile-action-primary /* 저장 버튼 */
+{
+    border-color: #178b85; /* 저장 테두리 */
+    background: #087d79; /* 저장 강조 배경 */
+    color: #f3fffc; /* 저장 글자색 */
+}
+.profile-picture-row /* 사진 미리보기와 선택 */
+{
+    display: flex; /* 사진과 선택 가로 배치 */
+    align-items: center; /* 세로 중앙 정렬 */
+    gap: 14px; /* 사진과 입력 간격 */
+}
+.profile-picture-frame /* 프로필 사진 자리 */
+{
+    position: relative; /* 사진 겹침 기준 */
+    display: grid; /* 기본 그림 중앙 정렬 */
+    place-items: center; /* 가로 세로 중앙 */
+    flex: 0 0 64px; /* 사진 자리 크기 유지 */
+    width: 64px; /* 사진 자리 너비 */
+    height: 64px; /* 사진 자리 높이 */
+    overflow: hidden; /* 사진의 둥근 경계 */
+    border: 1px solid #3d6068; /* 사진 자리 테두리 */
+    border-radius: 14px; /* 사진 자리 모서리 */
+    background: #233c46; /* 기본 사진 배경 */
+    color: #94d8d0; /* 기본 그림 색상 */
+}
+.profile-picture-frame img /* 저장된 사진 */
+{
+    position: absolute; /* 기본 그림 위 배치 */
+    inset: 0; /* 사진 자리 전체 채우기 */
+    width: 100%; /* 사진 너비 */
+    height: 100%; /* 사진 높이 */
+    object-fit: cover; /* 비율 유지와 영역 채우기 */
+}
+.profile-picture-controls /* 사진 파일 입력 영역 */
+{
+    flex: 1; /* 남은 너비 사용 */
+    min-width: 0; /* 좁은 화면 축소 */
+}
+#profile-dialog .profile-picture-controls input /* 사진 파일 선택 */
+{
+    padding: 6px; /* 파일 선택 안쪽 여백 */
+    font-size: 11px; /* 파일명 크기 */
+}
+.profile-picture-controls input::file-selector-button /* 파일 선택 버튼 */
+{
+    margin-right: 8px; /* 파일명과 간격 */
+    padding: 6px 8px; /* 선택 버튼 여백 */
+    border: 0; /* 기본 테두리 제거 */
+    border-radius: 5px; /* 선택 버튼 모서리 */
+    background: #344458; /* 선택 버튼 배경 */
+    color: #edf3fa; /* 선택 버튼 글자색 */
+    font: inherit; /* 입력 글꼴 상속 */
+}
+.profile-control-row /* 검색과 차단 동작 */
+{
+    display: flex; /* 입력과 버튼 가로 배치 */
+    align-items: center; /* 세로 중앙 정렬 */
+    gap: 8px; /* 입력과 버튼 간격 */
+}
+.profile-control-row input, .profile-control-row select /* 차단 대상 입력 */
+{
+    flex: 1; /* 남은 너비 사용 */
+}
+.profile-extra :is(input, select, button):disabled /* 조회 전과 처리 중 비활성 */
+{
+    opacity: 1; /* 비활성 글자 가독성 유지 */
+    color: #8596aa; /* 비활성 글자색 */
+    background: #263140; /* 비활성 배경색 */
+    border-color: #465468; /* 비활성 경계색 */
+    cursor: not-allowed; /* 비활성 포인터 */
+}
+@media (max-width: 420px) /* 작은 프로필 창 */
+{
+    .profile-card /* 작은 화면 카드 */
+    {
+        padding: 13px; /* 카드 여백 축소 */
+    }
+    .profile-control-row /* 차단 입력과 버튼 */
+    {
+        flex-wrap: wrap; /* 좁은 화면 동작 줄바꿈 */
+    }
+    .profile-control-row input, .profile-control-row select /* 차단 입력 */
+    {
+        flex-basis: 100%; /* 작은 화면 전체 너비 */
+    }
 }

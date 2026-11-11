@@ -5,6 +5,9 @@ import { mountServerUI } from "./server-ui.mjs"; // 명시적 관리 화면
 import { mountChannelUI } from "./channel-ui.mjs"; // 역할별 채널 관리 화면
 import { mountProfileUI } from "./profile-ui.mjs"; // 본인 정보 조회·사용자명 수정
 import { createRealtimeClient } from "./realtime.mjs"; // 인증된 새 메시지 알림
+import { mountDirectUI } from "./direct-ui.mjs"; // 개인 대화 화면과 조회 수명
+import { mountFriendsUI } from "./friends-ui.mjs"; // 친구 요청과 목록 화면
+import { createAttachmentView, uploadAttachment } from "./attachments-ui.mjs"; // 첨부 조회와 명시적 전송
 const byId = (elementId) => document.getElementById(elementId); // 화면 요소 조회
 let channels = Object.create(null); // 서버에서 확인한 채널별 화면 자료
 const messageInput = byId("message-input"); // 메시지 작성 필드
@@ -33,6 +36,8 @@ let savedDrafts = null; // 만료된 같은 계정의 미전송 초안
 let serverUI = null; // 초기화한 관리 화면 연결
 let channelUI = null; // 초기화한 채널 관리 연결
 let profileUI = null; // 초기화한 본인 프로필 화면
+let directUI = null; // 개인 대화 화면 연결
+let friendsUI = null; // 친구 목록 화면 연결
 let realtimeClient = null; // 선택 채널의 실시간 연결
 let realtimeStatus = "closed"; // WebSocket 구독 상태
 const serverManager = new ServerManager({ request: requestEndpoint, getUser: () => currentUser, storage: selectionStorage(), onChange: renderManagementUI }); // 계정별 서버 관리 수명
@@ -41,6 +46,8 @@ function renderManagementUI() // 서버·채널 관리의 같은 처리 상태
     serverUI?.render(); // 소유자 서버 관리 상태
     channelUI?.render(); // 역할과 현재 채널 상태
     profileUI?.render(); // 본인 정보와 공통 요청 잠금
+    directUI?.render(); // 개인 대화 인증과 입력 상태
+    friendsUI?.render(); // 친구 목록 인증과 입력 상태
 }
 function selectionStorage() // 차단될 수 있는 선택 저장소
 {
@@ -58,6 +65,7 @@ function pauseMessageFeeds() // 계정과 채널 전환 전 조회 중단
     realtimeClient?.stop(); // 이전 실시간 연결 종료
     realtimeClient = null; // 이전 연결 참조 제거
     Object.values(channels).forEach((channel) => channel.feed?.pause()); // 예약과 진행 중 요청 취소
+    Object.values(channels).forEach((channel) => channel.attachments?.stop()); // 이전 첨부 조회 취소
 }
 function startRealtime(channelId) // 선택 채널의 실시간 알림 연결
 {
@@ -97,7 +105,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         {
             return; // 현재 화면 변경 차단
         }
-        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, name: messageEntry.user_id === currentUser?.id ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content })); // 지연 기록도 현재 본인 표시 이름 사용
+        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, name: messageEntry.user_id === currentUser?.id ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments?.get(messageEntry.id) })); // 본인 이름과 확인한 파일 표시
         if (activeChannel !== channelId) // 현재 표시하지 않는 채널
         {
             channel.unread += feedChange.added; // 원래 채널의 새 메시지 수 유지
@@ -126,6 +134,10 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         }
         updateHistoryControls(); // 조회 진행과 오류 안내
         updateComposer(); // 권한 변경에 따른 전송 상태
+        if (channelFeed.active && !channelFeed.blocked && !directUI?.isActive()) // 현재 채널의 확인된 기록
+        {
+            channel.attachments?.load(channelFeed.list()); // 표시된 메시지의 파일 정보 조회
+        }
     }, onError: (operationError) => // 실제 조회 오류의 인증과 권한 처리
     {
         if (currentUser?.id !== userId || channels[channelId] !== channel) // 이전 계정 오류 여부
@@ -166,6 +178,35 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
             updateComposer(); // 권한 없는 전송 차단
         }
     } }); // 조회 경계 연결 종료
+    channel.attachments = createAttachmentView({ kind: "channel", targetId: channelId, userId, getUser: () => currentUser, request: requestEndpoint, onChange: () => // 권한 확인된 파일 정보 표시
+    {
+        if (currentUser?.id !== userId || channels[channelId] !== channel || activeChannel !== channelId || channelFeed.blocked || directUI?.isActive()) // 이전 계정 또는 화면
+        {
+            return; // 늦은 첨부 결과 무시
+        }
+        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, name: messageEntry.user_id === userId ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments.get(messageEntry.id) })); // 메시지별 안전한 파일 정보
+        const previousScrollTop = messageScroll.scrollTop; // 기존 읽는 위치
+        messages.replaceChildren(...channel.messages.map(createMessage)); // 다운로드 링크 갱신
+        messageScroll.scrollTop = previousScrollTop; // 읽던 위치 보존
+    }, onError: (error) => // 파일 정보 실패 안내
+    {
+        if (currentUser?.id !== userId || channels[channelId] !== channel || activeChannel !== channelId || directUI?.isActive()) // 이전 화면의 오류
+        {
+            return; // 현재 화면 변경 차단
+        }
+        if (error.status === 401 || error.code === "SESSION_CHANGED") // 실제 인증 만료
+        {
+            expireMessageSession(error.code === "SESSION_CHANGED").catch(ignoreConnectionFailure); // 이전 계정 자료 폐기
+        }
+        else if ([403, 404].includes(error.status)) // 채널 접근 상실
+        {
+            channelFeed.block(error); // 이전 기록과 조회 폐기
+        }
+        else // 일시적인 파일 정보 실패
+        {
+            byId("channel-file-status").textContent = "파일 정보를 확인하지 못했습니다. 다시 확인합니다."; // 자동 조회 복구 안내
+        }
+    } }); // 첨부 조회 연결 끝
     return channelFeed; // 채널별 독립 조회 상태 반환
 }
 function validId(identifierValue) // 큰 정수 문자열 계약 검사
@@ -216,6 +257,14 @@ function createMessage(message) // HTML 실행 없는 저장 메시지 생성
     messageBody.className = "message-body"; // 원문 줄바꿈 스타일
     messageBody.textContent = message.text; // HTML 실행 없는 원문 출력
     messageContent.append(messageMetadata, messageBody); // 작성 정보와 본문 배치
+    if (message.attachment) // 권한을 확인한 첨부 정보
+    {
+        const attachmentLink = document.createElement("a"); // 일반 다운로드 링크
+        attachmentLink.className = "attachment-link"; // 첨부 링크 스타일
+        attachmentLink.href = "./backend/api/download_attachment.php?id=" + encodeURIComponent(message.attachment.id); // 같은 출처의 권한 확인 경로
+        attachmentLink.textContent = `${message.attachment.original_name} 다운로드 (${message.attachment.file_size.toLocaleString("ko-KR")}바이트)`; // 안전한 파일 이름과 크기
+        messageContent.append(attachmentLink); // 메시지에 첨부 연결
+    }
     messageArticle.append(authorAvatar, messageContent); // 메시지 요소 조립
     return messageArticle; // 완성한 메시지 반환
 }
@@ -230,7 +279,9 @@ function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
     byId("message-count").textContent = `${characterCount.toLocaleString("ko-KR")} / 2,000`; // 원문 길이 표시
     byId("message-count").classList.toggle("over-limit", characterCount > 2000); // 초과 길이 표시
     byId("send-button").disabled = !composerAvailable || Boolean(sendRequest) || !hasText || characterCount > 2000 || containsNull; // 중복 제출과 잘못된 입력 차단
-    byId("open-auth").disabled = authBusy || authInitializing || Boolean(sendRequest); // 저장 결과 확인 전 계정 변경 차단
+    byId("channel-file").disabled = !composerAvailable || Boolean(sendRequest) || Boolean(directUI?.isBusy()); // 권한 없는 파일 선택 차단
+    byId("channel-upload").disabled = byId("channel-file").disabled || !byId("channel-file").files?.length; // 파일 미선택과 중복 전송 차단
+    byId("open-auth").disabled = authBusy || authInitializing || Boolean(sendRequest) || Boolean(directUI?.isBusy()); // 저장 결과 확인 전 계정 변경 차단
     byId("send-button").textContent = sendRequest ? "저장 중…" : "전송 ↗"; // 실제 저장 요청 상태
     byId("message-form").setAttribute("aria-busy", String(Boolean(sendRequest))); // 보조 기기 요청 상태
     messageInput.setAttribute("aria-invalid", String(characterCount > 2000 || containsNull)); // 입력 오류 접근성 상태
@@ -259,8 +310,8 @@ function renderChannels() // 실제 소속 채널 목록 생성
         channelButton.dataset.channel = channelId; // 문자열 식별자 보관
         channelButton.textContent = `# ${channel.title} · ${channel.serverName}`; // 같은 이름의 서버별 채널 구분
         channelButton.title = `${channel.serverName} / ${channel.title}`; // 전체 채널 이름 안내
-        channelButton.setAttribute("aria-pressed", String(channelId === activeChannel)); // 현재 채널 선택 상태
-        channelButton.classList.toggle("active", channelId === activeChannel); // 현재 채널 강조
+        channelButton.setAttribute("aria-pressed", String(channelId === activeChannel && !directUI?.isActive())); // 현재 채널 선택 상태
+        channelButton.classList.toggle("active", channelId === activeChannel && !directUI?.isActive()); // 현재 채널 강조
         channelButton.addEventListener("click", () => selectChannel(channelId)); // 확인한 식별자로만 채널 선택
         return channelButton; // 완성한 탐색 버튼
     }); // 채널 버튼 생성 끝
@@ -290,6 +341,12 @@ function selectChannel(channelId) // 실제 소속 채널 전환
     {
         return; // 미확인 채널 선택 중단
     }
+    if (channelId !== activeChannel || directUI?.isActive()) // 다른 대화 진입 여부
+    {
+        byId("channel-file").value = ""; // 이전 대상의 선택 파일 제거
+        byId("channel-file-status").textContent = "최대 5 MiB"; // 이전 파일 결과 제거
+    }
+    directUI?.close(); // 개인 조회 중단과 채널 화면 복귀
     pauseMessageFeeds(); // 이전 채널 요청 취소와 늦은 응답 무효화
     if (channels[activeChannel]) // 이전 선택 존재 여부
     {
@@ -432,7 +489,12 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
         const preferredChannelId = serverManager.channel || activeChannel; // 새로고침 전 또는 현재 선택
         const selectedChannelId = candidateChannels.some((channelEntry) => channelEntry.id === preferredChannelId) ? preferredChannelId : candidateChannels[0]?.id || null; // 유효한 선택 또는 첫 채널
         activeChannel = null; // 이전 선택의 초안 덮어쓰기 방지
-        if (selectedChannelId) // 참여 채널 존재 여부
+        if (selectedChannelId && directUI?.isActive()) // 개인 화면을 유지할 목록 갱신
+        {
+            activeChannel = selectedChannelId; // 채널 복귀를 위한 선택 보관
+            renderChannels(); // 개인 화면의 채널 강조 제거
+        }
+        else if (selectedChannelId) // 참여 채널 존재 여부
         {
             selectChannel(selectedChannelId); // 실제 채널 화면 표시
         }
@@ -559,6 +621,68 @@ async function sendMessage(uiEvent) // 실제 데이터베이스 메시지 저�
             sendRequest = null; // 전송 중복 잠금 해제
             updateComposer(); // 남아 있는 초안과 상태 갱신
             showNewMessages(); // 현재 채널 새 메시지 안내
+        }
+    }
+}
+async function sendChannelFile() // 선택한 채널 파일 전송
+{
+    updateComposer(); // 최신 계정과 전송 조건 확인
+    if (byId("channel-upload").disabled) // 파일과 권한 또는 중복 검사
+    {
+        return; // 처리할 수 없는 전송 중단
+    }
+    const channelId = activeChannel; // 제출한 채널 식별자
+    const channel = channels[channelId]; // 제출한 채널 수명
+    const file = byId("channel-file").files[0]; // 사용자가 선택한 파일
+    const fileRequest = { generation: authGeneration, userId: currentUser.id }; // 제출 당시 계정
+    sendRequest = fileRequest; // 기존 메시지와 공통 잠금
+    byId("channel-file-status").textContent = "파일을 전송하는 중입니다."; // 전송 진행 안내
+    updateComposer(); // 중복 전송과 계정 전환 차단
+    try // 명시적 업로드 한 번 실행
+    {
+        const response = await uploadAttachment({ kind: "channel", targetId: channelId, userId: fileRequest.userId, file, request: requestEndpoint }); // 같은 출처 multipart 전송
+        if (fileRequest.generation !== authGeneration || currentUser?.id !== fileRequest.userId || channels[channelId] !== channel || activeChannel !== channelId || directUI?.isActive() || channel.feed.blocked) // 계정과 대화 전환 검사
+        {
+            return; // 이전 대화 결과 표시 중단
+        }
+        channel.attachments.add(response.attachment); // 확인된 파일 정보 보관
+        channel.feed.add(response.message); // 실제 저장 메시지 표시
+        byId("channel-file").value = ""; // 성공한 파일 선택 제거
+        byId("channel-file-status").textContent = "파일을 저장했습니다."; // 확인된 업로드 결과
+    }
+    catch (error) // 거절 또는 전송 결과 미확인
+    {
+        if (fileRequest.generation !== authGeneration || currentUser?.id !== fileRequest.userId || channels[channelId] !== channel) // 이전 계정 또는 삭제된 대화
+        {
+            return; // 이전 계정 오류 차단
+        }
+        if (error.status === 401 || ["SESSION_CHANGED", "CSRF_INVALID"].includes(error.code)) // 계정 또는 보호 토큰 복구
+        {
+            const message = await serverFailure(error, fileRequest.generation, fileRequest.userId); // 자동 재전송 없는 복구
+            if (fileRequest.generation === authGeneration && currentUser?.id === fileRequest.userId && activeChannel === channelId && !directUI?.isActive()) // 복구 중 계정과 대화 확인
+            {
+                byId("channel-file-status").textContent = message; // 현재 화면의 복구 안내
+            }
+        }
+        else if (activeChannel !== channelId || directUI?.isActive()) // 다른 대화의 일반 실패
+        {
+            return; // 현재 화면의 파일 상태 변경 차단
+        }
+        else if ([403, 404].includes(error.status)) // 채널 접근 상실
+        {
+            channel.feed.block(error); // 기존 기록과 조회 폐기
+        }
+        else // 일반 실패 또는 불확실한 결과
+        {
+            byId("channel-file-status").textContent = error.message || "파일 결과를 확인하지 못했습니다."; // 실제 실패 안내
+        }
+    }
+    finally // 현재 요청의 잠금만 해제
+    {
+        if (sendRequest === fileRequest) // 동일한 전송 여부
+        {
+            sendRequest = null; // 공통 전송 잠금 해제
+            updateComposer(); // 현재 입력 상태 복구
         }
     }
 }
@@ -747,14 +871,18 @@ async function requestEndpoint(path, body = null, signal = null, method = null) 
     {
         headers["X-Expected-User-Id"] = currentUser.id; // 다른 탭 계정 변경의 서버 사전 검사
     }
+    const multipart = typeof FormData !== "undefined" && body instanceof FormData; // 브라우저 multipart 본문 여부
     if (body !== null) // 실제 상태 변경 요청 여부
     {
-        headers["Content-Type"] = "application/json"; // 표준 JSON 요청 형식
+        if (!multipart) // JSON 본문 여부
+        {
+            headers["Content-Type"] = "application/json"; // 표준 JSON 요청 형식
+        }
         headers["X-CSRF-Token"] = csrfToken; // 메모리의 최신 보호 토큰
     }
     try // 응답과 실패 정보 확인
     {
-        const response = await fetch(path, { method: method || (body === null ? "GET" : "POST"), credentials: "same-origin", headers, body: body === null ? undefined : JSON.stringify(body), cache: "no-store", signal: requestController.signal }); // 기존 인증과 명시한 PATCH 요청
+        const response = await fetch(path, { method: method || (body === null ? "GET" : "POST"), credentials: "same-origin", headers, body: body === null ? undefined : multipart ? body : JSON.stringify(body), cache: "no-store", signal: requestController.signal }); // 기존 인증과 본문 형식 유지
         const payload = await response.json(); // 표준 JSON 응답 읽기
         if (!response.ok || payload.success !== true) // 서버 실패 응답 여부
         {
@@ -818,6 +946,8 @@ function clearSessionView(preserveDrafts = false) // 종료된 계정 자료 정
     serverManager.reset(); // 서버·영구 선택·진행 결과 수명 제거
     savedDrafts = preserveDrafts && currentUser ? { userId: currentUser.id, values: Object.fromEntries(Object.entries(channels).map(([channelId, channel]) => [channelId, channel.draft])) } : null; // 같은 계정 재로그인용 초안
     currentUser = null; // 이전 사용자 제거
+    directUI?.clear(); // 이전 개인 대화와 조회 수명 제거
+    friendsUI?.clear(); // 이전 친구와 요청 목록 제거
     csrfToken = null; // 이전 보호 정보 제거
     channelLoadVersion += 1; // 이전 채널 조회 무효화
     channelLoading = false; // 이전 채널 조회 상태 해제
@@ -826,6 +956,8 @@ function clearSessionView(preserveDrafts = false) // 종료된 계정 자료 정
     channels = Object.create(null); // 이전 계정 채널과 메시지 제거
     activeChannel = null; // 이전 채널 선택 제거
     messageInput.value = ""; // 이전 초안 표시 제거
+    byId("channel-file").value = ""; // 이전 계정의 선택 파일 제거
+    byId("channel-file-status").textContent = "최대 5 MiB"; // 이전 파일 상태 제거
     authForm.reset(); // 인증 입력 제거
     clearAuthErrors(); // 이전 인증 오류 제거
     renderChannels(); // 비운 채널 목록 표시
@@ -998,12 +1130,13 @@ async function submitAuth(uiEvent) // 실제 가입 또는 로그인 처리
 }
 async function logout() // 실제 로그인 세션 종료
 {
-    if (authBusy || authInitializing || sendRequest || !currentUser) // 중복 요청과 저장 진행 및 인증 상태 확인
+    if (authBusy || authInitializing || sendRequest || directUI?.isBusy() || !currentUser) // 중복 요청과 저장 진행 및 인증 상태 확인
     {
         return; // 처리할 수 없는 로그아웃 중단
     }
     authGeneration += 1; // 이전 사용자 조회 응답 무효화
     pauseMessageFeeds(); // 로그아웃 요청 전 기존 대화 조회 중단
+    directUI?.suspend(); // 개인 대화 조회와 알림 중단
     setAuthBusy(true); // 중복 로그아웃 요청 차단
     sessionNotice = "로그아웃 중…"; // 실제 요청 진행 안내
     renderAuthState(); // 사용자 영역 상태 갱신
@@ -1042,9 +1175,16 @@ async function logout() // 실제 로그인 세션 종료
         openAuth(); // 다시 로그인할 화면 표시
         showAuthError("세션이 만료되었습니다. 다시 로그인하세요."); // 만료 이유 접근성 안내
     }
-    else if (currentUser && channels[activeChannel]) // 로그아웃 실패로 기존 세션이 유지된 경우
+    else if (currentUser) // 로그아웃 실패로 기존 세션이 유지된 경우
     {
-        channels[activeChannel].feed.activate(); // 실제 남아 있는 계정의 조회 복구
+        if (directUI?.isActive()) // 개인 대화가 열린 상태
+        {
+            directUI.resume(); // 개인 대화 조회 복구
+        }
+        else if (channels[activeChannel]) // 기존 채널 화면
+        {
+            channels[activeChannel].feed.activate(); // 실제 남아 있는 계정의 조회 복구
+        }
     }
 }
 async function checkConnections() // 최초 세션과 실제 연결 확인
@@ -1112,6 +1252,38 @@ byId("retry-channels").addEventListener("click", loadChannels); // 소속 채널
 serverUI = mountServerUI({ manager: serverManager, byId, onDeparted: discardDepartedServer, onReload: loadChannels, onSelect: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 실제 관리 화면 연결
 channelUI = mountChannelUI({ manager: serverManager, byId, getChannel: () => activeChannel && channels[activeChannel] ? { ...channels[activeChannel], id: activeChannel } : null, hasChannel: (channelId) => Boolean(channels[channelId]), onDeleted: discardDeletedChannel, onReload: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest && !channelLoading && !channelError) }); // 실제 채널과 권한별 관리 연결
 profileUI = mountProfileUI({ manager: serverManager, byId, getUser: () => currentUser, onUser: applyProfile, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 기존 인증·요청 수명으로 본인 프로필 연결
+directUI = mountDirectUI({ byId, request: requestEndpoint, getUser: () => currentUser, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest), onError: serverFailure, createMessage, onBusyChange: updateComposer, onOpen: () => // 기존 채널과 개인 화면 분리
+{
+    if (channels[activeChannel]) // 현재 채널의 초안 존재
+    {
+        channels[activeChannel].draft = messageInput.value; // 채널 초안 보존
+        channels[activeChannel].scroll = messageScroll.scrollTop; // 채널 읽기 위치 보존
+    }
+    pauseMessageFeeds(); // 채널의 조회와 알림 중단
+    byId("channel-conversation").hidden = true; // 채널 화면 숨김
+    byId("direct-conversation").hidden = false; // 개인 화면 표시
+    renderChannels(); // 채널 선택 강조 해제
+    if (sidebarOpen) // 모바일 목록 열림 여부
+    {
+        setSidebar(false); // 대화 화면 복귀
+    }
+}, startRealtime: (conversationId, feed, userId) => // 개인 대화의 본문 없는 알림 연결
+{
+    if (!window.location || window.location.protocol !== "http:" || window.location.hostname !== "127.0.0.6" || typeof window.WebSocket !== "function") // 지원하는 로컬 실시간 환경
+    {
+        return null; // HTTP 조회 유지
+    }
+    const client = createRealtimeClient({ url: "ws://127.0.0.6:8090/Team006/realtime", WebSocketImpl: window.WebSocket, subscription: () => ({ conversation_id: conversationId, after_id: feed.after }), onStateChange: () => undefined, onMessage: () => // 현재 대화 커서로 구독
+    {
+        if (currentUser?.id === userId && feed.active && !feed.blocked) // 계정과 대화 수명 확인
+        {
+            feed.run(feed.loaded ? "after" : "initial"); // 권한 검사 후 신규 기록 조회
+        }
+    } }); // 알림 클라이언트 준비 끝
+    client.start(); // 개인 알림 연결
+    return client; // 대화 전환 시 종료할 연결
+} }); // 개인 대화 연결 끝
+friendsUI = mountFriendsUI({ byId, request: requestEndpoint, getUser: () => currentUser, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest), onOpen: (user) => directUI.startConversation(user), onError: serverFailure }); // 친구 요청과 개인 대화 연결
 document.addEventListener("visibilitychange", () => // 빈 서버를 포함한 창 복귀 갱신
 {
     if (document.visibilityState === "visible" && currentUser && !authInitializing && !serverManager.busy && !channelLoading) // 안정된 로그인 화면
@@ -1121,10 +1293,18 @@ document.addEventListener("visibilitychange", () => // 빈 서버를 포함한 �
 }); // 창 복귀 연결 끝
 byId("load-older").addEventListener("click", () => channels[activeChannel]?.feed.older()); // 현재 채널의 이전 기록 추가
 byId("retry-messages").addEventListener("click", () => channels[activeChannel]?.feed.activate()); // 확인하지 못한 대화 수동 재조회
-window.addEventListener("pagehide", pauseMessageFeeds); // 화면 종료 시 폴링과 진행 요청 정리
+window.addEventListener("pagehide", () => // 화면 종료 시 모든 대화 조회 정리
+{
+    pauseMessageFeeds(); // 채널 조회 중단
+    directUI?.suspend(); // 개인 조회 중단
+}); // 화면 종료 연결 끝
 window.addEventListener("pageshow", (uiEvent) => // 뒤로 가기 캐시에서 복구된 화면
 {
-    if (uiEvent.persisted && currentUser && channels[activeChannel]) // 로그인한 기존 채널 복구 여부
+    if (uiEvent.persisted && currentUser && directUI?.isActive()) // 복원된 개인 대화
+    {
+        directUI.resume(); // 개인 기록과 알림 복구
+    }
+    else if (uiEvent.persisted && currentUser && channels[activeChannel]) // 로그인한 기존 채널 복구 여부
     {
         channels[activeChannel].feed.activate(); // 남은 신규 기록 확인 재개
         startRealtime(activeChannel); // 현재 채널의 알림 연결 복구
@@ -1140,6 +1320,12 @@ messageInput.addEventListener("input", () => // 입력 수정 상태 처리
     updateComposer(); // 최신 초안과 글자 수 갱신
 }); // 입력 수정 처리 끝
 byId("message-form").addEventListener("submit", sendMessage); // 실제 메시지 저장 연결
+byId("channel-file").addEventListener("change", () => // 파일 선택 상태 반영
+{
+    byId("channel-file-status").textContent = byId("channel-file").files[0]?.name || "최대 5 MiB"; // 선택한 파일 이름 안내
+    updateComposer(); // 파일 전송 가능 여부 갱신
+}); // 파일 선택 처리 끝
+byId("channel-upload").addEventListener("click", sendChannelFile); // 사용자 명시적 파일 전송
 messageInput.addEventListener("keydown", (uiEvent) => // 키보드 전송 처리
 {
     if (uiEvent.key === "Enter" && !uiEvent.shiftKey && !uiEvent.isComposing && uiEvent.keyCode !== 229) // 한글 조합 제외 단독 Enter
@@ -1163,6 +1349,7 @@ messageScroll.addEventListener("scroll", () => // 사용자의 대화 읽기 위
 }); // 읽기 위치 추적 끝
 byId("new-messages").addEventListener("click", scrollToBottom); // 새 메시지로 직접 이동
 byId("sidebar-toggle").addEventListener("click", () => setSidebar(!sidebarOpen)); // 모바일 목록 전환
+byId("direct-sidebar-toggle").addEventListener("click", () => setSidebar(!sidebarOpen)); // 개인 화면의 모바일 목록 전환
 byId("sidebar-backdrop").addEventListener("click", () => setSidebar(false)); // 목록 바깥 클릭 닫기
 mobileQuery.addEventListener("change", () => setSidebar(false)); // 화면 크기 변경 시 목록 정리
 document.addEventListener("keydown", (uiEvent) => // 모바일 목록 키보드 제어
@@ -1178,7 +1365,7 @@ document.addEventListener("keydown", (uiEvent) => // 모바일 목록 키보드 
     }
     if (uiEvent.key === "Tab") // 목록 포커스 순환 여부
     {
-        const focusableButtons = [...byId("channel-sidebar").querySelectorAll("button:not([hidden]):not(:disabled)")]; // 사용 가능한 목록 버튼
+        const focusableButtons = [...byId("channel-sidebar").querySelectorAll("button:not([hidden]):not(:disabled), input:not([hidden]):not(:disabled)"), ...byId("friend-panel").querySelectorAll("button:not([hidden]):not(:disabled), input:not([hidden]):not(:disabled)")]; // 두 목록의 조작 가능한 요소
         const focusIndex = focusableButtons.indexOf(document.activeElement); // 현재 목록 포커스 위치
         if (focusableButtons.length === 0) // 초기 조회 중 사용할 버튼 없는 상태
         {

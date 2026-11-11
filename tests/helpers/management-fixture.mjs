@@ -34,7 +34,7 @@ export async function fixture(context) // 독립 공개 API 검사 환경
     const address = probe.address().port; // 배정된 포트
     await new Promise((resolve) => probe.close(resolve)); // 포트 예약 종료
     const origin = "http://127.0.0.1:" + address; // 공개 라우터 주소
-    server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + address, path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 PHP 웹 서버
+    server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "upload_max_filesize=6M", "-d", "post_max_size=7M", "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + address, path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 PHP 웹 서버
     function client() // 독립 회원 쿠키 경계
     {
         const session = { cookie: "", token: "", id: "" }; // 실제 인증 상태
@@ -98,5 +98,5 @@ export async function fixture(context) // 독립 공개 API 검사 환경
             await new Promise((resolve) => process.once("exit", resolve)); // 커밋 완료 확인
         }; // 해제 함수 종료
     }
-    return { root: projectRoot, env: serverEnvironment, php: phpBinary, sql, client, account, migrate, hold }; // 검사 경계 반환
+    return { root: projectRoot, env: serverEnvironment, php: phpBinary, origin, sql, client, account, migrate, hold }; // 검사 경계 반환
 }

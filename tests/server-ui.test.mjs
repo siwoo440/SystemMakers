@@ -17,7 +17,7 @@ function element() // DOM 입출력 경계
     }; // 닫기 경계 종료
     return item; // 최소 DOM 요소
 }
-function setup(request, name = "검증 서버", onDeparted = () => undefined, onReload = async () => undefined) // 실제 모듈과 외부 DOM 연결
+function setup(request, name = "검증 서버", onDeparted = () => undefined, onReload = async () => undefined, address = "https://example.test/Team006/index.html") // 실제 모듈과 외부 DOM 연결
 {
     const elements = new Map(); // 식별자별 요소
     const byId = (id) => // 동일 요소 재사용
@@ -29,12 +29,70 @@ function setup(request, name = "검증 서버", onDeparted = () => undefined, on
         return elements.get(id); // 현재 화면 요소
     }; // 조회 경계 종료
     globalThis.document = { createElement: element }; // 서버 버튼 생성 경계
+    globalThis.location = new URL(address); // 현재 페이지의 같은 출처 주소
+    globalThis.history = { state: null, replaceState: (_state, _title, url) => globalThis.location = new URL(url, globalThis.location) }; // 주소 표시 정리 경계
     let ui; // 실제 화면 연결
     const manager = new ServerManager({ request, getUser: () => ({ id: "1" }), onChange: () => ui?.render() }); // 실제 수명 상태
     Object.assign(manager, { identity: "1", selected: "1", servers: [{ id: "1", name, owner_id: "1", role: "owner" }] }); // 확인된 소속 자료
     ui = mountServerUI({ manager, byId, onDeparted, onReload, onSelect: async () => undefined, onError: async (error) => error.message, isReady: () => true }); // 실제 작업 핸들러
     return { byId, ui }; // 관측할 DOM 경계
 }
+test("공유 링크는 새로고침 후에도 명시적 참여 전 요청을 보내지 않음", async () => // 방문만으로 가입되는 오류 차단
+{
+    const requests = []; // 서버 변경 요청 관측
+    const code = "a".repeat(64); // 발급된 코드 형식
+    const address = "https://example.test/Team006/index.html#invite=" + code; // 같은 출처 공유 주소
+    setup(async (path, body) => requests.push({ path, body }), "검증 서버", () => undefined, async () => undefined, address); // 첫 방문
+    const testHarness = setup(async (path, body) => // 새로고침 뒤 실제 제출 경계
+    {
+        requests.push({ path, body }); // 변경 요청 기록
+        return { server: { id: "2" } }; // 참여 성공 응답
+    }, "검증 서버", () => undefined, async () => undefined, address); // 재방문 화면
+    testHarness.ui.render(); // 로그인된 화면 표시
+    assert.equal(requests.length, 0); // 자동 가입 요청 없음
+    assert.match(testHarness.byId("server-status").textContent, /초대/); // 대기 초대 안내
+    await testHarness.byId("join-server").fire("click"); // 사용자의 참여 화면 선택
+    assert.equal(testHarness.byId("server-value").value, code); // 확인 가능한 코드 입력
+    assert.equal(globalThis.location.hash, ""); // 화면 표시 뒤 주소 정리
+    assert.equal(requests.length, 0); // 확인 화면에서도 자동 가입 없음
+    await testHarness.byId("server-form").fire("submit"); // 사용자의 최종 참여 확인
+    assert.equal(requests.length, 1); // 한 번의 변경 요청
+    assert.match(requests[0].path, /join_server\.php$/); // 기존 참여 API
+    assert.deepEqual(requests[0].body, { code }); // 본문으로만 코드 전달
+}); // 공유 링크 참여 검사 끝
+test("발급한 공유 링크는 같은 출처와 fragment만 사용", async () => // 코드의 서버 요청 주소 노출 차단
+{
+    const code = "b".repeat(64); // 발급된 코드 형식
+    const testHarness = setup(async (path) => path.includes("get_server_invite") ? { invite: { active: false } } : { code, expires_at: "2026-10-22T00:00:00Z" }, "검증 서버", () => undefined, async () => undefined, "https://example.test/Team006/index.html?unrelated=1"); // 실제 발급 응답
+    await testHarness.byId("invite-server").fire("click"); // 초대 관리 화면
+    testHarness.byId("server-check").checked = true; // 재발급 확인
+    await testHarness.byId("server-form").fire("submit"); // 명시적 코드 발급
+    assert.equal(testHarness.byId("invite-link").value, "https://example.test/Team006/index.html#invite=" + code); // 공유 주소와 코드 위치
+    testHarness.byId("server-dialog").close(); // 민감한 화면 종료
+    assert.equal(testHarness.byId("invite-link").value, ""); // 공유 주소 원문 제거
+}); // 발급 링크 검사 끝
+test("초대 폐기는 발급한 링크 원문과 복사 기능도 제거", async () => // 폐기된 링크의 계속 공유 차단
+{
+    const testHarness = setup(async (path) => // 초대 상태와 변경 응답
+    {
+        if (path.includes("get_server_invite")) // 현재 초대 상태
+        {
+            return { invite: { active: false } }; // 초기 미발급 상태
+        }
+        if (path.includes("create_server_invite")) // 명시적 발급
+        {
+            return { code: "c".repeat(64), expires_at: "2026-10-22T00:00:00Z" }; // 발급 원문과 만료
+        }
+        return { revoked: true }; // 폐기 결과
+    }); // 요청 경계 연결 끝
+    await testHarness.byId("invite-server").fire("click"); // 초대 관리 진입
+    testHarness.byId("server-check").checked = true; // 발급 확인
+    await testHarness.byId("server-form").fire("submit"); // 링크 발급
+    assert.equal(testHarness.byId("copy-invite-link").disabled, false); // 발급 링크 복사 가능
+    await testHarness.byId("revoke-invite").fire("click"); // 사용자 폐기 요청
+    assert.equal(testHarness.byId("invite-link").value, ""); // 폐기 링크 원문 제거
+    assert.equal(testHarness.byId("copy-invite-link").disabled, true); // 폐기 링크 복사 차단
+}); // 초대 폐기 검사 끝
 test("재발급 응답 유실 시 이전 원문 복사 차단", async () => // 무효 코드를 계속 공유하는 오류 차단
 {
     let issued = 0; // 네트워크 응답 순서
@@ -58,6 +116,8 @@ test("재발급 응답 유실 시 이전 원문 복사 차단", async () => // �
     await testHarness.byId("server-form").fire("submit"); // 응답 없는 재발급
     assert.equal(testHarness.byId("invite-code").value, ""); // 이전 원문 폐기
     assert.equal(testHarness.byId("copy-invite").disabled, true); // 무효 코드 복사 차단
+    assert.equal(testHarness.byId("invite-link").value, ""); // 이전 링크 폐기
+    assert.equal(testHarness.byId("copy-invite-link").disabled, true); // 무효 링크 복사 차단
 });
 test("서버 삭제 성공은 목록 재조회 전에 소속 자료 폐기", async () => // 후속 통신과 독립된 성공 경계
 {
