@@ -44,7 +44,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
             assert.match(html, /SystemMakers/); // 실제 프로젝트 화면 확인
             assert.match(html, /href=["'](?:\.\/)?frontend\/app\.css["']/); // 팀 폴더 기준 스타일 경로
             assert.match(html, /src=["'](?:\.\/)?frontend\/app\.js["']/); // 팀 폴더 기준 스크립트 경로
-            for (const file of ["app.css", "app.js", "message-feed.mjs", "server-manager.mjs", "server-ui.mjs", "channel-ui.mjs", "profile-ui.mjs", "realtime.mjs"]) // 실제 정적 자원 목록
+            for (const file of ["app.css", "app.js", "message-feed.mjs", "server-manager.mjs", "server-ui.mjs", "channel-ui.mjs", "profile-ui.mjs", "realtime.mjs", "dialog-dismiss.mjs"]) // 실제 정적 자원 목록
             {
                 const asset = await fetch(origin + "/Team006/frontend/" + file); // 팀 폴더 기준 상대 자원 요청
                 assert.equal(asset.status, 200, file); // 각 자원 응답 확인

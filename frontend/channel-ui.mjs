@@ -1,3 +1,4 @@
+import { bindBackdropDismiss } from "./dialog-dismiss.mjs"; // 바깥 클릭 닫기
 export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, onError, onDeleted = () => undefined, hasChannel = () => true }) // 실제 채널 관리 화면 연결
 {
     const managementDialog = byId("channel-dialog"); // 관리 대화상자
@@ -35,7 +36,7 @@ export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, o
         {
             byId(elementId).disabled = managementBusy; // 전송·계정 처리 중 관리 차단
         }
-        const deletionConfirmed = managementTarget && (managementMode !== "delete" || managementTarget.previewReady && managementInput.value.replace(/^\p{Z}+|\p{Z}+$/gu, "") === managementTarget.name); // API와 동일한 이름 확인
+        const deletionConfirmed = managementTarget && (managementMode !== "delete" || managementTarget.previewReady); // 삭제 대상 최신 조회 확인
         byId("channel-manage-submit").disabled = managementBusy || !managementAllowed || !deletionConfirmed; // 확인된 한 작업만 제출
         byId("channel-manage-close").disabled = manager.busy; // 결과 확인 전 닫기 제한
         if (managementDialog.open && (!manager.identity || !managementAllowed || managementTarget?.serverId !== manager.selected || managementTarget?.id && !hasChannel(managementTarget.id))) // 계정·소속·대상 상실
@@ -59,7 +60,7 @@ export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, o
     async function preview(requestViewVersion) // 고정된 채널의 현재 삭제 영향
     {
         managementTarget.previewReady = false; // 이전 이름 확인 무효화
-        managementInput.value = ""; // 새 확인 입력 요구
+        managementInput.value = ""; // 이전 입력 제거
         render(); // 미리보기 완료 전 삭제 차단
         const targetChannelId = managementTarget.id; // 다른 선택으로 바뀌지 않는 대상
         const responseData = await manager.execute("get_deletion_preview", null, { resource_type: "channel", resource_id: targetChannelId }); // 기존 공통 API
@@ -70,7 +71,7 @@ export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, o
         managementTarget.name = responseData.name; // 현재 서버 이름
         managementTarget.previewReady = true; // 실제 조회 성공
         byId("channel-manage-impact").textContent = `${managementTarget.serverName} / ${responseData.name} · 메시지 ${responseData.message_count}개. 조회 후 추가된 메시지도 영구 삭제될 수 있습니다.`; // 대상과 실제 영향
-        render(); // 최신 이름을 입력해야 활성화
+        render(); // 최신 대상 확인 뒤 활성화
     }
     async function open(nextOperation) // 선택 시점의 대상을 고정한 화면
     {
@@ -84,11 +85,15 @@ export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, o
         managementMode = nextOperation; // 이번 변경 종류
         managementTarget = { serverId: server.id, serverName: server.name, id: nextOperation === "create" ? null : channel.id, name: nextOperation === "create" ? "" : channel.title, previewReady: false }; // 문자열 자원 ID 보관
         const requestViewVersion = dialogVersion; // 이번 화면 수명
-        byId("channel-manage-title").textContent = { create: "채널 만들기", rename: "채널 이름 변경", delete: "채널 영구 삭제" }[nextOperation]; // 명시적 제목
-        byId("channel-manage-help").textContent = nextOperation === "delete" ? "이 채널과 대화가 영구 삭제됩니다. 현재 채널 이름을 그대로 입력하세요. 마지막 채널을 삭제해도 서버는 남습니다." : "채널 이름은 앞뒤 공백 정리 후 1~100자입니다. 같은 서버의 중복 이름은 사용할 수 없습니다."; // 영향과 입력 규칙
+        byId("channel-manage-title").textContent = { create: "채널 만들기", rename: "채널 이름 변경", delete: "채널 삭제" }[nextOperation]; // 명시적 제목
+        byId("channel-manage-help").textContent = nextOperation === "delete" ? "이 채널을 삭제하시겠습니까? 채널과 대화가 영구 삭제되며 서버는 유지됩니다." : "채널 이름은 앞뒤 공백 정리 후 1~100자입니다. 같은 서버의 중복 이름은 사용할 수 없습니다."; // 영향과 입력 규칙
         byId("channel-value-label").textContent = nextOperation === "delete" ? "삭제 확인 채널 이름" : "채널 이름"; // 항상 보이는 레이블
+        byId("channel-value-label").hidden = nextOperation === "delete"; // 삭제 시 이름 레이블 숨김
+        managementInput.hidden = nextOperation === "delete"; // 삭제 시 이름 입력 숨김
+        managementInput.required = nextOperation !== "delete"; // 생성·변경에만 입력 요구
         byId("channel-manage-impact").textContent = nextOperation === "create" ? `대상 서버: ${server.name}` : `${server.name} / ${managementTarget.name}`; // ID 대신 사용자 대상 안내
-        byId("channel-manage-submit").textContent = { create: "채널 생성", rename: "이름 저장", delete: "채널 영구 삭제 확인" }[nextOperation]; // 최종 실행 버튼
+        byId("channel-manage-close").textContent = nextOperation === "delete" ? "아니오" : "취소·닫기"; // 삭제 취소와 일반 닫기
+        byId("channel-manage-submit").textContent = { create: "채널 생성", rename: "이름 저장", delete: "네" }[nextOperation]; // 최종 실행 버튼
         managementInput.value = nextOperation === "rename" ? managementTarget.name : ""; // 변경할 이름만 미리 입력
         managementDialog.showModal(); // 배경 조작 차단
         render(); // 실제 권한과 처리 상태
@@ -103,7 +108,7 @@ export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, o
                 await failure(operationError, requestViewVersion); // 실패 시 삭제 차단 유지
             }
         }
-        if (requestViewVersion === dialogVersion && managementDialog.open) // 같은 화면의 입력 진입
+        if (requestViewVersion === dialogVersion && managementDialog.open && nextOperation !== "delete") // 입력이 필요한 같은 화면
         {
             managementInput.focus(); // 키보드 포커스
         }
@@ -118,7 +123,7 @@ export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, o
         }
         const requestViewVersion = dialogVersion; // 제출 당시 화면
         const currentMode = managementMode; // 응답 중 작업 종류 변경 방지
-        const managementOperations = { create: ["create_channel", { server_id: managementTarget.serverId, name: managementInput.value }], rename: ["update_channel", { channel_id: managementTarget.id, name: managementInput.value }], delete: ["delete_channel", { channel_id: managementTarget.id, confirm_name: managementInput.value }] }; // 허용한 요청 필드
+        const managementOperations = { create: ["create_channel", { server_id: managementTarget.serverId, name: managementInput.value }], rename: ["update_channel", { channel_id: managementTarget.id, name: managementInput.value }], delete: ["delete_channel", { channel_id: managementTarget.id, confirm_name: managementTarget.name }] }; // 허용한 요청 필드
         byId("channel-manage-error").textContent = ""; // 이전 실패 제거
         try // 자동 재전송 없는 관리 요청
         {
@@ -170,6 +175,7 @@ export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, o
     }
     managementInput.addEventListener("input", render); // 확인 이름 일치 검사
     byId("channel-manage-close").addEventListener("click", () => managementDialog.close()); // 취소 시 변경 없음
+    bindBackdropDismiss(managementDialog, () => !manager.busy); // 요청 중 닫기 보호
     managementDialog.addEventListener("cancel", (uiEvent) => // 요청 중 Escape 제한
     {
         if (manager.busy) // 실제 요청 진행

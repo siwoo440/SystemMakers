@@ -4,7 +4,7 @@ import { ServerManager } from "./server-manager.mjs"; // 실제 서버 소속 �
 import { mountServerUI } from "./server-ui.mjs"; // 명시적 관리 화면
 import { mountChannelUI } from "./channel-ui.mjs"; // 역할별 채널 관리 화면
 import { mountProfileUI } from "./profile-ui.mjs"; // 본인 정보 조회·사용자명 수정
-import { createRealtimeClient } from "./realtime.mjs"; // 인증된 새 메시지 알림
+import { createRealtimeClient, realtimeUrlForLocation } from "./realtime.mjs"; // 인증된 새 메시지 알림
 import { mountDirectUI } from "./direct-ui.mjs"; // 개인 대화 화면과 조회 수명
 import { mountFriendsUI } from "./friends-ui.mjs"; // 친구 요청과 목록 화면
 import { createAttachmentView, uploadAttachment } from "./attachments-ui.mjs"; // 첨부 조회와 명시적 전송
@@ -69,13 +69,14 @@ function pauseMessageFeeds() // 계정과 채널 전환 전 조회 중단
 }
 function startRealtime(channelId) // 선택 채널의 실시간 알림 연결
 {
-    if (!window.location || window.location.protocol !== "http:" || window.location.hostname !== "127.0.0.6" || typeof window.WebSocket !== "function") // 지원하는 로컬 실시간 환경 확인
+    const realtimeUrl = realtimeUrlForLocation(window.location); // 내부망 실시간 주소
+    if (!realtimeUrl || typeof window.WebSocket !== "function") // 지원하는 실시간 환경 확인
     {
         return; // 기존 주기 조회 유지
     }
     const channel = channels[channelId]; // 선택한 채널 상태
     const userId = currentUser?.id; // 연결을 시작한 사용자
-    realtimeClient = createRealtimeClient({ url: "ws://127.0.0.6:8090/Team006/realtime", WebSocketImpl: window.WebSocket, subscription: () => ({ channel_id: channelId, after_id: channel.feed.after }), onStateChange: (status) => // 현재 채널 커서로 구독
+    realtimeClient = createRealtimeClient({ url: realtimeUrl, WebSocketImpl: window.WebSocket, subscription: () => ({ channel_id: channelId, after_id: channel.feed.after }), onStateChange: (status) => // 현재 채널 커서로 구독
     {
         realtimeStatus = status; // 실제 연결 상태 보관
         updateHistoryControls(); // 조회 방식 화면 갱신
@@ -105,7 +106,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         {
             return; // 현재 화면 변경 차단
         }
-        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, name: messageEntry.user_id === currentUser?.id ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments?.get(messageEntry.id) })); // 본인 이름과 확인한 파일 표시
+        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, isOwn: messageEntry.user_id === currentUser?.id, name: messageEntry.user_id === currentUser?.id ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments?.get(messageEntry.id) })); // 작성자 구분과 확인한 파일 표시
         if (activeChannel !== channelId) // 현재 표시하지 않는 채널
         {
             channel.unread += feedChange.added; // 원래 채널의 새 메시지 수 유지
@@ -184,7 +185,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         {
             return; // 늦은 첨부 결과 무시
         }
-        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, name: messageEntry.user_id === userId ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments.get(messageEntry.id) })); // 메시지별 안전한 파일 정보
+        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, isOwn: messageEntry.user_id === userId, name: messageEntry.user_id === userId ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments.get(messageEntry.id) })); // 작성자 구분과 안전한 파일 정보
         const previousScrollTop = messageScroll.scrollTop; // 기존 읽는 위치
         messages.replaceChildren(...channel.messages.map(createMessage)); // 다운로드 링크 갱신
         messageScroll.scrollTop = previousScrollTop; // 읽던 위치 보존
@@ -235,7 +236,7 @@ function scrollToBottom() // 대화 하단 이동
 function createMessage(message) // HTML 실행 없는 저장 메시지 생성
 {
     const messageArticle = document.createElement("article"); // 메시지 묶음
-    messageArticle.className = "message"; // 메시지 배치 스타일
+    messageArticle.className = message.isOwn ? "message message--own" : "message"; // 작성자별 대화 배치
     const authorAvatar = document.createElement("div"); // 작성자 이니셜
     authorAvatar.className = "avatar avatar-teal"; // 작성자 아바타 스타일
     authorAvatar.setAttribute("aria-hidden", "true"); // 장식 중복 읽기 방지
@@ -281,6 +282,8 @@ function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
     byId("send-button").disabled = !composerAvailable || Boolean(sendRequest) || !hasText || characterCount > 2000 || containsNull; // 중복 제출과 잘못된 입력 차단
     byId("channel-file").disabled = !composerAvailable || Boolean(sendRequest) || Boolean(directUI?.isBusy()); // 권한 없는 파일 선택 차단
     byId("channel-upload").disabled = byId("channel-file").disabled || !byId("channel-file").files?.length; // 파일 미선택과 중복 전송 차단
+    byId("channel-file-clear").disabled = byId("channel-upload").disabled; // 선택과 전송 상태에 따른 취소 제한
+    byId("channel-file-clear").hidden = !byId("channel-file").files?.length; // 파일 선택 시에만 취소 표시
     byId("open-auth").disabled = authBusy || authInitializing || Boolean(sendRequest) || Boolean(directUI?.isBusy()); // 저장 결과 확인 전 계정 변경 차단
     byId("send-button").textContent = sendRequest ? "저장 중…" : "전송 ↗"; // 실제 저장 요청 상태
     byId("message-form").setAttribute("aria-busy", String(Boolean(sendRequest))); // 보조 기기 요청 상태
@@ -316,7 +319,6 @@ function renderChannels() // 실제 소속 채널 목록 생성
         return channelButton; // 완성한 탐색 버튼
     }); // 채널 버튼 생성 끝
     channelList.replaceChildren(...channelButtons); // 이전 계정 목록 제거 후 교체
-    byId("channel-count").textContent = String(channelButtons.length).padStart(2, "0"); // 실제 채널 수
     byId("channel-status").hidden = channelButtons.length > 0 && !channelLoading && !channelError; // 비어 있거나 실패한 목록 안내
     byId("channel-status").textContent = !currentUser ? "로그인 후 참여 채널이 표시됩니다." : channelLoading ? "채널을 확인하는 중입니다." : channelError || (serverManager.selected ? emptyChannelHint() : "서버를 만들거나 초대 코드로 참여하세요."); // 빈 서버와 미소속 구분
     byId("retry-channels").hidden = !currentUser || !channelError; // 조회 실패 시 재시도 제공
@@ -623,6 +625,16 @@ async function sendMessage(uiEvent) // 실제 데이터베이스 메시지 저�
             showNewMessages(); // 현재 채널 새 메시지 안내
         }
     }
+}
+function clearChannelFile() // 채널의 선택 파일 취소
+{
+    if (byId("channel-file-clear").disabled) // 전송 중 또는 선택 없음
+    {
+        return; // 진행 중 전송 보존
+    }
+    byId("channel-file").value = ""; // 선택한 파일만 제거
+    byId("channel-file-status").textContent = "최대 5 MiB"; // 기본 파일 안내 복구
+    updateComposer(); // 취소와 전송 상태 갱신
 }
 async function sendChannelFile() // 선택한 채널 파일 전송
 {
@@ -1269,11 +1281,12 @@ directUI = mountDirectUI({ byId, request: requestEndpoint, getUser: () => curren
     }
 }, startRealtime: (conversationId, feed, userId) => // 개인 대화의 본문 없는 알림 연결
 {
-    if (!window.location || window.location.protocol !== "http:" || window.location.hostname !== "127.0.0.6" || typeof window.WebSocket !== "function") // 지원하는 로컬 실시간 환경
+    const realtimeUrl = realtimeUrlForLocation(window.location); // 내부망 실시간 주소
+    if (!realtimeUrl || typeof window.WebSocket !== "function") // 지원하는 실시간 환경
     {
         return null; // HTTP 조회 유지
     }
-    const client = createRealtimeClient({ url: "ws://127.0.0.6:8090/Team006/realtime", WebSocketImpl: window.WebSocket, subscription: () => ({ conversation_id: conversationId, after_id: feed.after }), onStateChange: () => undefined, onMessage: () => // 현재 대화 커서로 구독
+    const client = createRealtimeClient({ url: realtimeUrl, WebSocketImpl: window.WebSocket, subscription: () => ({ conversation_id: conversationId, after_id: feed.after }), onStateChange: () => undefined, onMessage: () => // 현재 대화 커서로 구독
     {
         if (currentUser?.id === userId && feed.active && !feed.blocked) // 계정과 대화 수명 확인
         {
@@ -1326,6 +1339,7 @@ byId("channel-file").addEventListener("change", () => // 파일 선택 상태 �
     updateComposer(); // 파일 전송 가능 여부 갱신
 }); // 파일 선택 처리 끝
 byId("channel-upload").addEventListener("click", sendChannelFile); // 사용자 명시적 파일 전송
+byId("channel-file-clear").addEventListener("click", clearChannelFile); // 선택 파일 취소
 messageInput.addEventListener("keydown", (uiEvent) => // 키보드 전송 처리
 {
     if (uiEvent.key === "Enter" && !uiEvent.shiftKey && !uiEvent.isComposing && uiEvent.keyCode !== 229) // 한글 조합 제외 단독 Enter

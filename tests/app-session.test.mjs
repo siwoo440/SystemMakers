@@ -5,6 +5,7 @@ import vm from "node:vm"; // 독립 브라우저 실행 영역
 import { MessageFeed } from "../frontend/message-feed.mjs"; // 실제 메시지 상태 관리
 import { ServerManager } from "../frontend/server-manager.mjs"; // 실제 서버 소속 상태
 import { createAttachmentView, uploadAttachment } from "../frontend/attachments-ui.mjs"; // 실제 파일 화면 경계
+import { realtimeUrlForLocation } from "../frontend/realtime.mjs"; // 실시간 주소 검사
 const source = readFileSync(new URL("../frontend/app.js", import.meta.url), "utf8"); // 검사 대상 원본
 const noChange = () => undefined; // 상태 변화 없는 브라우저 경계
 function element() // 브라우저 요소의 외부 경계
@@ -27,7 +28,7 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
         }
     }
     const context = vm.createContext({ // 독립 화면 전역 준비
-        MessageFeed: BrowserFeed, ServerManager, createAttachmentView, uploadAttachment, AbortController, URLSearchParams, FormData, File, Date, console, // 실제 상태 모듈과 표준 도구
+        MessageFeed: BrowserFeed, ServerManager, createAttachmentView, uploadAttachment, realtimeUrlForLocation, AbortController, URLSearchParams, FormData, File, Date, console, // 실제 상태 모듈과 표준 도구
         window: { matchMedia: () => ({ matches: false }), setTimeout: setTimer, clearTimeout: clearTimer }, // 화면 크기와 시계 경계
         document: { getElementById: (id) => // 식별자별 동일 요소 반환
         {
@@ -64,6 +65,18 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
     const send = () => evaluate("sendMessage({ preventDefault: () => undefined })"); // 실제 폼 제출 경로
     return { calls, evaluate, state, send, stop: () => evaluate("pauseMessageFeeds()") }; // 검사 경계 반환
 }
+test("채널에서 선택한 파일을 전송 전에 취소", (context) => // 파일 선택 취소 동작
+{
+    const harness = setup(() => ({ status: 200, data: {} })); // 로그인된 채널 준비
+    context.after(harness.stop); // 예약 정리
+    harness.evaluate('var chosenFiles = [new File(["data"], "예시.txt")]; Object.defineProperty(byId("channel-file"), "files", { get: () => chosenFiles }); Object.defineProperty(byId("channel-file"), "value", { set: (value) => { if (value === "") chosenFiles = []; } }); updateComposer();'); // 실제 선택 상태 모의
+    assert.equal(harness.evaluate('byId("channel-file-clear").disabled'), false); // 취소 가능 상태
+    harness.evaluate('clearChannelFile()'); // 사용자 취소 동작
+    assert.equal(harness.evaluate('byId("channel-file").files.length'), 0); // 선택 파일 제거
+    assert.equal(harness.evaluate('byId("channel-upload").disabled'), true); // 파일 전송 차단
+    assert.equal(harness.evaluate('byId("channel-file-status").textContent'), "최대 5 MiB"); // 안내 복구
+    assert.equal(harness.calls.length, 0); // 서버 요청 없음
+}); // 채널 파일 취소 검사 끝
 test("파일 본문은 보호 헤더를 유지하며 multipart로 직접 전송", async (context) => // 파일 본문의 JSON 변환과 경계 누락 차단
 {
     const harness = setup(() => ({ status: 200, data: { saved: true } })); // 성공 응답 경계
@@ -209,6 +222,8 @@ test("프로필 반영은 본인 메시지 이름만 갱신·초안·기록·커
     assert.deepEqual(testHarness.state(), { userId: "1", channelIds: ["1"], draft: "A private draft" }); // 계정·목록·초안 보존
     assert.equal(testHarness.evaluate('channels["1"].messages[0].name'), "new_name"); // 본인 표시 이름
     assert.equal(testHarness.evaluate('channels["1"].messages[1].name'), "other_user"); // 타인 이름 유지
+    assert.equal(testHarness.evaluate('channels["1"].messages[0].isOwn'), true); // 본인 대화 표시 구분
+    assert.equal(testHarness.evaluate('channels["1"].messages[1].isOwn'), false); // 상대방 대화 표시 구분
     assert.equal(testHarness.evaluate('channels["1"].feed.list()[0].username'), "new_name"); // 캐시 이름 갱신
     assert.equal(testHarness.evaluate('channels["1"].feed.after'), "2"); // 신규 커서 유지
     assert.equal(testHarness.evaluate('channels["1"].feed.oldest'), "1"); // 과거 커서 유지

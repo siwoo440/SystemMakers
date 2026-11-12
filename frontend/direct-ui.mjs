@@ -46,6 +46,8 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         byId("direct-send").disabled = input.disabled || Boolean(sending) || !validContent; // 중복과 빈 내용 차단
         byId("direct-file").disabled = input.disabled || Boolean(sending); // 권한 없는 파일 선택 차단
         byId("direct-upload").disabled = byId("direct-file").disabled || !byId("direct-file").files?.length; // 파일 미선택과 중복 전송 차단
+        byId("direct-file-clear").disabled = byId("direct-upload").disabled; // 전송 중 선택 취소 차단
+        byId("direct-file-clear").hidden = !byId("direct-file").files?.length; // 파일 선택 시에만 취소 표시
         byId("direct-older").hidden = !selected || !feeds.get(selected.id)?.hasOlder; // 과거 기록 존재 여부
         if (ready && identity !== getUser().id) // 새 계정의 최초 목록 확인
         {
@@ -143,7 +145,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 const previousTop = scroll.scrollTop; // 현재 읽는 위치
                 const previousHeight = scroll.scrollHeight; // 이전 기록 높이
                 const nearBottom = previousHeight - previousTop - scroll.clientHeight <= 80; // 최신 기록을 읽는 상태
-                byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 안전한 기록과 파일 표시
+                byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ isOwn: message.user_id === userId, name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 작성자 구분과 안전한 파일 표시
                 scroll.scrollTop = change.kind === "before" ? previousTop + scroll.scrollHeight - previousHeight : change.kind === "initial" || (change.kind === "after" && nearBottom) || change.kind === "send" ? scroll.scrollHeight : previousTop; // 이전 위치와 최신 기록 이동
                 byId("direct-status").textContent = feed.error ? "대화를 불러오지 못했습니다. 다시 확인하는 중입니다." : feed.loaded ? "대화 자동 갱신 중" : "대화를 불러오는 중입니다."; // 실제 조회 상태
                 render(); // 입력과 과거 버튼 갱신
@@ -159,7 +161,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 {
                     return; // 이전 파일 결과 무시
                 }
-                byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 확인된 다운로드 링크 표시
+                byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ isOwn: message.user_id === userId, name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 작성자 구분과 다운로드 링크 표시
             }, onError: (error) => // 실제 첨부 조회 실패
             {
                 if (version !== requestVersion || getUser()?.id !== userId || !active || selected?.id !== conversation.id) // 이전 대화의 실패
@@ -180,7 +182,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 }
             } })); // 개인 첨부 조회 연결 끝
         }
-        byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 기존 상대방 기록만 표시
+        byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ isOwn: message.user_id === userId, name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 작성자 구분과 기존 대화 표시
         renderList(); // 선택 상태 갱신
         render(); // 현재 입력 상태
         const loading = feed.activate(); // 최초 조회와 이후 자동 갱신
@@ -330,6 +332,16 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         byId("direct-file-status").textContent = byId("direct-file").files[0]?.name || "최대 5 MiB"; // 선택한 파일 이름 안내
         render(); // 파일 전송 가능 여부 갱신
     }); // 파일 선택 처리 끝
+    byId("direct-file-clear").addEventListener("click", () => // 선택한 개인 파일 취소
+    {
+        if (byId("direct-file-clear").disabled) // 전송 중 또는 선택 없음
+        {
+            return; // 진행 중 전송 보존
+        }
+        byId("direct-file").value = ""; // 선택한 파일만 제거
+        byId("direct-file-status").textContent = "최대 5 MiB"; // 기본 파일 안내 복구
+        render(); // 취소와 전송 상태 갱신
+    }); // 선택 취소 연결 끝
     byId("direct-upload").addEventListener("click", async () => // 명시적 개인 파일 전송
     {
         render(); // 계정과 전송 가능 여부 확인

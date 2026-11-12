@@ -15,7 +15,10 @@ try // 설정과 서버의 안전한 시작
     $listenHost = getenv('REALTIME_LISTEN_HOST') ?: '127.0.0.6'; // 기본 로컬 수신 주소
     $listenPort = getenv('REALTIME_LISTEN_PORT') ?: '8090'; // 기본 실시간 포트
     $allowedOrigin = getenv('REALTIME_ALLOWED_ORIGIN') ?: 'http://127.0.0.6:8088'; // 명시된 브라우저 출처
-    if (filter_var($listenHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false || !str_starts_with($listenHost, '127.') || !preg_match('/\A[0-9]{1,5}\z/D', $listenPort) || (int) $listenPort < 1 || (int) $listenPort > 65535 || !preg_match('/\Ahttps?:\/\/[a-zA-Z0-9.-]+(?::[0-9]{1,5})?\z/D', $allowedOrigin)) // 수신과 출처 설정 형식 검사
+    $hostOctets = array_map('intval', explode('.', $listenHost)); // IPv4 네트워크 구간
+    $isPrivateHost = count($hostOctets) === 4 && ($hostOctets[0] === 10 || ($hostOctets[0] === 172 && $hostOctets[1] >= 16 && $hostOctets[1] <= 31) || ($hostOctets[0] === 192 && $hostOctets[1] === 168)); // 사설 주소 확인
+    $allowPrivateHost = getenv('REALTIME_ALLOW_LAN') === '1' && $isPrivateHost; // 명시된 내부망 수신
+    if (filter_var($listenHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false || (!str_starts_with($listenHost, '127.') && !$allowPrivateHost) || !preg_match('/\A[0-9]{1,5}\z/D', $listenPort) || (int) $listenPort < 1 || (int) $listenPort > 65535 || !preg_match('/\Ahttps?:\/\/[a-zA-Z0-9.-]+(?::[0-9]{1,5})?\z/D', $allowedOrigin)) // 수신과 출처 설정 형식 검사
     {
         throw new RuntimeException('Invalid realtime configuration.'); // 잘못된 실행 설정 차단
     }

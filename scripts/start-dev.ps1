@@ -3,7 +3,8 @@ param # 개발 서버 인수
     [int]$port = 8088, # 로컬 웹 포트
     [string]$phpPath = '', # 별도 PHP 실행 경로
     [string]$phpIni = '', # PHP 8.3 실행 설정 경로
-    [string]$webHost = '127.0.0.6' # 웹 서버 로컬 주소
+    [string]$webHost = '127.0.0.6', # 웹 서버 로컬 주소
+    [switch]$allowLan # 사설망 접속 명시 허용
 ) # 인수 목록 종료
 $ErrorActionPreference = 'Stop' # 실행 오류 즉시 중단
 $siteProjectRoot = Split-Path -Parent $PSScriptRoot # 저장소 루트 계산
@@ -29,11 +30,18 @@ if ($port -lt 1024 -or $port -gt 65535) # 웹 포트 범위 확인
     throw '웹 포트는 1024~65535 사이여야 합니다.' # 포트 입력 오류 안내
 }
 $webAddress = [Net.IPAddress]::None # 웹 주소 변환 결과
-if (-not [Net.IPAddress]::TryParse($webHost, [ref]$webAddress) -or $webAddress.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork -or -not [Net.IPAddress]::IsLoopback($webAddress)) # IPv4 로컬 주소 검사
+if (-not [Net.IPAddress]::TryParse($webHost, [ref]$webAddress) -or $webAddress.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) # IPv4 주소 검사
 {
-    throw '웹 주소는 127.0.0.6과 같은 IPv4 루프백 주소여야 합니다.' # 외부 공개와 잘못된 주소 차단
+    throw '유효한 IPv4 주소를 지정하세요.' # 잘못된 주소 차단
+}
+$webOctets = $webAddress.GetAddressBytes() # IPv4 네트워크 구간
+$webPrivate = $webOctets[0] -eq 10 -or ($webOctets[0] -eq 172 -and $webOctets[1] -ge 16 -and $webOctets[1] -le 31) -or ($webOctets[0] -eq 192 -and $webOctets[1] -eq 168) # 사설 주소 확인
+if (-not [Net.IPAddress]::IsLoopback($webAddress) -and (-not $allowLan -or -not $webPrivate)) # 명시적 사설망 허용 확인
+{
+    throw '사설 IPv4 주소는 -AllowLan 지정 시에만 사용할 수 있습니다.' # 공개 주소 차단
 }
 $webHost = $webAddress.ToString() # 검사된 웹 주소 표준화
+$env:REALTIME_PUBLIC_HOST = $webHost # 보안 정책의 실시간 호스트
 $sitePortProbe = [Net.Sockets.TcpListener]::new($webAddress, $port) # 실제 웹 주소의 포트 검사
 try # 포트 사용 가능 여부 확인
 {

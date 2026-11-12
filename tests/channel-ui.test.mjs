@@ -7,7 +7,7 @@ function element() // 최소 DOM 입출력 경계
     const events = new Map(); // 실제 등록 핸들러
     const item = { value: "", textContent: "", disabled: false, hidden: false, open: false, required: false, focus: () => undefined, reportValidity: () => true }; // 브라우저 상태
     item.addEventListener = (name, handler) => events.set(name, handler); // 이벤트 보관
-    item.fire = (name) => events.get(name)?.({ preventDefault: () => undefined }); // 사용자 조작
+    item.fire = (name, event = { preventDefault: () => undefined }) => events.get(name)?.(event); // 사용자 조작
     item.showModal = () => item.open = true; // 명시적 대화상자
     item.close = () => // 실제 닫기 이벤트
     {
@@ -42,6 +42,17 @@ function setup(request, role = "owner", initial = { id: "2", title: "개발", se
     } }); // 실제 화면 초기화
     return { ui, manager, byId, deleted, reloads: () => reloads, failures: () => failures, select: (value) => active = value, changeUser: (value) => user = value }; // 검사 제어 경계
 }
+test("채널 관리 창 바깥 클릭은 입력을 정리하고 닫음", async () => // 실제 관리 창 연결
+{
+    const testHarness = setup(async () => ({})); // 관리자 화면
+    await testHarness.byId("create-channel").fire("click"); // 채널 만들기 열기
+    const dialog = testHarness.byId("channel-dialog"); // 실제 관리 창
+    dialog.getBoundingClientRect = () => ({ left: 20, right: 120, top: 20, bottom: 120 }); // 창의 화면 경계
+    testHarness.byId("channel-value").value = "작성 중"; // 저장하지 않은 입력
+    dialog.fire("click", { target: dialog, clientX: 10, clientY: 10 }); // 창 바깥 선택
+    assert.equal(dialog.open, false); // 실제 창 닫힘
+    assert.equal(testHarness.byId("channel-value").value, ""); // 입력 정리
+}); // 채널 창 닫기 검사 끝
 test("일반 회원 관리 버튼 숨김과 빈 서버의 관리자 생성", () => // 권한과 빈 서버 진입
 {
     const member = setup(async () => ({}), "member"); // 일반 소속
@@ -84,11 +95,10 @@ test("삭제 이름 변경은 같은 대상의 새 미리보기 요구", async (
         throw Object.assign(new Error("이름 불일치"), { status: 409, code: "NAME_MISMATCH" }); // 실제 삭제 거절
     }); // 네트워크 경계 끝
     await testHarness.byId("delete-channel").fire("click"); // 첫 미리보기
-    testHarness.byId("channel-value").value = "개발"; // 당시 이름 확인
     await testHarness.byId("channel-manage-form").fire("submit"); // 삭제 요청
     assert.deepEqual(ids, ["2", "2"]); // 같은 대상 재조회
-    assert.equal(testHarness.byId("channel-value").value, ""); // 이전 확인 폐기
-    assert.equal(testHarness.byId("channel-manage-submit").disabled, true); // 새 명시적 확인
+    assert.equal(testHarness.byId("channel-dialog").open, true); // 다시 확인할 창 유지
+    assert.equal(testHarness.byId("channel-manage-submit").textContent, "네"); // 새 명시적 확인
 });
 test("미리보기 실패는 삭제 차단·취소는 변경 요청 없음", async () => // 미확인 영향으로 삭제 방지
 {
@@ -105,14 +115,24 @@ test("미리보기 실패는 삭제 차단·취소는 변경 요청 없음", asy
     await testHarness.byId("channel-manage-close").fire("click"); // 취소
     assert.equal(calls, 1); // 삭제 자동 재전송 없음
 });
-test("구분 공백과 FEFF 이름의 삭제 확인은 API와 동일", async () => // 유효한 이름을 삭제할 수 있는 상태
+test("채널 삭제는 네 버튼으로 최신 이름을 보내고 아니오는 취소", async () => // 확인·취소와 API 호환
 {
     const name = "\uFEFF개발"; // API가 보존하는 이름
-    const testHarness = setup(async () => ({ name, message_count: "0" }), "owner", { id: "2", title: name, serverId: "1" }); // 실제 채널
+    const calls = []; // 전송 요청 목록
+    const testHarness = setup(async (path, body) => // 미리보기와 삭제 응답
+    {
+        calls.push({ path, body }); // 실제 요청 기록
+        return path.includes("get_deletion_preview") ? { name, message_count: "0" } : { channel_id: "2", deleted: true }; // 확인 대상과 결과
+    }, "owner", { id: "2", title: name, serverId: "1" }); // 실제 채널
     await testHarness.byId("delete-channel").fire("click"); // 영향 확인
-    testHarness.byId("channel-value").value = "　" + name + "　"; // 유니코드 구분 공백
-    testHarness.ui.render(); // 삭제 확인 조건
-    assert.equal(testHarness.byId("channel-manage-submit").disabled, false); // 정확한 이름 허용
+    assert.equal(testHarness.byId("channel-value").hidden, true); // 이름 입력 숨김
+    assert.equal(testHarness.byId("channel-manage-close").textContent, "아니오"); // 취소 버튼 이름
+    assert.equal(testHarness.byId("channel-manage-submit").textContent, "네"); // 삭제 버튼 이름
+    await testHarness.byId("channel-manage-close").fire("click"); // 삭제 취소
+    assert.equal(calls.length, 1); // 취소 시 삭제 요청 없음
+    await testHarness.byId("delete-channel").fire("click"); // 같은 채널 재확인
+    await testHarness.byId("channel-manage-form").fire("submit"); // 네 버튼 제출
+    assert.deepEqual(calls.at(-1).body, { channel_id: "2", confirm_name: name }); // 조회한 정확한 이름 전달
 });
 test("이전 계정의 지연 실패는 새 화면 오류로 전달하지 않음", async () => // 늦은 응답의 계정 혼합 차단
 {

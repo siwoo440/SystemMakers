@@ -37,6 +37,17 @@ function setup(request, name = "검증 서버", onDeparted = () => undefined, on
     ui = mountServerUI({ manager, byId, onDeparted, onReload, onSelect: async () => undefined, onError: async (error) => error.message, isReady: () => true }); // 실제 작업 핸들러
     return { byId, ui }; // 관측할 DOM 경계
 }
+test("서버 관리 창 바깥 클릭은 입력을 정리하고 닫음", async () => // 실제 관리 창 연결
+{
+    const testHarness = setup(async () => ({})); // 로그인한 서버 화면
+    await testHarness.byId("create-server").fire("click"); // 서버 만들기 열기
+    const dialog = testHarness.byId("server-dialog"); // 실제 관리 창
+    dialog.getBoundingClientRect = () => ({ left: 20, right: 120, top: 20, bottom: 120 }); // 창의 화면 경계
+    testHarness.byId("server-value").value = "작성 중"; // 저장하지 않은 입력
+    dialog.fire("click", { target: dialog, clientX: 10, clientY: 10 }); // 창 바깥 선택
+    assert.equal(dialog.open, false); // 실제 창 닫힘
+    assert.equal(testHarness.byId("server-value").value, ""); // 입력 정리
+}); // 서버 창 닫기 검사 끝
 test("공유 링크는 새로고침 후에도 명시적 참여 전 요청을 보내지 않음", async () => // 방문만으로 가입되는 오류 차단
 {
     const requests = []; // 서버 변경 요청 관측
@@ -65,7 +76,8 @@ test("발급한 공유 링크는 같은 출처와 fragment만 사용", async () 
     const code = "b".repeat(64); // 발급된 코드 형식
     const testHarness = setup(async (path) => path.includes("get_server_invite") ? { invite: { active: false } } : { code, expires_at: "2026-10-22T00:00:00Z" }, "검증 서버", () => undefined, async () => undefined, "https://example.test/Team006/index.html?unrelated=1"); // 실제 발급 응답
     await testHarness.byId("invite-server").fire("click"); // 초대 관리 화면
-    testHarness.byId("server-check").checked = true; // 재발급 확인
+    assert.equal(testHarness.byId("server-submit").textContent, "새 코드 발급 및 이전 코드 무효화"); // 발급 영향이 표시된 버튼
+    assert.equal(testHarness.byId("server-submit").disabled, false); // 별도 체크 없는 명시적 발급
     await testHarness.byId("server-form").fire("submit"); // 명시적 코드 발급
     assert.equal(testHarness.byId("invite-link").value, "https://example.test/Team006/index.html#invite=" + code); // 공유 주소와 코드 위치
     testHarness.byId("server-dialog").close(); // 민감한 화면 종료
@@ -86,7 +98,6 @@ test("초대 폐기는 발급한 링크 원문과 복사 기능도 제거", asyn
         return { revoked: true }; // 폐기 결과
     }); // 요청 경계 연결 끝
     await testHarness.byId("invite-server").fire("click"); // 초대 관리 진입
-    testHarness.byId("server-check").checked = true; // 발급 확인
     await testHarness.byId("server-form").fire("submit"); // 링크 발급
     assert.equal(testHarness.byId("copy-invite-link").disabled, false); // 발급 링크 복사 가능
     await testHarness.byId("revoke-invite").fire("click"); // 사용자 폐기 요청
@@ -109,10 +120,8 @@ test("재발급 응답 유실 시 이전 원문 복사 차단", async () => // �
         throw new Error("응답 유실"); // 재발급 결과 불명확
     }); // 연결 종료
     await testHarness.byId("invite-server").fire("click"); // 초대 화면 열기
-    testHarness.byId("server-check").checked = true; // 첫 발급 확인
     await testHarness.byId("server-form").fire("submit"); // 실제 제출
     assert.equal(testHarness.byId("invite-code").value.length, 64); // 최초 원문 표시
-    testHarness.byId("server-check").checked = true; // 재발급 확인
     await testHarness.byId("server-form").fire("submit"); // 응답 없는 재발급
     assert.equal(testHarness.byId("invite-code").value, ""); // 이전 원문 폐기
     assert.equal(testHarness.byId("copy-invite").disabled, true); // 무효 코드 복사 차단
@@ -128,7 +137,7 @@ test("서버 삭제 성공은 목록 재조회 전에 소속 자료 폐기", asy
     await testHarness.byId("server-form").fire("submit"); // 삭제 커밋 응답 처리
     assert.deepEqual(events,["discard:1","reload"]); // 조회 실패 전 폐기 보장
 });
-test("삭제 이름 불일치는 새 미리보기와 빈 확인 입력 요구", async () => // 오래된 삭제 확인 재사용 방지
+test("삭제 이름 불일치는 새 미리보기 후 다시 확인", async () => // 오래된 삭제 확인 재사용 방지
 {
     let previews = 0; // 실제 미리보기 요청 수
     const testHarness = setup(async (path) => // 권한 있는 서버 응답
@@ -141,18 +150,40 @@ test("삭제 이름 불일치는 새 미리보기와 빈 확인 입력 요구", 
         throw Object.assign(new Error("현재 이름 확인 필요"), { status: 409, code: "NAME_MISMATCH" }); // 변경 사이의 이름 경합
     }); // 연결 종료
     await testHarness.byId("delete-server").fire("click"); // 삭제 영향 조회
-    testHarness.byId("server-value").value = "검증 서버"; // 이전 이름 확인
     await testHarness.byId("server-form").fire("submit"); // 실제 삭제 요청
     assert.equal(previews, 2); // 새 영향 재조회
-    assert.equal(testHarness.byId("server-value").value, ""); // 새 명시적 확인 필요
-    assert.equal(testHarness.byId("server-submit").disabled, true); // 오래된 확인 차단
+    assert.equal(testHarness.byId("server-dialog").open, true); // 새 확인 창 유지
+    assert.equal(testHarness.byId("server-submit").textContent, "네"); // 새 명시적 확인 필요
 });
-test("구분 공백이 아닌 FEFF를 포함한 실제 이름도 삭제 확인 가능", async () => // 브라우저와 API 정규화 일치
+test("서버 삭제는 네 버튼으로 최신 이름을 보내고 아니오는 취소", async () => // 확인·취소와 API 호환
 {
     const name = "\uFEFF검증 서버"; // API가 보존하는 실제 이름
-    const testHarness = setup(async () => ({ name, channel_count: "1", member_count: "1", message_count: "0" }), name); // 동일한 저장 이름
+    const calls = []; // 전송 요청 목록
+    const testHarness = setup(async (path, body) => // 미리보기와 삭제 응답
+    {
+        calls.push({ path, body }); // 실제 요청 기록
+        return path.includes("get_deletion_preview") ? { name, channel_count: "1", member_count: "1", message_count: "0" } : { server_id: "1", deleted: true }; // 확인한 대상과 결과
+    }, name); // 동일한 저장 이름
     await testHarness.byId("delete-server").fire("click"); // 현재 이름 조회
-    testHarness.byId("server-value").value = name; // 정확한 코드 포인트 입력
-    testHarness.ui.render(); // 실제 제출 조건 계산
-    assert.equal(testHarness.byId("server-submit").disabled, false); // 정확한 확인 허용
+    assert.equal(testHarness.byId("server-input-row").hidden, true); // 이름 입력 숨김
+    assert.equal(testHarness.byId("server-close").textContent, "아니오"); // 취소 버튼 이름
+    assert.equal(testHarness.byId("server-submit").textContent, "네"); // 삭제 버튼 이름
+    await testHarness.byId("server-close").fire("click"); // 삭제 취소
+    assert.equal(calls.length, 1); // 취소 시 삭제 요청 없음
+    await testHarness.byId("delete-server").fire("click"); // 같은 서버 재확인
+    await testHarness.byId("server-form").fire("submit"); // 네 버튼 제출
+    assert.deepEqual(calls.at(-1).body, { server_id: "1", confirm_name: name }); // 조회한 정확한 이름 전달
 });
+test("서버 삭제 미리보기가 실패하면 네 버튼을 차단", async () => // 확인하지 않은 대상 삭제 방지
+{
+    let calls = 0; // 요청 횟수
+    const testHarness = setup(async () => // 네트워크 실패 경계
+    {
+        calls++; // 조회 요청 기록
+        throw Object.assign(new Error("조회 실패"), { status: 503 }); // 미리보기 실패
+    }); // 화면 준비
+    await testHarness.byId("delete-server").fire("click"); // 삭제 창 열기
+    assert.equal(testHarness.byId("server-submit").disabled, true); // 미확인 삭제 차단
+    await testHarness.byId("server-form").fire("submit"); // 제출 시도
+    assert.equal(calls, 1); // 삭제 요청 없음
+}); // 실패 경계 검사 종료

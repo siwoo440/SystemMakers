@@ -3,11 +3,11 @@
     color-scheme: dark; /* 어두운 기본 입력 요소 */
     font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; /* 한국어 시스템 글꼴 */
     color: #edf1f7; /* 기본 글자색 */
-    background: #171c25; /* 기본 배경색 */
+    background: #262B3F; /* 지정된 기본 배경색 */
     font-synthesis: none; /* 가상 글꼴 변형 방지 */
-    --muted: #95a0b3; /* 보조 글자색 */
-    --line: #2c3442; /* 구분선 색상 */
-    --teal: #28d3c4; /* 강조 색상 */
+    --muted: #a9aec5; /* 보조 글자색 */
+    --line: #3a3d50; /* 구분선 색상 */
+    --teal: #b0a8ff; /* 보라색 강조 */
 }
 * /* 전체 요소 기준 */
 {
@@ -148,17 +148,12 @@ button:disabled /* 비활성 버튼 */
 }
 .section-label /* 채널 목록 소제목 */
 {
-    display: flex; /* 제목과 개수 배치 */
+    display: flex; /* 제목과 버튼 배치 */
     justify-content: space-between; /* 양끝 정렬 */
     margin: 0 10px 14px; /* 소제목 여백 */
     color: #8c98ab; /* 소제목 색상 */
     font-size: 11px; /* 소제목 크기 */
     font-weight: 700; /* 소제목 굵기 */
-}
-.section-label span /* 채널 개수 */
-{
-    font-size: 10px; /* 개수 글자 크기 */
-    color: #657185; /* 개수 색상 */
 }
 .channel-button /* 채널 선택 버튼 */
 {
@@ -1002,7 +997,7 @@ button:disabled /* 비활성 버튼 */
     gap: 6px; /* 버튼 간격 */
     margin-top: 8px; /* 상단 간격 */
 }
-.server-actions button /* 명시적 관리 동작 */
+.server-actions button, .invite-copy-row button /* 명시적 관리 동작 */
 {
     border: 1px solid #46566c; /* 버튼 경계 */
     background: #293649; /* 버튼 배경 */
@@ -1011,7 +1006,7 @@ button:disabled /* 비활성 버튼 */
     border-radius: 7px; /* 둥근 경계 */
     font-size: 12px; /* 짧은 작업 이름 */
 }
-.server-actions button:disabled /* 사용할 수 없는 동작 */
+.server-actions button:disabled, .invite-copy-row button:disabled /* 사용할 수 없는 동작 */
 {
     opacity: .5; /* 비활성 상태 */
     cursor: not-allowed; /* 제한 포인터 */
@@ -1089,6 +1084,32 @@ button:disabled /* 비활성 버튼 */
     border-radius: 6px; /* 둥근 입력 */
     background: #111b29; /* 입력 배경 */
     color: #f5f8ff; /* 입력값 대비 */
+}
+.invite-copy-row /* 초대 입력과 복사 버튼 */
+{
+    display: flex; /* 입력과 버튼 가로 배치 */
+    align-items: stretch; /* 입력과 버튼 높이 일치 */
+    gap: 8px; /* 입력과 버튼 간격 */
+    margin: 8px 0; /* 입력 영역 위아래 간격 */
+}
+.server-dialog .invite-copy-row input /* 초대 코드와 링크 입력 */
+{
+    flex: 1 1 auto; /* 남은 입력 공간 사용 */
+    min-width: 0; /* 좁은 화면 입력 축소 */
+    margin: 0; /* 행 간격 중복 제거 */
+}
+.invite-copy-row button /* 초대 복사 버튼 */
+{
+    flex: 0 0 auto; /* 버튼 크기 유지 */
+    white-space: nowrap; /* 버튼 문구 줄바꿈 방지 */
+}
+#invite-panel:not([hidden]) ~ .server-actions #server-submit /* 초대 발급 버튼 */
+{
+    margin-left: auto; /* 창 오른쪽 배치 */
+}
+#channel-value[hidden] ~ .server-actions #channel-manage-submit /* 채널 삭제 확인 버튼 */
+{
+    margin-left: auto; /* 창 오른쪽 배치 */
 }
 #server-error, #channel-manage-error, #profile-error /* 실제 관리 실패 안내 */
 {
@@ -1663,5 +1684,353 @@ button:disabled /* 비활성 버튼 */
     .profile-control-row input, .profile-control-row select /* 차단 입력 */
     {
         flex-basis: 100%; /* 작은 화면 전체 너비 */
+    }
+}
+
+/* 참고 화면의 보라색 메신저 테마 */
+body /* 작업 공간 바깥 배경 */
+{
+    background: #262B3F; /* 요청한 기본 배경색 */
+}
+.workspace /* 전체 화면 작업 공간 */
+{
+    width: 100%; /* 화면 전체 너비 */
+    height: 100dvh; /* 화면 전체 높이 */
+    min-height: 0; /* 작은 높이 허용 */
+    margin: 0; /* 화면 가장자리 여백 제거 */
+    border: 0; /* 작업 공간 외곽선 제거 */
+    border-radius: 0; /* 전체 화면 모서리 */
+    box-shadow: none; /* 바깥 그림자 제거 */
+}
+.server-rail /* 서버 아이콘 레일 */
+{
+    padding: 20px 0; /* 서버 아이콘 여백 */
+    background: #11121b; /* 깊은 레일 배경 */
+    border-color: #333343; /* 레일 경계선 */
+}
+.server-mark, .auth-mark /* 브랜드 아이콘 */
+{
+    border-radius: 15px; /* 브랜드 둥근 모서리 */
+    background: linear-gradient(145deg, #8c7aff, #6255e7); /* 보라색 브랜드 */
+    box-shadow: 0 8px 24px #6957f34d; /* 브랜드 빛 효과 */
+}
+.rail-line /* 서버 구분선 */
+{
+    background: #424254; /* 부드러운 구분선 */
+}
+.channel-sidebar, .friend-sidebar /* 양쪽 탐색 패널 */
+{
+    background: #1c1d2b; /* 어두운 보조 패널 */
+    border-color: #393a4d; /* 패널 경계선 */
+}
+.workspace-heading /* 서비스 제목 영역 */
+{
+    padding: 23px 20px; /* 제목 안쪽 여백 */
+    border-color: #393a4d; /* 제목 구분선 */
+}
+.workspace-heading h1, .friend-heading h2 /* 주요 패널 제목 */
+{
+    color: #f7f6ff; /* 선명한 제목색 */
+    letter-spacing: -.4px; /* 제목 자간 */
+}
+.eyebrow, .section-label, .friend-section h3 /* 작은 구역 제목 */
+{
+    color: #a7a8bb; /* 보조 제목 색상 */
+}
+.server-tools /* 서버 관리 묶음 */
+{
+    padding-top: 18px; /* 관리 영역 위 여백 */
+}
+.server-actions .icon-action, .friend-sidebar button, .direct-search button, .attachment-picker /* 보조 동작 */
+{
+    background: #2b2b3c; /* 보조 버튼 배경 */
+    border-color: #48495e; /* 보조 버튼 경계 */
+    color: #dddafc; /* 보조 버튼 글자 */
+}
+.server-actions .icon-action:hover:not(:disabled), .friend-sidebar button:hover:not(:disabled), .direct-search button:hover:not(:disabled) /* 보조 동작 강조 */
+{
+    background: #403b62; /* 마우스 강조 배경 */
+    border-color: #8c7aff; /* 마우스 강조 경계 */
+}
+.direct-search input, .friend-search input /* 대화와 친구 검색 */
+{
+    background: #12131c; /* 어두운 검색 배경 */
+    border-color: #343647; /* 검색 입력 경계 */
+    border-radius: 9px; /* 둥근 검색 모서리 */
+}
+.channel-button, .server-choice /* 서버와 채널 목록 */
+{
+    border-radius: 9px; /* 둥근 목록 모서리 */
+    color: #b7b8cc; /* 목록 기본 글자 */
+}
+.server-choice /* 좁은 서버 아이콘 */
+{
+    overflow: hidden; /* 긴 서버 이름 제한 */
+    white-space: nowrap; /* 서버 이름 한 줄 */
+    text-overflow: ellipsis; /* 긴 서버 이름 줄임 */
+    font-size: 11px; /* 서버 아이콘 글자 크기 */
+}
+.sidebar-scroll /* 서버와 채널 탐색 */
+{
+    overflow-x: hidden; /* 불필요한 가로 스크롤 제거 */
+}
+.direct-search /* 개인 대화 검색 */
+{
+    min-width: 0; /* 좁은 패널 안쪽 유지 */
+}
+.direct-search input /* 개인 대화 검색 입력 */
+{
+    flex: 1 1 0; /* 버튼을 제외한 너비 */
+}
+.channel-button:hover, .server-choice:hover /* 목록 강조 */
+{
+    background: #343348; /* 목록 강조 배경 */
+    color: #fff; /* 목록 강조 글자 */
+}
+.channel-button.active, .server-choice[aria-pressed="true"] /* 선택한 서버와 채널 */
+{
+    background: #44405f; /* 보라색 선택 배경 */
+    border-color: #615a8b; /* 선택 항목 경계 */
+    color: #fff; /* 선택 항목 글자 */
+}
+.active .hash, .channel-selected-dot /* 선택 채널 기호 */
+{
+    color: #d2caff; /* 선택 채널 글자 */
+}
+.channel-selected-dot /* 선택 채널 점 */
+{
+    background: #ad9fff; /* 선택 채널 점 색상 */
+}
+.user-panel /* 고정된 사용자 정보 */
+{
+    display: grid; /* 정보와 동작의 행 분리 */
+    grid-template-columns: 33px minmax(0, 1fr) auto; /* 아이콘과 사용자·버튼 영역 */
+    gap: 5px 8px; /* 사용자 항목 간격 */
+    padding: 10px 13px; /* 고정 영역 여백 */
+    background: #171823; /* 사용자 영역 배경 */
+    border-color: #393a4d; /* 사용자 영역 경계 */
+}
+.user-panel .user-details /* 현재 사용자 정보 */
+{
+    grid-column: 2 / -1; /* 이름과 상태 전체 너비 */
+}
+.user-panel .login-button /* 프로필과 로그인 동작 */
+{
+    justify-self: start; /* 각 동작 왼쪽 정렬 */
+    margin-left: 0; /* 불필요한 자동 여백 제거 */
+    padding: 4px 0; /* 간결한 동작 여백 */
+}
+.user-panel #open-profile /* 본인 프로필 버튼 */
+{
+    grid-column: 2; /* 두 번째 열 배치 */
+}
+.user-panel #open-auth /* 로그인과 로그아웃 버튼 */
+{
+    grid-column: 3; /* 세 번째 열 배치 */
+}
+.avatar /* 대화 작성자 아이콘 */
+{
+    border-radius: 50%; /* 원형 작성자 아이콘 */
+}
+.guest-avatar, .avatar-teal /* 기본 사용자 아이콘 */
+{
+    background: linear-gradient(145deg, #9181ff, #6256c9); /* 보라색 사용자 아이콘 */
+}
+.conversation /* 대화 본문 */
+{
+    background: #262B3F; /* 요청한 대화 배경색 */
+}
+.conversation-header /* 채팅방 상단 */
+{
+    min-height: 76px; /* 간결한 헤더 높이 */
+    background: #1c1d2b; /* 헤더 배경 */
+    border-color: #393a4d; /* 헤더 경계 */
+}
+.header-hash, .welcome-hash /* 채널 기호 */
+{
+    color: #c6baff; /* 보라색 채널 기호 */
+}
+.welcome-hash /* 채널 소개 아이콘 */
+{
+    background: #383650; /* 소개 아이콘 배경 */
+    border-color: #555173; /* 소개 아이콘 경계 */
+}
+.header-tag /* 채팅방 보조 배지 */
+{
+    border-color: #514d6c; /* 보조 배지 경계 */
+    color: #c4bdf2; /* 보조 배지 글자 */
+}
+.preview-banner /* 실제 갱신 안내 */
+{
+    padding-top: 8px; /* 안내 위 여백 */
+    padding-bottom: 8px; /* 안내 아래 여백 */
+    background: #303049; /* 보라색 안내 배경 */
+    border-color: #48445e; /* 안내 경계 */
+    color: #d2cee9; /* 안내 글자 */
+}
+.preview-icon, .preview-badge, .local-label /* 연결과 저장 표시 */
+{
+    color: #c5bbff; /* 보라색 상태 강조 */
+}
+.message /* 채팅 말풍선 묶음 */
+{
+    gap: 12px; /* 아바타와 말풍선 간격 */
+    padding-bottom: 24px; /* 메시지 사이 간격 */
+}
+.message-content /* 채팅 말풍선 내용 */
+{
+    flex: 0 1 auto; /* 내용에 맞는 말풍선 */
+    max-width: min(78%, 560px); /* 긴 메시지 최대 너비 */
+}
+.message-body /* 상대방 메시지 말풍선 */
+{
+    display: inline-block; /* 내용 크기의 말풍선 */
+    max-width: 100%; /* 긴 문장 너비 제한 */
+    padding: 10px 15px; /* 말풍선 안쪽 여백 */
+    border-radius: 4px 16px 16px 16px; /* 상대방 말풍선 모서리 */
+    background: #393c52; /* 상대방 말풍선 배경 */
+    color: #f0eff9; /* 메시지 본문 글자 */
+    line-height: 1.65; /* 메시지 줄간격 */
+}
+.message--own /* 본인 메시지 */
+{
+    flex-direction: row-reverse; /* 본인 아바타 오른쪽 정렬 */
+}
+.message--own .message-content /* 본인 메시지 내용 */
+{
+    text-align: right; /* 본문과 첨부 오른쪽 정렬 */
+}
+.message--own .message-meta /* 본인 작성 정보 */
+{
+    justify-content: flex-end; /* 작성 정보 오른쪽 정렬 */
+}
+.message--own .message-body /* 본인 메시지 말풍선 */
+{
+    border-radius: 16px 4px 16px 16px; /* 본인 말풍선 모서리 */
+    background: #7062ed; /* 본인 말풍선 보라색 */
+    color: #fff; /* 본인 말풍선 글자 */
+    text-align: left; /* 긴 본문의 읽기 방향 */
+}
+.composer /* 메시지 입력 상자 */
+{
+    border-color: #4c4d68; /* 입력 상자 경계 */
+    border-radius: 13px; /* 둥근 입력 모서리 */
+    background: #34364d; /* 입력 상자 배경 */
+    box-shadow: none; /* 과한 내부 그림자 제거 */
+}
+.attachment-controls /* 파일 버튼 묶음 */
+{
+    order: -1; /* 입력 하단 왼쪽 배치 */
+    margin: 0; /* 오른쪽 자동 여백 제거 */
+}
+.attachment-controls .attachment-clear /* 선택한 파일 취소 */
+{
+    display: inline-grid; /* 취소 기호 가운데 배치 */
+    place-items: center; /* 가로 세로 가운데 정렬 */
+    width: 32px; /* 취소 버튼 너비 */
+    height: 32px; /* 취소 버튼 높이 */
+    padding: 0; /* 기호 주변 기본 여백 제거 */
+    font-size: 19px; /* 취소 기호 크기 */
+}
+#channel-file-status, #direct-file-status /* 선택 파일 이름 */
+{
+    max-width: min(180px, 28vw); /* 긴 이름의 최대 너비 */
+    overflow-wrap: anywhere; /* 긴 파일 이름 줄바꿈 */
+}
+.composer:focus-within /* 입력 중 강조 */
+{
+    border-color: #a99cff; /* 보라색 입력 경계 */
+}
+.send-button, .auth-submit, .profile-extra .profile-action-primary /* 주요 동작 */
+{
+    border-color: #8273f2; /* 보라색 버튼 경계 */
+    background: #7062ed; /* 보라색 주요 버튼 */
+    color: #fff; /* 주요 버튼 글자 */
+}
+.history-button, .attachment-controls button, .friend-sidebar button /* 보조 버튼 */
+{
+    border-color: #4b4b62; /* 보조 버튼 경계 */
+    background: #303044; /* 보조 버튼 배경 */
+    color: #efedff; /* 보조 버튼 글자 */
+}
+.friend-row /* 친구 한 칸 */
+{
+    padding: 9px 7px; /* 친구 항목 여백 */
+    border-color: #3f4054; /* 친구 항목 경계 */
+    border-radius: 10px; /* 친구 항목 모서리 */
+    background: #252635; /* 친구 항목 배경 */
+}
+.auth-dialog, .server-dialog /* 인증과 관리 창 */
+{
+    border-color: #54516b; /* 대화상자 경계 */
+    background: #252638; /* 대화상자 배경 */
+}
+.auth-note /* 로그인 안내 */
+{
+    border-color: #5b5481; /* 안내 경계 */
+    background: #38334d; /* 안내 배경 */
+    color: #e0d9ff; /* 안내 글자 */
+}
+.auth-note span, .auth-switch button, .profile-extra-eyebrow /* 인증과 프로필 강조 */
+{
+    color: #c9beff; /* 밝은 보라색 글자 */
+}
+.profile-extra .profile-extra-load, .profile-extra-status, .profile-card-icon /* 프로필 보조 강조 */
+{
+    border-color: #655b91; /* 보라색 경계 */
+    background: #38334f; /* 보라색 보조 배경 */
+    color: #dfd8ff; /* 보조 강조 글자 */
+}
+.profile-extra-status[data-state="error"] /* 프로필 오류 강조 */
+{
+    background: #492b34; /* 오류 안내 배경 */
+    color: #ffd3d5; /* 오류 안내 글자 */
+}
+.profile-card /* 프로필 설정 카드 */
+{
+    border-color: #48485f; /* 설정 카드 경계 */
+    background: #292a3d; /* 설정 카드 배경 */
+}
+:focus-visible, .attachment-input:focus-visible + .attachment-picker /* 키보드 선택 표시 */
+{
+    outline-color: #c4b7ff; /* 선명한 보라색 포커스 */
+}
+@media (min-width: 761px) and (max-width: 1100px) /* 중간 크기 화면 */
+{
+    .workspace /* 레일과 두 목록의 너비 */
+    {
+        grid-template-columns: 58px 215px minmax(0, 1fr) 190px; /* 서버 레일과 대화 영역 */
+    }
+    .server-rail /* 서버 선택 레일 */
+    {
+        display: flex; /* 중간 화면에도 서버 선택 유지 */
+    }
+    .server-mark /* 좁은 레일 브랜드 */
+    {
+        width: 42px; /* 브랜드 너비 축소 */
+        height: 42px; /* 브랜드 높이 축소 */
+    }
+}
+@media (max-width: 760px) /* 모바일 전체 화면 */
+{
+    .workspace /* 모바일 작업 공간 */
+    {
+        width: 100%; /* 화면 전체 너비 */
+        height: 100dvh; /* 화면 전체 높이 */
+        margin: 0; /* 바깥 여백 제거 */
+        border: 0; /* 모바일 외곽 제거 */
+        border-radius: 0; /* 모바일 모서리 제거 */
+    }
+    .message-content /* 모바일 메시지 */
+    {
+        max-width: 82%; /* 좁은 화면 말풍선 너비 */
+    }
+    .composer-footer .send-button /* 모바일 전송 동작 */
+    {
+        margin-left: auto; /* 줄바꿈 시 오른쪽 정렬 */
+    }
+    .conversation-header /* 모바일 대화 제목 */
+    {
+        min-height: 68px; /* 모바일 제목 높이 */
     }
 }

@@ -1,3 +1,18 @@
+export function realtimeUrlForLocation(location) // 내부망 실시간 주소 계산
+{
+    const hostname = location?.hostname ?? ''; // 현재 페이지 주소
+    const octets = hostname.split('.'); // IPv4 숫자 분리
+    if (location?.protocol !== 'http:' || octets.length !== 4 || octets.some((octet) => !/^(0|[1-9]\d{0,2})$/.test(octet) || Number(octet) > 255)) // HTTP와 유효 IPv4 검사
+    {
+        return null; // 지원하지 않는 주소 차단
+    }
+    const [first, second] = octets.map(Number); // 네트워크 영역 확인
+    if (!(first === 127 || first === 10 || (first === 172 && second >= 16 && second <= 31) || (first === 192 && second === 168))) // 루프백과 사설망 제한
+    {
+        return null; // 공개 주소 차단
+    }
+    return `ws://${hostname}:8090/Team006/realtime`; // 페이지와 같은 호스트 사용
+}
 export function createRealtimeClient({ url, subscription, WebSocketImpl = globalThis.WebSocket, onMessage = () => undefined, onStateChange = () => undefined, setTimer = (callback, delay) => globalThis.setTimeout(callback, delay), clearTimer = (id) => globalThis.clearTimeout(id), minRetryMs = 1000, maxRetryMs = 30000 }) // 실시간 연결과 외부 경계
 { // 생성 시작
     let active = false; // 연결 수명 상태

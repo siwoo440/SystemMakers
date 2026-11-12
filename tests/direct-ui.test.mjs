@@ -27,6 +27,35 @@ function setup(request, timers = { set: () => 1, clear: () => undefined }) // �
     return { byId, ui, setUser: (value) => user = value }; // 관찰 경계
 }
 const emptyPage = { messages: [], pagination: { mode: "initial", has_more: false, next_before_id: null, next_after_id: "0" } }; // 빈 최초 기록 응답
+test("개인 대화에서 선택한 파일만 전송 전에 취소", async () => // 선택 취소와 업로드 차단
+{
+    const calls = []; // 실제 요청 기록
+    const harness = setup(async (path) => // 공개 요청 경계
+    {
+        calls.push(path); // 요청 주소 기록
+        return path.includes("list_dms") ? { conversations: [{ id: "10", other_user: { id: "2", username: "bob" } }] } : emptyPage; // 대화와 빈 기록
+    }); // 화면 준비 끝
+    await harness.ui.refresh(); // 기존 대화 조회
+    await harness.byId("direct-list").children[0].fire("click"); // 실제 대화 선택
+    const input = harness.byId("direct-file"); // 파일 선택 영역
+    let files = [new File(["data"], "예시.txt")]; // 선택한 예시 파일
+    Object.defineProperty(input, "files", { get: () => files }); // 현재 선택 관측
+    Object.defineProperty(input, "value", { set: (value) => // 브라우저 선택 해제
+    {
+        if (value === "") // 빈 파일 입력
+        {
+            files = []; // 선택 파일 제거
+        }
+    } }); // 입력 속성 설정 끝
+    input.fire("change"); // 선택 상태 반영
+    assert.equal(harness.byId("direct-file-clear").disabled, false); // 선택 취소 가능
+    harness.byId("direct-file-clear").fire("click"); // 명시적 선택 취소
+    assert.equal(input.files.length, 0); // 선택한 파일 제거
+    assert.equal(harness.byId("direct-upload").disabled, true); // 파일 전송 비활성
+    assert.equal(harness.byId("direct-file-status").textContent, "최대 5 MiB"); // 기본 안내 복구
+    assert.equal(calls.some((path) => path.includes("upload_attachment")), false); // 서버 전송 없음
+    harness.ui.clear(); // 조회 수명 정리
+}); // 개인 파일 취소 검사 끝
 test("사용자 검색부터 개인 대화 생성과 본인 메시지 전송", async () => // 실제 버튼과 API 연결
 {
     const calls = []; // 실제 요청 관찰
@@ -58,6 +87,7 @@ test("사용자 검색부터 개인 대화 생성과 본인 메시지 전송", a
     await harness.byId("direct-form").fire("submit"); // 명시적 전송
     assert.deepEqual(calls.find((call) => call.path.includes("send_dm")).body, { conversation_id: "10", content: "안녕하세요" }); // 정확한 대화와 내용 전송
     assert.equal(harness.byId("direct-messages").children[0].name, "alice"); // 본인 이름 표시
+    assert.equal(harness.byId("direct-messages").children[0].isOwn, true); // 본인 메시지 시각 구분
     assert.equal(harness.byId("direct-messages").children[0].text, "안녕하세요"); // 저장한 본문 표시
     assert.equal(harness.byId("direct-input").value, ""); // 성공한 초안 제거
     harness.ui.clear(); // 조회 수명 종료
@@ -142,6 +172,7 @@ test("개인 대화 자동 갱신은 마지막 조회 이후 메시지만 추가
     await nextTimer(); // 예약된 신규 기록 확인
     assert.ok(paths.some((path) => path.includes("after_id=1"))); // 실제 조회 커서 사용
     assert.deepEqual(harness.byId("direct-messages").children.map((message) => message.text), ["첫 메시지", "답장"]); // 본인 기록과 답장 표시
+    assert.deepEqual(harness.byId("direct-messages").children.map((message) => message.isOwn), [true, false]); // 본인과 상대 메시지 구분
     harness.ui.clear(); // 예약 수명 종료
 }); // 자동 갱신 검사 끝
 test("개인 파일 전송은 저장 메시지에 확인된 다운로드 정보를 표시", async () => // 전송한 파일의 메시지 연결 누락 차단
@@ -170,6 +201,34 @@ test("개인 파일 전송은 저장 메시지에 확인된 다운로드 정보�
     assert.equal(harness.byId("direct-messages").children[0].attachment.original_name, "문서.txt"); // 메시지에 첨부 정보 표시
     harness.ui.clear(); // 조회 수명 종료
 }); // 개인 파일 전송 검사 끝
+test("개인 파일 전송 중에는 선택 취소를 막음", async () => // 저장 결과 대기 보호
+{
+    let finishUpload; // 업로드 완료 제어
+    const uploadResult = new Promise((resolve) => finishUpload = resolve); // 응답 대기 경계
+    const harness = setup(async (path) => // 실제 요청 경계
+    {
+        if (path.includes("list_dms")) // 대화 목록 요청
+        {
+            return { conversations: [{ id: "10", other_user: { id: "2", username: "bob" } }] }; // 확인된 대화
+        }
+        if (path.includes("upload_attachment")) // 파일 업로드 요청
+        {
+            return uploadResult; // 저장 결과 대기
+        }
+        return emptyPage; // 빈 대화 기록
+    }); // 화면 연결 끝
+    await harness.ui.refresh(); // 대화 목록 조회
+    await harness.byId("direct-list").children[0].fire("click"); // 개인 대화 선택
+    harness.byId("direct-file").files = [new File(["data"], "문서.txt")]; // 전송할 파일 선택
+    harness.byId("direct-file").fire("change"); // 파일 상태 반영
+    const pending = harness.byId("direct-upload").fire("click"); // 파일 전송 시작
+    assert.equal(harness.byId("direct-file-clear").disabled, true); // 전송 중 취소 차단
+    harness.byId("direct-file-clear").fire("click"); // 전송 중 취소 시도
+    assert.equal(harness.byId("direct-file").files.length, 1); // 기존 선택 유지
+    finishUpload({ message: { id: "7", conversation_id: "10", user_id: "1", username: "alice", content: "파일: 문서.txt", created_at: "2026-11-11T00:00:00Z" }, attachment: { id: "9", message_id: "7", original_name: "문서.txt", file_size: 4 } }); // 정상 저장 응답
+    await pending; // 저장 결과 처리
+    harness.ui.clear(); // 조회 수명 정리
+}); // 전송 중 보호 검사 끝
 test("복원한 개인 메시지의 첨부는 별도 권한 조회 뒤 표시", async () => // 새로고침 뒤 파일 링크 누락 차단
 {
     const harness = setup(async (path) => // 공개 API 응답
