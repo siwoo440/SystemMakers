@@ -21,14 +21,9 @@ function validate_username(mixed $inputValue): string // 사용자명 정규화�
     }
     return strtolower(trim($inputValue)); // 소문자 고유 사용자명
 }
-function validate_password(mixed $inputValue): string // 문자 수와 bcrypt 바이트 상한 검증
+function validate_password(mixed $inputValue): string // 비밀번호 원문과 문자 수 검증
 {
-    $password = validate_string($inputValue, 'password', 12, 64); // UTF-8 원문과 문자 수 및 NUL 확인
-    if (strlen($password) > 72) // bcrypt 입력 절단 상한
-    {
-        respond_error('VALIDATION_ERROR', '입력값을 확인하세요.', 422, ['password' => '비밀번호는 UTF-8 72바이트 이하여야 합니다.']); // 바이트 초과 오류
-    }
-    return $password; // 공백과 대소문자 유지 원문
+    return validate_string($inputValue, 'password', 8, 64); // UTF-8 원문과 문자 수 및 NUL 확인
 }
 function public_account(array $databaseRow): array // 비밀 없는 사용자 응답 변환
 {

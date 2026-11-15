@@ -189,9 +189,9 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             assert.equal(loggedIn.response.status, 200); // 로그인 성공
             assert.equal(loggedIn.body.data.user.username, "김하늘"); // 로그인 응답의 한글 이름
         }); // 한글 가입 검사 종료
-        await context.test("비밀번호 문자·바이트 경계와 이메일·사용자명·알 수 없는 필드", async () => // bcrypt 입력 절단과 비문자 입력 포착
+        await context.test("비밀번호 문자 길이와 이메일·사용자명·알 수 없는 필드", async () => // 문자 경계와 비문자 입력 확인
         {
-            const invalidPasswords = ["x".repeat(11), "x".repeat(65), "가".repeat(25), "😀".repeat(19), "x".repeat(12) + "\0", 123, null]; // 잘못된 원문 경계
+            const invalidPasswords = ["x".repeat(7), "x".repeat(65), "x".repeat(8) + "\0", 123, null]; // 잘못된 원문 경계
             for (const value of invalidPasswords) // 개별 비밀번호 실패 확인
             {
                 expectError(await post("register", { ...member, password: value }, session), 422, "VALIDATION_ERROR"); // 가입 비밀번호 거절
@@ -201,12 +201,26 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             {
                 expectError(await post("register", { ...member, ...value }, session), 422, "VALIDATION_ERROR"); // 잘못된 필드 거절
             }
-            const validPasswords = ["x".repeat(12), "x".repeat(64), "가".repeat(24), "😀".repeat(18)]; // 문자·바이트 허용 경계
+            const validPasswords = ["x".repeat(8), "x".repeat(64), "가".repeat(25), "😀".repeat(19)]; // 문자와 다국어 허용 경계
             for (let index = 0; index < validPasswords.length; index++) // 허용 경계 저장
             {
                 assert.equal((await post("register", { username: "boundary_" + index, email: "boundary" + index + "@example.com", password: validPasswords[index] }, session)).response.status, 201); // 실제 해시와 저장 성공
             }
+            const longLogin = await post("login", { email: "boundary2@example.com", password: validPasswords[2] }, await guest()); // 72바이트 초과 비밀번호 로그인
+            assert.equal(longLogin.response.status, 200); // 한글 원문의 정상 검증
+            const wrongLongLogin = await post("login", { email: "boundary2@example.com", password: validPasswords[2] + "다" }, await guest()); // 72바이트 뒤에 추가된 문자
+            expectError(wrongLongLogin, 401, "INVALID_CREDENTIALS"); // 뒤쪽 문자의 일치 확인
         }); // 필드 경계 검증 종료
+        await context.test("기존 bcrypt 계정은 원문으로 로그인하고 72바이트 뒤 추가 문자는 거절", async () => // 기존 해시와 입력 절단 악용 방지
+        {
+            const legacyPassword = "가".repeat(24); // 기존에 허용된 72바이트 비밀번호
+            const legacyHash = execFileSync(phpBinary, ["-r", "echo password_hash($argv[1], PASSWORD_BCRYPT);", legacyPassword], { encoding: "utf8", windowsHide: true }); // 실제 이전 방식 해시
+            sql("INSERT INTO users (username,email,password_hash) VALUES ('legacy_user','legacy@example.com','" + legacyHash + "')"); // 격리 DB의 기존 계정
+            const wrong = await post("login", { email: "legacy@example.com", password: legacyPassword + "다" }, await guest()); // 기존 접두사와 다른 원문
+            expectError(wrong, 401, "INVALID_CREDENTIALS"); // 절단된 비밀번호 인증 차단
+            const correct = await post("login", { email: "legacy@example.com", password: legacyPassword }, await guest()); // 기존 비밀번호 로그인
+            assert.equal(correct.response.status, 200); // 이전 계정 호환
+        }); // 기존 해시 호환 검사 끝
         await context.test("같은 자격증명 오류·세션과 토큰 교체·인증 중 거절·로그아웃", async () => // 해시 비교 우회와 세션 고정 포착
         {
             const missing = await post("login", { email: "missing@example.com", password }, session); // 없는 사용자 로그인

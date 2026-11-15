@@ -79,12 +79,13 @@ function startRealtime(channelId) // 선택 채널의 실시간 알림 연결
     realtimeClient = createRealtimeClient({ url: realtimeUrl, WebSocketImpl: window.WebSocket, subscription: () => ({ channel_id: channelId, after_id: channel.feed.after }), onStateChange: (status) => // 현재 채널 커서로 구독
     {
         realtimeStatus = status; // 실제 연결 상태 보관
+        channel.feed.setRealtimeActive(status === "subscribed"); // 승인 여부에 따른 안전망 조회
         updateHistoryControls(); // 조회 방식 화면 갱신
     }, onMessage: () => // 실시간 알림의 조회 연결
     {
         if (currentUser?.id === userId && activeChannel === channelId && channels[channelId] === channel && !channel.feed.blocked) // 계정과 채널 수명 확인
         {
-            channel.feed.run(channel.feed.loaded ? "after" : "initial"); // 기존 권한 검사 조회로 신규 메시지 확인
+            channel.feed.requestRealtimeRefresh(); // 권한 확인과 조회 중 알림 보존
         }
     } }); // 실시간 연결 준비 끝
     realtimeClient.start(); // 선택 채널의 알림 구독 시작
@@ -765,10 +766,9 @@ function validatePassword() // 공통 비밀번호 규칙 검사
     if (passwordInput.value) // 비밀번호 입력 여부
     {
         const characterCount = Array.from(passwordInput.value).length; // 비밀번호 코드 포인트 수
-        const byteCount = new TextEncoder().encode(passwordInput.value).length; // 비밀번호 UTF-8 바이트 수
-        if (characterCount < 12 || characterCount > 64 || byteCount > 72 || passwordInput.value.includes("\u0000")) // 공통 비밀번호 제한 확인
+        if (characterCount < 8 || characterCount > 64 || passwordInput.value.includes("\u0000")) // 공통 비밀번호 문자 수 확인
         {
-            passwordInput.setCustomValidity("비밀번호는 12~64자, UTF-8 기준 최대 72바이트로 입력하세요."); // 명확한 입력 오류 안내
+            passwordInput.setCustomValidity("비밀번호는 8~64자로 입력하세요."); // 명확한 입력 오류 안내
         }
     }
 }
@@ -817,7 +817,7 @@ function validateAuthForm() // 실제 API 계약에 맞는 입력 검사
     {
         emailInput.setCustomValidity("이메일은 영문 주소 기준 최대 254자로 입력하세요."); // 계약에 맞는 이메일 제한 안내
     }
-    validatePassword(); // 원문 비밀번호 글자 수와 바이트 검사
+    validatePassword(); // 원문 비밀번호 글자 수 검사
     return authForm.reportValidity(); // 첫 오류 안내와 최종 입력 확인
 }
 function renderAuthState() // 실제 사용자 상태 표시
@@ -1286,11 +1286,11 @@ directUI = mountDirectUI({ byId, request: requestEndpoint, getUser: () => curren
     {
         return null; // HTTP 조회 유지
     }
-    const client = createRealtimeClient({ url: realtimeUrl, WebSocketImpl: window.WebSocket, subscription: () => ({ conversation_id: conversationId, after_id: feed.after }), onStateChange: () => undefined, onMessage: () => // 현재 대화 커서로 구독
+    const client = createRealtimeClient({ url: realtimeUrl, WebSocketImpl: window.WebSocket, subscription: () => ({ conversation_id: conversationId, after_id: feed.after }), onStateChange: (status) => feed.setRealtimeActive(status === "subscribed"), onMessage: () => // 현재 대화의 구독과 조회 연결
     {
         if (currentUser?.id === userId && feed.active && !feed.blocked) // 계정과 대화 수명 확인
         {
-            feed.run(feed.loaded ? "after" : "initial"); // 권한 검사 후 신규 기록 조회
+            feed.requestRealtimeRefresh(); // 권한 확인과 조회 중 알림 보존
         }
     } }); // 알림 클라이언트 준비 끝
     client.start(); // 개인 알림 연결

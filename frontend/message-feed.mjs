@@ -28,6 +28,44 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
         this.version = 0; // 취소된 응답 구분 번호
         this.timer = null; // 후속 조회 예약
         this.controller = null; // 진행 중 요청 취소 도구
+        this.realtimeActive = false; // 실시간 구독 상태
+        this.refreshRequested = false; // 조회 중 알림의 후속 확인
+    }
+    scheduleNext() // 현재 상태에 맞는 후속 조회 예약
+    {
+        this.clearTimer(this.timer); // 이전 예약 제거
+        this.timer = null; // 예약 참조 초기화
+        if (!this.active || this.blocked || this.busy) // 조회 불가 상태
+        {
+            return; // 불필요한 예약 중단
+        }
+        const retryDelay = this.refreshRequested ? 0 : this.failures ? Math.min(30000, 2000 * (2 ** Math.min(this.failures, 4))) : this.realtimeActive ? 15000 : 2000; // 알림·오류·연결별 대기
+        this.timer = this.setTimer(() => this.run(this.loaded ? "after" : "initial"), retryDelay); // 현재 커서의 후속 조회
+    }
+    setRealtimeActive(available) // 실제 구독 승인 상태 변경
+    {
+        if (this.realtimeActive === available) // 같은 상태 여부
+        {
+            return; // 불필요한 예약 변경 방지
+        }
+        this.realtimeActive = available; // 현재 구독 상태 보관
+        if (this.timer !== null) // 대기 중인 조회 여부
+        {
+            this.scheduleNext(); // 새 연결 상태의 간격 적용
+        }
+    }
+    requestRealtimeRefresh() // 새 메시지 알림 처리
+    {
+        if (!this.active || this.blocked) // 활성 대화와 권한 확인
+        {
+            return; // 종료된 대화 알림 무시
+        }
+        if (this.busy) // 다른 조회 진행 여부
+        {
+            this.refreshRequested = true; // 완료 직후 재확인 요청
+            return; // 기존 조회와 중복 방지
+        }
+        return this.run(this.loaded ? "after" : "initial"); // 현재 커서의 즉시 확인
     }
     list() // 화면 표시용 기록 목록
     {
@@ -67,6 +105,7 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
         this.controller?.abort(); // 진행 중 요청 취소
         this.controller = null; // 취소 도구 참조 제거
         this.busy = false; // 이전 요청의 입력 잠금 정리
+        this.refreshRequested = false; // 이전 대화 알림 정리
     }
     block(operationError) // 조회와 전송의 공통 접근 종료
     {
@@ -118,6 +157,7 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
         }
         this.clearTimer(this.timer); // 이전 후속 예약 취소
         this.timer = null; // 예약 참조 제거
+        this.refreshRequested = false; // 이번 조회에 반영할 알림 정리
         const requestVersion = this.version; // 요청 당시 수명 번호
         const requestController = new AbortController(); // 이번 조회 취소 도구
         this.controller = requestController; // 외부 종료용 도구 보관
@@ -189,8 +229,7 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
                 this.onChange({ kind: "state", added: 0 }); // 버튼과 갱신 상태 복구
                 if (this.active && !this.blocked) // 일반 폴링 가능 여부
                 {
-                    const retryDelay = Math.min(30000, 2000 * (2 ** Math.min(this.failures, 4))); // 최대 30초 오류 대기
-                    this.timer = this.setTimer(() => this.run(this.loaded ? "after" : "initial"), retryDelay); // 완료 후 다음 조회 예약
+                    this.scheduleNext(); // 연결 상태별 다음 조회 예약
                 }
             }
         }

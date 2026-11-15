@@ -5,14 +5,14 @@ import vm from "node:vm"; // 독립 브라우저 실행 영역
 import { MessageFeed } from "../frontend/message-feed.mjs"; // 실제 메시지 상태 관리
 import { ServerManager } from "../frontend/server-manager.mjs"; // 실제 서버 소속 상태
 import { createAttachmentView, uploadAttachment } from "../frontend/attachments-ui.mjs"; // 실제 파일 화면 경계
-import { realtimeUrlForLocation } from "../frontend/realtime.mjs"; // 실시간 주소 검사
+import { createRealtimeClient, realtimeUrlForLocation } from "../frontend/realtime.mjs"; // 실제 알림 연결과 주소 검사
 const source = readFileSync(new URL("../frontend/app.js", import.meta.url), "utf8"); // 검사 대상 원본
 const noChange = () => undefined; // 상태 변화 없는 브라우저 경계
 function element() // 브라우저 요소의 외부 경계
 {
     return { value: "", disabled: false, hidden: false, textContent: "", dataset: {}, scrollTop: 0, scrollHeight: 0, clientHeight: 0, classList: { toggle: noChange, add: noChange, remove: noChange }, setAttribute: noChange, removeAttribute: noChange, setCustomValidity: noChange, addEventListener: noChange, replaceChildren: noChange, append: noChange, reset: noChange, focus: noChange, close: noChange, showModal: noChange }; // 화면 입출력 최소 대체
 }
-function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
+function setup(handler, websocketClass = undefined) // 실제 화면 함수와 가상 네트워크 연결
 {
     const elements = new Map(); // 식별자별 화면 요소
     const calls = []; // 실제 요청 순서 기록
@@ -28,8 +28,8 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
         }
     }
     const context = vm.createContext({ // 독립 화면 전역 준비
-        MessageFeed: BrowserFeed, ServerManager, createAttachmentView, uploadAttachment, realtimeUrlForLocation, AbortController, URLSearchParams, FormData, File, Date, console, // 실제 상태 모듈과 표준 도구
-        window: { matchMedia: () => ({ matches: false }), setTimeout: setTimer, clearTimeout: clearTimer }, // 화면 크기와 시계 경계
+        MessageFeed: BrowserFeed, ServerManager, createAttachmentView, uploadAttachment, createRealtimeClient, realtimeUrlForLocation, AbortController, URLSearchParams, FormData, File, Date, console, // 실제 상태 모듈과 표준 도구
+        window: { matchMedia: () => ({ matches: false }), setTimeout: setTimer, clearTimeout: clearTimer, WebSocket: websocketClass, location: { protocol: "http:", hostname: "127.0.0.6" } }, // 화면 크기와 연결 경계
         document: { getElementById: (id) => // 식별자별 동일 요소 반환
         {
             if (!elements.has(id)) // 최초 요소 조회
@@ -63,8 +63,45 @@ function setup(handler) // 실제 화면 함수와 가상 네트워크 연결
     const evaluate = (code) => vm.runInContext(code, context); // 실제 화면 함수 실행 도구
     const state = () => JSON.parse(evaluate('JSON.stringify({ userId: currentUser?.id ?? null, channelIds: Object.keys(channels), draft: messageInput.value })')); // 계정 자료의 외부 관측
     const send = () => evaluate("sendMessage({ preventDefault: () => undefined })"); // 실제 폼 제출 경로
-    return { calls, evaluate, state, send, stop: () => evaluate("pauseMessageFeeds()") }; // 검사 경계 반환
+    return { calls, timers, evaluate, state, send, stop: () => evaluate("pauseMessageFeeds()") }; // 검사 경계 반환
 }
+test("채널 구독 승인과 연결 종료가 실제 조회 예약에 반영", async (context) => // 화면과 구독 상태 연결 검사
+{
+    let socket; // 생성된 연결 관찰
+    class TestSocket // 브라우저 소켓 경계
+    {
+        constructor() // 소켓 생성 경계
+        {
+            socket = this; // 현재 연결 보관
+        }
+        send() // 구독 요청 전달 경계
+        {
+        }
+        close() // 연결 종료 경계
+        {
+        }
+    }
+    const harness = setup(() => ({ status: 200, data: { messages: [], pagination: { mode: "initial", has_more: false, next_before_id: null, next_after_id: "0" } } }), TestSocket); // 정상 빈 조회 응답
+    context.after(harness.stop); // 검사 후 연결 정리
+    await harness.evaluate('channels["1"].feed.activate()'); // 실제 최초 조회
+    harness.evaluate('startRealtime("1")'); // 채널 알림 연결
+    socket.onopen(); // 구독 요청 전송
+    socket.onmessage({ data: '{"type":"subscribed"}' }); // 서버 구독 승인
+    assert.equal([...harness.timers.values()].some((timer) => timer.delay === 15000), true); // 승인된 안전망 간격
+    socket.onclose(); // 실시간 연결 종료
+    assert.equal([...harness.timers.values()].some((timer) => timer.delay === 2000), true); // 즉시 기존 간격 복구
+}); // 화면 연결 검사 끝
+test("비밀번호 입력은 문자 길이만 검사하고 긴 한글도 허용", (context) => // 브라우저의 바이트 제한 제거 확인
+{
+    const harness = setup(() => ({ status: 200, data: {} })); // 인증 화면 준비
+    context.after(harness.stop); // 조회 수명 정리
+    harness.evaluate('passwordInput.setCustomValidity = (value) => passwordInput.validationMessage = value; passwordInput.value = "가".repeat(25); validatePassword();'); // 72바이트를 넘는 한글 입력
+    assert.equal(harness.evaluate('passwordInput.validationMessage'), ""); // 유효한 한글 비밀번호
+    harness.evaluate('passwordInput.value = "12345678"; validatePassword();'); // 8자 숫자 비밀번호
+    assert.equal(harness.evaluate('passwordInput.validationMessage'), ""); // 조합 제한 없는 최소 길이
+    harness.evaluate('passwordInput.value = "1234567"; validatePassword();'); // 7자 미달 입력
+    assert.notEqual(harness.evaluate('passwordInput.validationMessage'), ""); // 최소 길이 오류
+}); // 입력 규칙 검사 끝
 test("채널에서 선택한 파일을 전송 전에 취소", (context) => // 파일 선택 취소 동작
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 로그인된 채널 준비

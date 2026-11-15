@@ -1711,8 +1711,8 @@ body /* 작업 공간 바깥 배경 */
 .server-mark, .auth-mark /* 브랜드 아이콘 */
 {
     border-radius: 15px; /* 브랜드 둥근 모서리 */
-    background: linear-gradient(145deg, #8c7aff, #6255e7); /* 보라색 브랜드 */
-    box-shadow: 0 8px 24px #6957f34d; /* 브랜드 빛 효과 */
+    background: linear-gradient(145deg, #7062df, #584bc6); /* 보라색 브랜드 광택 */
+    box-shadow: inset 0 1px 0 #ffffff60, 0 8px 24px #6957f34d; /* 상단 빛과 브랜드 그림자 */
 }
 .rail-line /* 서버 구분선 */
 {
@@ -1789,8 +1789,9 @@ body /* 작업 공간 바깥 배경 */
 }
 .channel-button.active, .server-choice[aria-pressed="true"] /* 선택한 서버와 채널 */
 {
-    background: #44405f; /* 보라색 선택 배경 */
+    background: linear-gradient(160deg, #514b71, #3d3a56); /* 보라색 선택 광택 */
     border-color: #615a8b; /* 선택 항목 경계 */
+    box-shadow: inset 0 1px 0 #ffffff1f; /* 선택 항목 상단 빛 */
     color: #fff; /* 선택 항목 글자 */
 }
 .active .hash, .channel-selected-dot /* 선택 채널 기호 */
@@ -1907,7 +1908,8 @@ body /* 작업 공간 바깥 배경 */
 .message--own .message-body /* 본인 메시지 말풍선 */
 {
     border-radius: 16px 4px 16px 16px; /* 본인 말풍선 모서리 */
-    background: #7062ed; /* 본인 말풍선 보라색 */
+    background: linear-gradient(155deg, #7062df, #5b4cc3); /* 본인 말풍선 보라색 광택 */
+    box-shadow: inset 0 1px 0 #ffffff50, 0 4px 12px #17132933; /* 말풍선 상단 빛과 그림자 */
     color: #fff; /* 본인 말풍선 글자 */
     text-align: left; /* 긴 본문의 읽기 방향 */
 }
@@ -1944,7 +1946,8 @@ body /* 작업 공간 바깥 배경 */
 .send-button, .auth-submit, .profile-extra .profile-action-primary /* 주요 동작 */
 {
     border-color: #8273f2; /* 보라색 버튼 경계 */
-    background: #7062ed; /* 보라색 주요 버튼 */
+    background: linear-gradient(155deg, #7062df, #5b4cc3); /* 보라색 주요 버튼 광택 */
+    box-shadow: inset 0 1px 0 #ffffff50, 0 4px 12px #17132933; /* 버튼 상단 빛과 그림자 */
     color: #fff; /* 주요 버튼 글자 */
 }
 .history-button, .attachment-controls button, .friend-sidebar button /* 보조 버튼 */

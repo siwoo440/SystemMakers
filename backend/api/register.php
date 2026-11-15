@@ -13,7 +13,7 @@ $email = validate_email($requestBody['email']); // 이메일 정규화
 $password = validate_password($requestBody['password']); // 원문 비밀번호 경계 검증
 close_session(); // 느린 해시와 DB 처리 전 세션 잠금 해제
 reject_account_duplicate($databaseConnection, $email, $username); // 이메일 우선 중복 검사
-$passwordHash = password_hash($password, PASSWORD_DEFAULT); // PHP 기본 보안 해시
+$passwordHash = password_hash($password, PASSWORD_ARGON2ID); // 긴 다국어 원문을 보존하는 비밀번호 해시
 try // UNIQUE 경쟁을 포함한 실제 회원 저장
 {
     $userInsert = $databaseConnection->prepare('INSERT INTO users (username, email, password_hash) VALUES (:username, :email, :hash)'); // 원문 없는 준비된 INSERT

@@ -181,3 +181,37 @@ test("브라우저 기본 타이머의 전역 호출 대상 유지", async () =>
         globalThis.clearTimeout = originalClear; // 취소 함수 복원
     }
 }); // 브라우저 타이머 검사 종료
+
+test("실시간 구독 중 안전망 조회와 연결 종료 후 기존 간격 복구", async () => // 실시간 상태별 조회 간격 검증
+{
+    const harness = await setup((count) => count === 1 ? page(["1"], "initial") : page([], "after", false, "1")); // 완전한 최초·신규 응답
+    await harness.feed.activate(); // 첫 기록 조회
+    harness.feed.setRealtimeActive(true); // 서버의 구독 승인
+    assert.equal([...harness.timers.values()][0].delay, 15000); // 구독 중 안전망 조회
+    assert.equal(harness.timers.size, 1); // 단일 예약 유지
+    harness.feed.setRealtimeActive(false); // 실시간 연결 종료
+    assert.equal([...harness.timers.values()][0].delay, 2000); // 기존 대체 조회 복구
+    await harness.tick(); // 대체 조회 실행
+    assert.equal(harness.calls.length, 2); // 실제 메시지 확인
+    harness.feed.pause(); // 예약 정리
+}); // 구독 상태 검사 끝
+
+test("진행 중 도착한 실시간 알림은 요청 완료 후 신규 기록 조회", async () => // 진행 중 알림 유실 방지
+{
+    let release; // 지연된 응답 제어
+    const harness = await setup((count) => count === 1 ? page(["1"], "initial") : count === 2 ? new Promise((resolveRequest) => release = resolveRequest) : page(["2"], "after")); // 조회 중 메시지 도착 상황
+    await harness.feed.activate(); // 최초 기록 조회
+    harness.feed.setRealtimeActive(true); // 구독 승인
+    const pending = harness.feed.run("after"); // 지연된 신규 조회
+    harness.feed.requestRealtimeRefresh(); // 조회 중 알림 수신
+    harness.feed.requestRealtimeRefresh(); // 중복 알림 병합
+    release(page([], "after", false, "1")); // 기존 조회 응답
+    await pending; // 기존 조회 완료
+    assert.equal([...harness.timers.values()][0].delay, 0); // 누락 확인 즉시 예약
+    harness.feed.setRealtimeActive(false); // 확인 직전 연결 종료
+    assert.equal([...harness.timers.values()][0].delay, 0); // 대기 중 알림의 즉시 확인 유지
+    await harness.tick(); // 알림 이후 메시지 조회
+    assert.deepEqual(harness.feed.list().map((entry) => entry.id), ["1", "2"]); // 실제 신규 메시지 표시
+    assert.equal(harness.calls.length, 3); // 중복 알림의 단일 후속 조회
+    harness.feed.pause(); // 예약 정리
+}); // 조회 경합 검사 끝

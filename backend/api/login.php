@@ -18,9 +18,10 @@ consume_login_attempt($databaseConnection, $email); // 성공과 실패를 함�
 $databaseQuery = $databaseConnection->prepare('SELECT id, username, email, created_at, password_hash FROM users WHERE email = :email LIMIT 1'); // 실제 계정의 해시 조회
 $databaseQuery->execute(['email' => $email]); // 준비된 계정 검색
 $account = $databaseQuery->fetch(); // 실제 계정 또는 부재 결과
-$dummyHash = '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.'; // 없는 계정의 동일 bcrypt 비용 해시
+$dummyHash = '$argon2id$v=19$m=65536,t=4,p=1$NWZ3QS9JeVNXdzBOSElyZQ$Laue3Ds3+HA4HAjs5QotJA9qEquPdLTsuALmQdlAO/A'; // 없는 계정의 더미 해시 비교
 $passwordVerified = password_verify($password, $account === false ? $dummyHash : $account['password_hash']); // 없는 계정도 실제 해시 비교
-if ($account === false || !$passwordVerified) // 계정 부재와 비밀번호 불일치
+$legacyTruncated = $account !== false && (password_get_info($account['password_hash'])['algo'] ?? null) === PASSWORD_BCRYPT && strlen($password) > 72; // 기존 bcrypt 계정의 잘린 입력 차단
+if ($account === false || !$passwordVerified || $legacyTruncated) // 계정 부재와 비밀번호 불일치
 {
     respond_error('INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다.', 401); // 동일 자격 증명 오류
 }

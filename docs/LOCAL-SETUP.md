@@ -6,7 +6,7 @@
 ---
 ## 1. 실행 환경
 
-- PHP 8.3과 `pdo_mysql`·`mbstring`·`gd` 확장, MySQL 8.4, Node.js가 필요하다. GD가 없으면 프로필 사진 저장은 503이다.
+- PHP 8.3의 Argon2id 지원과 `pdo_mysql`·`mbstring`·`gd` 확장, MySQL 8.4, Node.js가 필요하다. `php -r "print_r(password_algos());"`에서 `argon2id`를 확인한다. GD가 없으면 프로필 사진 저장은 503이다.
 - 웹 서버는 최대 5 MiB 첨부를 위해 `upload_max_filesize=6M`, `post_max_size=7M`을 적용한다. MySQL `max_allowed_packet`도 파일과 SQL 오버헤드를 수용하도록 설정한다.
 - 개인 PHP·MySQL 도구와 DB, `.runtime/web-env.json`은 Git에 포함되지 않는다. 다른 컴퓨터에서는 따로 준비한다.
 - `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`를 명시한다. 실제 접속 값은 Git이나 공유 문서에 적지 않는다.
