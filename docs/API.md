@@ -486,14 +486,14 @@ confirm_name은 삭제 미리보기에서 확인한 현재 이름이다. 화면�
 | GET `profile_details.php` | `user_id` | 공개 사용자명·상태 메시지·사진 유무 |
 | PATCH `profile_details.php` | JSON `status_message` | 본인 상태 메시지 저장; 최대 200자 |
 | GET `profile_picture.php` | `user_id` | 검증 후 재인코딩한 PNG 또는 JPEG |
-| POST `profile_picture.php` | multipart `picture` | 본인 사진 저장; 입력 최대 1 MiB |
+| POST `profile_picture.php` | multipart `picture` | 본인 사진 저장; 최대 1,048,576바이트(화면 표시: 약 1.05 MB) |
 | DELETE `profile_picture.php` | 없음 | 본인 사진 제거 |
 | GET `user_blocks.php` | 없음 | 본인이 차단한 사용자 목록 |
 | POST/DELETE `user_blocks.php` | JSON `user_id` | 본인 차단 추가·해제 |
 | GET `friends.php` | 없음 | 수락된 `friends`, 받은 `incoming`, 보낸 `outgoing` 목록 |
 | POST `friends.php` | JSON `user_id`, `action` | `request`, `accept`, `decline`, `cancel`, `remove` 동작 |
 
-첨부 파일은 1바이트~5 MiB이고 MySQL `MEDIUMBLOB`에 보관한다. 파일명은 문자로만 표시하며 서버에서 실행하지 않는다. 다운로드는 `application/octet-stream`, `Content-Disposition: attachment`, `nosniff`를 사용한다. PHP 업로드·본문 크기와 MySQL `max_allowed_packet`은 5 MiB 파일을 수용해야 한다.
+첨부 파일은 1~5,242,880바이트(화면 표시: 최대 약 5.24 MB, 이진 단위: 5 MiB)이고 MySQL `MEDIUMBLOB`에 보관한다. 파일명은 문자로만 표시하며 서버에서 실행하지 않는다. 다운로드는 `application/octet-stream`, `Content-Disposition: attachment`, `nosniff`를 사용한다. PHP 업로드·본문 크기와 MySQL `max_allowed_packet`은 5 MiB 파일을 수용해야 한다.
 
 개인 대화는 두 사용자만 조회할 수 있다. 한쪽이 차단하면 양쪽의 새 텍스트·파일 전송을 거부하며 기존 대화 및 파일 조회는 유지한다. WebSocket은 내용 없는 새 메시지 알림을 보내며 실제 내용은 권한을 다시 확인하는 HTTP 조회로 받는다.
 

@@ -111,7 +111,7 @@ test("채널에서 선택한 파일을 전송 전에 취소", (context) => // �
     harness.evaluate('clearChannelFile()'); // 사용자 취소 동작
     assert.equal(harness.evaluate('byId("channel-file").files.length'), 0); // 선택 파일 제거
     assert.equal(harness.evaluate('byId("channel-upload").disabled'), true); // 파일 전송 차단
-    assert.equal(harness.evaluate('byId("channel-file-status").textContent'), "최대 5 MiB"); // 안내 복구
+    assert.equal(harness.evaluate('byId("channel-file-status").textContent'), "최대 약 5.24 MB"); // 안내 복구
     assert.equal(harness.calls.length, 0); // 서버 요청 없음
 }); // 채널 파일 취소 검사 끝
 test("파일 본문은 보호 헤더를 유지하며 multipart로 직접 전송", async (context) => // 파일 본문의 JSON 변환과 경계 누락 차단

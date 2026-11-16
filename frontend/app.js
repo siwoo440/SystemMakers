@@ -347,7 +347,7 @@ function selectChannel(channelId) // 실제 소속 채널 전환
     if (channelId !== activeChannel || directUI?.isActive()) // 다른 대화 진입 여부
     {
         byId("channel-file").value = ""; // 이전 대상의 선택 파일 제거
-        byId("channel-file-status").textContent = "최대 5 MiB"; // 이전 파일 결과 제거
+        byId("channel-file-status").textContent = "최대 약 5.24 MB"; // 이전 파일 결과 제거
     }
     directUI?.close(); // 개인 조회 중단과 채널 화면 복귀
     pauseMessageFeeds(); // 이전 채널 요청 취소와 늦은 응답 무효화
@@ -634,7 +634,7 @@ function clearChannelFile() // 채널의 선택 파일 취소
         return; // 진행 중 전송 보존
     }
     byId("channel-file").value = ""; // 선택한 파일만 제거
-    byId("channel-file-status").textContent = "최대 5 MiB"; // 기본 파일 안내 복구
+    byId("channel-file-status").textContent = "최대 약 5.24 MB"; // 기본 파일 안내 복구
     updateComposer(); // 취소와 전송 상태 갱신
 }
 async function sendChannelFile() // 선택한 채널 파일 전송
@@ -969,7 +969,7 @@ function clearSessionView(preserveDrafts = false) // 종료된 계정 자료 정
     activeChannel = null; // 이전 채널 선택 제거
     messageInput.value = ""; // 이전 초안 표시 제거
     byId("channel-file").value = ""; // 이전 계정의 선택 파일 제거
-    byId("channel-file-status").textContent = "최대 5 MiB"; // 이전 파일 상태 제거
+    byId("channel-file-status").textContent = "최대 약 5.24 MB"; // 이전 파일 상태 제거
     authForm.reset(); // 인증 입력 제거
     clearAuthErrors(); // 이전 인증 오류 제거
     renderChannels(); // 비운 채널 목록 표시
@@ -1335,7 +1335,7 @@ messageInput.addEventListener("input", () => // 입력 수정 상태 처리
 byId("message-form").addEventListener("submit", sendMessage); // 실제 메시지 저장 연결
 byId("channel-file").addEventListener("change", () => // 파일 선택 상태 반영
 {
-    byId("channel-file-status").textContent = byId("channel-file").files[0]?.name || "최대 5 MiB"; // 선택한 파일 이름 안내
+    byId("channel-file-status").textContent = byId("channel-file").files[0]?.name || "최대 약 5.24 MB"; // 선택한 파일 이름 안내
     updateComposer(); // 파일 전송 가능 여부 갱신
 }); // 파일 선택 처리 끝
 byId("channel-upload").addEventListener("click", sendChannelFile); // 사용자 명시적 파일 전송

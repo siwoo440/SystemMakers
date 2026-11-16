@@ -29,7 +29,7 @@ if (preg_match('/[\\\\\/\x00-\x1F\x7F]/u', $originalName)) // 경로와 제어 �
 $fileSize = (int) ($uploadedFile['size'] ?? 0); // PHP 확인 크기
 if ($fileSize < 1 || $fileSize > 5242880) // 빈 파일과 5 MiB 초과
 {
-    respond_error('VALIDATION_ERROR', '파일은 1바이트부터 5 MiB까지 가능합니다.', 422); // 크기 제한 안내
+    respond_error('VALIDATION_ERROR', '파일은 1바이트부터 약 5.24 MB까지 가능합니다.', 422); // 크기 제한 안내
 }
 $fileData = file_get_contents($uploadedFile['tmp_name']); // 임시 파일의 실제 바이트
 if ($fileData === false || strlen($fileData) !== $fileSize) // 실제 길이 확인

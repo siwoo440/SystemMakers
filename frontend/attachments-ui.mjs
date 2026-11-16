@@ -88,7 +88,7 @@ export async function uploadAttachment({ kind, targetId, userId, file, request }
 {
     if (!["channel", "direct"].includes(kind) || !validId(targetId) || !validId(userId) || !file || file.size < 1 || file.size > 5242880) // 대화와 실제 파일 크기 검사
     {
-        throw new Error("파일은 1바이트부터 5 MiB까지 선택할 수 있습니다."); // 업로드 제한 안내
+        throw new Error("파일은 1바이트부터 약 5.24 MB까지 선택할 수 있습니다."); // 업로드 제한 안내
     }
     const body = new FormData(); // 브라우저 multipart 본문
     body.append("kind", kind); // 대화 유형

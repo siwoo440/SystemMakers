@@ -52,7 +52,7 @@ test("개인 대화에서 선택한 파일만 전송 전에 취소", async () =>
     harness.byId("direct-file-clear").fire("click"); // 명시적 선택 취소
     assert.equal(input.files.length, 0); // 선택한 파일 제거
     assert.equal(harness.byId("direct-upload").disabled, true); // 파일 전송 비활성
-    assert.equal(harness.byId("direct-file-status").textContent, "최대 5 MiB"); // 기본 안내 복구
+    assert.equal(harness.byId("direct-file-status").textContent, "최대 약 5.24 MB"); // 기본 안내 복구
     assert.equal(calls.some((path) => path.includes("upload_attachment")), false); // 서버 전송 없음
     harness.ui.clear(); // 조회 수명 정리
 }); // 개인 파일 취소 검사 끝

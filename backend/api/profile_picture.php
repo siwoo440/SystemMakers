@@ -55,7 +55,7 @@ if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_string($up
 $fileSize = filesize($upload['tmp_name']); // 실제 파일 바이트
 if ($fileSize === false || $fileSize < 1 || $fileSize > 1048576) // 실제 파일 크기 검사
 {
-    respond_error('VALIDATION_ERROR', '사진은 1 MiB 이하여야 합니다.', 422); // 사진 크기 오류
+    respond_error('VALIDATION_ERROR', '사진은 약 1.05 MB 이하여야 합니다.', 422); // 사진 크기 오류
 }
 if (!function_exists('imagecreatefromstring') || !function_exists('imagepng') || !function_exists('imagejpeg')) // 이미지 디코더 확인
 {

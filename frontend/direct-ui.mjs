@@ -117,7 +117,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
             realtime = null; // 이전 알림 연결 제거
         }
         byId("direct-file").value = ""; // 이전 대화의 선택 파일 제거
-        byId("direct-file-status").textContent = "최대 5 MiB"; // 이전 파일 상태 제거
+        byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 이전 파일 상태 제거
         selected = conversation; // 현재 상대방 고정
         active = true; // 개인 대화 표시
         const userId = getUser().id; // 현재 계정 경계
@@ -201,7 +201,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         realtime?.stop(); // 개인 대화의 알림 중단
         realtime = null; // 이전 연결 제거
         byId("direct-file").value = ""; // 이전 대상 파일 선택 제거
-        byId("direct-file-status").textContent = "최대 5 MiB"; // 이전 파일 상태 제거
+        byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 이전 파일 상태 제거
         active = false; // 채널 화면 표시
         byId("direct-conversation").hidden = true; // 개인 화면 숨김
         byId("channel-conversation").hidden = false; // 채널 화면 표시
@@ -230,7 +230,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         active = false; // 개인 화면 종료
         byId("direct-input").value = ""; // 초안 화면 제거
         byId("direct-file").value = ""; // 이전 계정의 선택 파일 제거
-        byId("direct-file-status").textContent = "최대 5 MiB"; // 이전 파일 상태 제거
+        byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 이전 파일 상태 제거
         byId("direct-search-input").value = ""; // 검색어 제거
         byId("direct-search-results").replaceChildren(); // 검색 결과 제거
         byId("direct-messages").replaceChildren(); // 기록 화면 제거
@@ -329,7 +329,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
     byId("direct-input").addEventListener("input", render); // 초안 유효성 갱신
     byId("direct-file").addEventListener("change", () => // 파일 선택 상태 갱신
     {
-        byId("direct-file-status").textContent = byId("direct-file").files[0]?.name || "최대 5 MiB"; // 선택한 파일 이름 안내
+        byId("direct-file-status").textContent = byId("direct-file").files[0]?.name || "최대 약 5.24 MB"; // 선택한 파일 이름 안내
         render(); // 파일 전송 가능 여부 갱신
     }); // 파일 선택 처리 끝
     byId("direct-file-clear").addEventListener("click", () => // 선택한 개인 파일 취소
@@ -339,7 +339,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
             return; // 진행 중 전송 보존
         }
         byId("direct-file").value = ""; // 선택한 파일만 제거
-        byId("direct-file-status").textContent = "최대 5 MiB"; // 기본 파일 안내 복구
+        byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 기본 파일 안내 복구
         render(); // 취소와 전송 상태 갱신
     }); // 선택 취소 연결 끝
     byId("direct-upload").addEventListener("click", async () => // 명시적 개인 파일 전송
