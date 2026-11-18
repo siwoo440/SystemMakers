@@ -40,7 +40,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             return serverButton; // 완성한 탐색 요소
         })); // 서버 버튼 준비 끝
         byId("selected-server").textContent = server?.name || "참여 서버 없음"; // 실제 서버 제목
-        byId("server-status").textContent = manager.loading ? "서버 확인 중…" : server ? `내 역할: ${server.role === "owner" ? "소유자" : server.role === "admin" ? "관리자" : "일반 회원"}` : "서버를 만들거나 초대 코드로 참여하세요."; // 소속 상태
+        byId("server-status").textContent = manager.loading ? "서버 확인 중…" : server ? `내 역할: ${server.role === "owner" ? "소유자" : server.role === "admin" ? "관리자" : "일반 회원"}` : ""; // 소속 상태
         if (/^#invite=[a-f0-9]{64}$/.test(globalThis.location?.hash || "")) // 수신한 공유 링크 확인
         {
             byId("server-status").textContent = "초대 링크가 도착했습니다. 로그인 후 초대로 참여 버튼을 눌러 확인하세요."; // 명시적 참여 안내
@@ -181,7 +181,14 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
                     onDeparted(responseData.server_id); // 후속 목록 실패 전 이전 자료 폐기
                 }
                 managementDialog.close(); // 완료한 작업 화면 닫기
-                await onReload(); // 실제 서버·채널 확인
+                if (responseData.server) // 생성 또는 초대 참여 성공
+                {
+                    await onSelect(); // 참여 서버의 채널 화면 전환
+                }
+                else // 탈퇴 또는 삭제 완료
+                {
+                    await onReload(); // 남은 서버와 채널 확인
+                }
             }
         }
         catch (operationError) // 업무 실패와 불확실한 결과

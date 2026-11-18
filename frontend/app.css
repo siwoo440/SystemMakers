@@ -201,13 +201,6 @@ button:disabled /* 비활성 버튼 */
     border-radius: 50%; /* 원형 선택 점 */
     background: #7be5d9; /* 선택 점 색상 */
 }
-.connection-status /* 연결 상태 */
-{
-    margin: auto 23px 14px; /* 하단 연결 상태 여백 */
-    font-size: 10px; /* 상태 글자 크기 */
-    line-height: 1.7; /* 상태 줄간격 */
-    color: #93a2b6; /* 상태 색상 */
-}
 .user-panel /* 사용자 하단 패널 */
 {
     display: flex; /* 아바타와 사용자 배치 */
@@ -1290,6 +1283,14 @@ button:disabled /* 비활성 버튼 */
     flex-direction: column; /* 항목 세로 정렬 */
     gap: 7px; /* 항목 사이 간격 */
 }
+.friend-section .friend-list /* 요청과 친구 목록의 구분 영역 */
+{
+    min-height: 48px; /* 빈 목록의 최소 높이 */
+    padding: 8px; /* 목록 안쪽 여백 */
+    border: 1px solid #655b91; /* 목록 구분 테두리 */
+    border-radius: 10px; /* 목록 모서리 */
+    background: #232234; /* 목록 배경 */
+}
 .friend-row /* 사용자별 칸 */
 {
     display: flex; /* 이름과 동작 가로 배치 */
@@ -1317,23 +1318,27 @@ button:disabled /* 비활성 버튼 */
         display: none; /* 두 목록을 위한 공간 확보 */
     }
 }
-@media (max-width: 760px) /* 모바일 왼쪽 목록 */
+@media (max-width: 760px) /* 모바일 양쪽 목록 */
 {
-    .channel-sidebar /* 채널 목록 위쪽 배치 */
+    .channel-sidebar /* 채널 목록 왼쪽 배치 */
     {
-        bottom: 45%; /* 친구 목록 공간 확보 */
+        bottom: 0; /* 전체 높이 유지 */
+        width: min(280px, calc((100vw - 80px) / 2)); /* 가운데 닫기 공간 확보 */
         overflow: hidden; /* 사용자 영역 고정 유지 */
     }
-    .friend-sidebar /* 친구 목록 아래쪽 배치 */
+    .friend-sidebar /* 친구 목록 오른쪽 배치 */
     {
         position: fixed; /* 화면 위 목록 배치 */
-        top: 55%; /* 채널 목록 아래 위치 */
-        left: 0; /* 왼쪽 정렬 */
+        top: 0; /* 화면 위쪽 정렬 */
+        right: 0; /* 화면 오른쪽 정렬 */
+        left: auto; /* 왼쪽 기준 해제 */
         bottom: 0; /* 화면 아래까지 표시 */
-        width: min(280px, 85vw); /* 채널 목록과 동일 너비 */
+        width: min(280px, calc((100vw - 80px) / 2)); /* 가운데 닫기 공간 확보 */
         z-index: 12; /* 배경 위 표시 */
         visibility: hidden; /* 닫힌 목록 포커스 방지 */
-        transform: translateX(-100%); /* 왼쪽 화면 밖 이동 */
+        transform: translateX(100%); /* 오른쪽 화면 밖 이동 */
+        padding: 20px 8px; /* 좁은 패널 안쪽 여백 */
+        overflow-x: hidden; /* 가로 넘침 방지 */
     }
     body.sidebar-open .friend-sidebar /* 열린 모바일 친구 목록 */
     {
@@ -1465,12 +1470,6 @@ button:disabled /* 비활성 버튼 */
 {
     border-color: #69cfc4; /* 마우스 테두리 강조 */
     background: #32465a; /* 마우스 배경 강조 */
-}
-.profile-extra .profile-extra-load /* 추가 정보 조회 */
-{
-    border-color: #418c89; /* 조회 버튼 강조 테두리 */
-    color: #b2f3e9; /* 조회 버튼 강조 글자 */
-    background: #193d42; /* 조회 버튼 배경 */
 }
 .profile-extra-status /* 추가 설정 결과 */
 {
@@ -1737,6 +1736,19 @@ body /* 작업 공간 바깥 배경 */
 {
     color: #a7a8bb; /* 보조 제목 색상 */
 }
+.server-group /* 선택 서버와 소속 채널 테두리 */
+{
+    margin: 14px 12px 18px; /* 탐색 영역과 바깥 간격 */
+    border: 1px solid #71659d; /* 서버 전체 구분선 */
+    border-radius: 12px; /* 서버 묶음 모서리 */
+    background: #202032; /* 채널 묶음 배경 */
+}
+.server-group .server-tools /* 서버 이름과 관리 배너 */
+{
+    border-bottom: 1px solid #71659d; /* 배너와 채널 구분선 */
+    border-radius: 11px 11px 0 0; /* 배너 위쪽 모서리 */
+    background: linear-gradient(135deg, #48405f, #302c46); /* 보라색 배너 */
+}
 .server-tools /* 서버 관리 묶음 */
 {
     padding-top: 18px; /* 관리 영역 위 여백 */
@@ -1805,7 +1817,7 @@ body /* 작업 공간 바깥 배경 */
 .user-panel /* 고정된 사용자 정보 */
 {
     display: grid; /* 정보와 동작의 행 분리 */
-    grid-template-columns: 33px minmax(0, 1fr) auto; /* 아이콘과 사용자·버튼 영역 */
+    grid-template-columns: 33px minmax(0, 1fr) 30px 30px; /* 사용자와 두 동작 */
     gap: 5px 8px; /* 사용자 항목 간격 */
     padding: 10px 13px; /* 고정 영역 여백 */
     background: #171823; /* 사용자 영역 배경 */
@@ -1813,21 +1825,35 @@ body /* 작업 공간 바깥 배경 */
 }
 .user-panel .user-details /* 현재 사용자 정보 */
 {
-    grid-column: 2 / -1; /* 이름과 상태 전체 너비 */
+    grid-column: 2; /* 이름과 상태 영역 */
 }
 .user-panel .login-button /* 프로필과 로그인 동작 */
 {
-    justify-self: start; /* 각 동작 왼쪽 정렬 */
+    justify-self: center; /* 각 동작 가운데 정렬 */
     margin-left: 0; /* 불필요한 자동 여백 제거 */
-    padding: 4px 0; /* 간결한 동작 여백 */
+    padding: 4px; /* 아이콘 주변 여백 */
+    width: 30px; /* 계정 버튼 너비 */
+    height: 30px; /* 계정 버튼 높이 */
+    display: grid; /* 아이콘 중앙 정렬 */
+    place-items: center; /* 가로와 세로 중앙 */
+}
+.user-icon-button svg /* 계정 동작 그림 */
+{
+    width: 18px; /* 그림 너비 */
+    height: 18px; /* 그림 높이 */
+    fill: none; /* 내부 채우기 제거 */
+    stroke: currentColor; /* 버튼 색상 적용 */
+    stroke-width: 1.8; /* 그림 선 굵기 */
+    stroke-linecap: round; /* 둥근 선 끝 */
+    stroke-linejoin: round; /* 둥근 연결 */
 }
 .user-panel #open-profile /* 본인 프로필 버튼 */
 {
-    grid-column: 2; /* 두 번째 열 배치 */
+    grid-column: 3; /* 프로필 버튼 열 */
 }
 .user-panel #open-auth /* 로그인과 로그아웃 버튼 */
 {
-    grid-column: 3; /* 세 번째 열 배치 */
+    grid-column: 4; /* 인증 버튼 열 */
 }
 .avatar /* 대화 작성자 아이콘 */
 {
@@ -1978,7 +2004,7 @@ body /* 작업 공간 바깥 배경 */
 {
     color: #c9beff; /* 밝은 보라색 글자 */
 }
-.profile-extra .profile-extra-load, .profile-extra-status, .profile-card-icon /* 프로필 보조 강조 */
+.profile-extra-status, .profile-card-icon /* 프로필 보조 강조 */
 {
     border-color: #655b91; /* 보라색 경계 */
     background: #38334f; /* 보라색 보조 배경 */
@@ -2016,6 +2042,74 @@ body /* 작업 공간 바깥 배경 */
 }
 @media (max-width: 760px) /* 모바일 전체 화면 */
 {
+    .server-group /* 좁은 화면의 서버 묶음 */
+    {
+        margin: 10px 6px 14px; /* 좌우 공간 확보 */
+    }
+    .server-group .server-tools, .server-group .channel-navigation /* 서버와 채널 안쪽 공간 */
+    {
+        padding: 10px 6px; /* 좁은 패널 여백 축소 */
+    }
+    .server-group .server-actions /* 좁은 패널의 버튼 간격 */
+    {
+        gap: 4px; /* 세 버튼의 가로 공간 */
+    }
+    .server-actions .icon-action /* 좁은 패널의 관리 버튼 */
+    {
+        width: clamp(22px, 7vw, 28px); /* 화면에 맞춘 버튼 너비 */
+        height: clamp(22px, 7vw, 28px); /* 화면에 맞춘 버튼 높이 */
+        padding: 3px; /* 아이콘 공간 확보 */
+    }
+    .server-actions .icon-action svg /* 좁은 패널의 관리 그림 */
+    {
+        width: clamp(12px, 3.8vw, 16px); /* 화면에 맞춘 그림 너비 */
+        height: clamp(12px, 3.8vw, 16px); /* 화면에 맞춘 그림 높이 */
+    }
+    .direct-navigation /* 좁은 개인 대화 목록 */
+    {
+        padding-left: 7px; /* 왼쪽 공간 확보 */
+        padding-right: 7px; /* 오른쪽 공간 확보 */
+    }
+    .direct-navigation .section-label /* 개인 대화 제목 */
+    {
+        gap: 3px; /* 제목과 버튼 간격 */
+        font-size: 10px; /* 제목 크기 축소 */
+    }
+    .direct-navigation .history-button /* 개인 대화 새로고침 */
+    {
+        padding: 4px; /* 버튼 여백 축소 */
+        font-size: 9px; /* 버튼 글자 축소 */
+        white-space: nowrap; /* 버튼 글자 한 줄 */
+    }
+    .user-panel /* 좁은 패널의 사용자 정보 */
+    {
+        grid-template-columns: 28px minmax(0, 1fr) 24px 24px; /* 이름과 두 아이콘 */
+        gap: 2px; /* 좁은 사용자 영역 간격 */
+        padding: 8px 6px; /* 좁은 사용자 영역 여백 */
+    }
+    .user-panel .login-button /* 좁은 패널의 계정 버튼 */
+    {
+        width: 24px; /* 작은 버튼 너비 */
+        height: 24px; /* 작은 버튼 높이 */
+        padding: 3px; /* 그림 안쪽 여백 */
+    }
+    .user-panel .avatar /* 좁은 패널의 사용자 아이콘 */
+    {
+        width: 28px; /* 작은 아이콘 너비 */
+        height: 28px; /* 작은 아이콘 높이 */
+    }
+    .user-icon-button svg /* 좁은 패널의 계정 그림 */
+    {
+        width: 16px; /* 작은 그림 너비 */
+        height: 16px; /* 작은 그림 높이 */
+    }
+    .friend-row .friend-name /* 좁은 친구 이름 */
+    {
+        flex: 1 1 0; /* 삭제 버튼을 제외한 너비 */
+        overflow: hidden; /* 긴 이름 넘침 방지 */
+        text-overflow: ellipsis; /* 긴 이름 생략 표시 */
+        white-space: nowrap; /* 이름 한 줄 유지 */
+    }
     .workspace /* 모바일 작업 공간 */
     {
         width: 100%; /* 화면 전체 너비 */

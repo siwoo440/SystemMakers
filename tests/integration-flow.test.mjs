@@ -19,10 +19,17 @@ test("11단계 공개 API의 서버·채널·프로필·대화 전체 연결", a
         const created = await owner.request("create_server.php", { name: "통합 서버" }); // 명령어 준비 없는 생성
         server = created.data.server; // 실제 소유 서버
         channel = (await owner.request("create_channel.php", { server_id: server.id, name: "개발" })).data.channel; // 같은 서버 관리 기능
+        const defaultChannel = created.data.channel; // 기본 채팅방
+        assert.equal((await owner.request("send_message.php", { channel_id: defaultChannel.id, content: "초대 전 대화" })).status, 201); // 참여 전 저장된 대화
+        assert.equal((await outsider.request("get_messages.php?channel_id=" + defaultChannel.id)).status, 403); // 미참여자 대화 차단
         code = (await owner.request("create_server_invite.php", { server_id: server.id })).data.code; // 소유자 발급
         assert.equal((await member.request("join_server.php", { code })).status, 201); // 새 소속 생성
         assert.equal((await member.request("join_server.php", { code })).data.already_member, true); // 중복 소속 없음
         assert.equal((await member.request("list_servers.php")).data.servers[0].role, "member"); // 본인 역할
+        const joinedChannels = (await member.request("get_channels.php")).data.channels; // 서버 참여 후 전체 채팅방
+        assert.deepEqual(joinedChannels.map((entry) => entry.id), [defaultChannel.id, channel.id]); // 두 채팅방 자동 소속
+        assert.equal((await member.request("get_messages.php?channel_id=" + defaultChannel.id)).data.messages[0].content, "초대 전 대화"); // 기존 대화 접근
+        assert.deepEqual((await outsider.request("get_channels.php")).data.channels, []); // 다른 사용자의 목록 차단
         second = testFixture.client(); // 같은 쿠키의 별도 탭 경계
         Object.assign(second, { cookie: member.cookie, token: member.token, id: member.id }); // 실제 공유 세션
     }); // 서버·초대 흐름 검사 끝

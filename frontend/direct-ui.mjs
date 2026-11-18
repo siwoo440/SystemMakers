@@ -37,6 +37,10 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
     function render() // 로그인과 입력 상태 반영
     {
         const ready = Boolean(getUser() && isReady()); // 인증과 보호 정보 확인
+        if (getUser() && byId("direct-status").textContent === "로그인 후 개인 대화를 이용하세요.") // 로그인 이후 게스트 안내
+        {
+            byId("direct-status").textContent = ""; // 이전 로그인 안내 제거
+        }
         byId("direct-search-input").disabled = !ready; // 게스트 검색 차단
         byId("direct-search-submit").disabled = !ready; // 게스트 요청 차단
         byId("direct-refresh").disabled = !ready; // 게스트 목록 조회 차단

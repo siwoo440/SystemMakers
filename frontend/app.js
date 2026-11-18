@@ -97,7 +97,7 @@ function updateHistoryControls() // 기록 조회 버튼과 갱신 상태 표시
     byId("load-older").disabled = Boolean(channelFeed?.busy); // 조회 중 겹치는 이전 요청 차단
     byId("retry-messages").hidden = !channelFeed?.error || channelFeed.blocked; // 통신 실패의 수동 재시도
     byId("retry-messages").disabled = Boolean(channelFeed?.busy); // 재연결 중 중복 요청 차단
-    byId("history-status").textContent = !channelFeed ? currentUser ? "선택할 채널이 없습니다." : "로그인 후 대화를 불러옵니다." : channelFeed.blocked ? "채널 접근을 확인하세요." : channelFeed.error ? "대화를 갱신하지 못했습니다. 다시 연결하는 중입니다." : !channelFeed.loaded ? "이전 대화를 불러오는 중입니다." : channelFeed.busy ? "대화 확인 중…" : realtimeStatus === "subscribed" ? "실시간 연결됨 · 자동 갱신" : "대화 연결됨 · 2초 간격 자동 갱신"; // 실제 연결 상태 구분
+    byId("history-status").textContent = !channelFeed ? currentUser ? "" : "로그인 후 대화를 불러옵니다." : channelFeed.blocked ? "채널 접근을 확인하세요." : channelFeed.error ? "대화를 갱신하지 못했습니다. 다시 연결하는 중입니다." : !channelFeed.loaded ? "이전 대화를 불러오는 중입니다." : channelFeed.busy ? "대화 확인 중…" : realtimeStatus === "subscribed" ? "실시간 연결됨 · 자동 갱신" : "대화 연결됨 · 2초 간격 자동 갱신"; // 실제 연결 상태 구분
 }
 function createChannelFeed(channelId, channel, userId) // 실제 소속 채널의 조회 연결
 {
@@ -293,7 +293,7 @@ function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
     {
         channel.draft = messageInput.value; // 채널별 작성 원문 보관
     }
-    const feedback = containsNull ? "지원하지 않는 빈 문자를 제거하세요." : characterCount > 2000 ? "메시지는 2,000자까지 입력할 수 있습니다." : !currentUser ? "로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다." : channelLoading ? "참여 중인 채널을 확인하는 중입니다." : channelError ? channelError : !channel ? serverManager.selected ? emptyChannelHint() : "서버를 만들거나 초대 코드로 참여하세요." : !csrfToken ? "화면 보호 정보를 확인하지 못했습니다. 다시 로그인하세요." : channel.feedback || "대화는 DB에 저장되며 새 메시지를 자동으로 확인합니다."; // 확인된 기능 범위와 오류 안내
+    const feedback = containsNull ? "지원하지 않는 빈 문자를 제거하세요." : characterCount > 2000 ? "메시지는 2,000자까지 입력할 수 있습니다." : !currentUser ? "로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다." : channelLoading ? "참여 중인 채널을 확인하는 중입니다." : channelError ? channelError : !channel ? serverManager.selected ? emptyChannelHint() : "" : !csrfToken ? "화면 보호 정보를 확인하지 못했습니다. 다시 로그인하세요." : channel.feedback || "대화는 DB에 저장되며 새 메시지를 자동으로 확인합니다."; // 확인된 기능 범위와 오류 안내
     byId("composer-feedback").textContent = feedback; // 안전한 상태 문구 출력
     byId("composer-feedback").classList.toggle("error", characterCount > 2000 || containsNull || Boolean(channel?.error) || Boolean(channelError)); // 실패 상태 색상
     renderManagementUI(); // 전송 중 서버·채널 관리 잠금
@@ -312,7 +312,7 @@ function renderChannels() // 실제 소속 채널 목록 생성
         channelButton.type = "button"; // 폼 제출 방지
         channelButton.className = "channel-button"; // 기존 채널 디자인
         channelButton.dataset.channel = channelId; // 문자열 식별자 보관
-        channelButton.textContent = `# ${channel.title} · ${channel.serverName}`; // 같은 이름의 서버별 채널 구분
+        channelButton.textContent = `# ${channel.title}`; // 서버 묶음 안의 채널 이름
         channelButton.title = `${channel.serverName} / ${channel.title}`; // 전체 채널 이름 안내
         channelButton.setAttribute("aria-pressed", String(channelId === activeChannel && !directUI?.isActive())); // 현재 채널 선택 상태
         channelButton.classList.toggle("active", channelId === activeChannel && !directUI?.isActive()); // 현재 채널 강조
@@ -321,7 +321,7 @@ function renderChannels() // 실제 소속 채널 목록 생성
     }); // 채널 버튼 생성 끝
     channelList.replaceChildren(...channelButtons); // 이전 계정 목록 제거 후 교체
     byId("channel-status").hidden = channelButtons.length > 0 && !channelLoading && !channelError; // 비어 있거나 실패한 목록 안내
-    byId("channel-status").textContent = !currentUser ? "로그인 후 참여 채널이 표시됩니다." : channelLoading ? "채널을 확인하는 중입니다." : channelError || (serverManager.selected ? emptyChannelHint() : "서버를 만들거나 초대 코드로 참여하세요."); // 빈 서버와 미소속 구분
+    byId("channel-status").textContent = !currentUser ? "로그인 후 참여 채널이 표시됩니다." : channelLoading ? "채널을 확인하는 중입니다." : channelError || (serverManager.selected ? emptyChannelHint() : ""); // 빈 서버와 미소속 구분
     byId("retry-channels").hidden = !currentUser || !channelError; // 조회 실패 시 재시도 제공
     byId("retry-channels").disabled = channelLoading || authBusy; // 중복 조회 차단
 }
@@ -826,10 +826,13 @@ function renderAuthState() // 실제 사용자 상태 표시
     byId("current-user").textContent = currentUser ? currentUser.username : "게스트"; // 본인 사용자명 안전한 출력
     byId("user-avatar").textContent = currentUser ? Array.from(currentUser.username)[0].toUpperCase() : "G"; // 현재 사용자 이니셜
     byId("session-state").textContent = sessionNotice; // 실제 인증 확인 범위 안내
-    byId("open-auth").textContent = authBusy ? "처리 중…" : currentUser ? "로그아웃" : "로그인"; // 인증 상태별 버튼 문구
+    const authLabel = authBusy ? "처리 중" : currentUser ? "로그아웃" : "로그인"; // 인증 상태별 설명
+    byId("open-auth").setAttribute("aria-label", authLabel); // 보조 기기 설명
+    byId("open-auth").title = authLabel; // 마우스 설명
+    byId("auth-login-icon").hidden = Boolean(currentUser); // 게스트 로그인 그림
+    byId("auth-logout-icon").hidden = !currentUser; // 로그인 사용자 로그아웃 그림
     byId("open-auth").disabled = authBusy || authInitializing; // 중복 요청과 초기 확인 중 클릭 차단
     updateComposer(); // 실제 인증 상태별 입력 갱신
-    byId("connection-status").textContent = `${databaseReady ? "DB 연결 확인됨" : "DB 연결 확인 필요"} · ${csrfToken ? "화면 보호 준비됨" : "화면 보호 확인 필요"}`; // 실제 확인한 공통 연결 범위
 }
 function setAuthBusy(busy) // 인증 요청 중 화면 보호
 {
@@ -1260,8 +1263,13 @@ async function serverFailure(operationError, generation = authGeneration, userId
     }
     return operationError.status === 429 ? `요청이 많습니다. ${operationError.retryAfter || 600}초 후 다시 시도하세요.` : operationError.message; // 실제 오류와 제한 안내
 }
+async function selectServerConversation() // 서버 선택과 초대 참여
+{
+    directUI?.close(); // 개인 대화 종료와 초안 보존
+    await loadChannels(); // 선택 서버와 채널 자동 조회
+}
 byId("retry-channels").addEventListener("click", loadChannels); // 소속 채널 조회 재시도
-serverUI = mountServerUI({ manager: serverManager, byId, onDeparted: discardDepartedServer, onReload: loadChannels, onSelect: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 실제 관리 화면 연결
+serverUI = mountServerUI({ manager: serverManager, byId, onDeparted: discardDepartedServer, onReload: loadChannels, onSelect: selectServerConversation, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 실제 관리 화면 연결
 channelUI = mountChannelUI({ manager: serverManager, byId, getChannel: () => activeChannel && channels[activeChannel] ? { ...channels[activeChannel], id: activeChannel } : null, hasChannel: (channelId) => Boolean(channels[channelId]), onDeleted: discardDeletedChannel, onReload: loadChannels, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest && !channelLoading && !channelError) }); // 실제 채널과 권한별 관리 연결
 profileUI = mountProfileUI({ manager: serverManager, byId, getUser: () => currentUser, onUser: applyProfile, onError: serverFailure, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest) }); // 기존 인증·요청 수명으로 본인 프로필 연결
 directUI = mountDirectUI({ byId, request: requestEndpoint, getUser: () => currentUser, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest), onError: serverFailure, createMessage, onBusyChange: updateComposer, onOpen: () => // 기존 채널과 개인 화면 분리

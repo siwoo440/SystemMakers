@@ -47,12 +47,83 @@ function setup(request) // 실제 화면과 상태 모듈
     } }); // 실제 화면 연결 종료
     return { ui, manager, byId, applied, failures: () => failures, user: () => user, change: (next) => user = next }; // 검사 제어
 }
+test("프로필을 열면 추가 정보가 자동 조회되고 저장하지 않은 상태는 닫을 때 폐기", async () => // 자동 조회와 취소 경계
+{
+    let savedStatus = "기존 상태"; // 서버에 저장된 상태
+    let savedChanges = 0; // 실제 저장 횟수
+    const testHarness = setup(async (requestPath, body, signal, method) => // 실제 요청 경계
+    {
+        if (requestPath.includes("profile_details.php") && method === "PATCH") // 상태 저장
+        {
+            savedStatus = body.status_message; // 서버 저장 반영
+            savedChanges++; // 명시적 저장 기록
+            return { status_message: savedStatus }; // 저장 응답
+        }
+        if (requestPath.includes("profile_details.php")) // 추가 정보 조회
+        {
+            return { profile: { id: "1", status_message: savedStatus, has_picture: false } }; // 현재 저장 상태
+        }
+        if (requestPath.includes("user_blocks.php")) // 차단 목록 조회
+        {
+            return { users: [] }; // 빈 차단 목록
+        }
+        return { user: original }; // 본인 정보
+    }); // 요청 준비 끝
+    await testHarness.byId("open-profile").fire("click"); // 프로필 열기
+    assert.equal(testHarness.byId("profile-message").value, "기존 상태"); // 추가 버튼 없는 자동 조회
+    assert.equal(testHarness.byId("profile-message").disabled, false); // 조회 후 즉시 수정 허용
+    testHarness.byId("profile-message").value = "저장하지 않은 상태"; // 저장 전 입력
+    await testHarness.byId("profile-close-top").fire("click"); // 창 닫기
+    assert.equal(savedChanges, 0); // 닫기만으로 저장하지 않음
+    await testHarness.byId("open-profile").fire("click"); // 다시 열기
+    assert.equal(testHarness.byId("profile-message").value, "기존 상태"); // 저장 전 입력 폐기
+    testHarness.byId("profile-message").value = "새 상태"; // 명시적 저장 입력
+    await testHarness.byId("profile-message-save").fire("click"); // 저장 버튼 선택
+    assert.equal(savedChanges, 1); // 한 번의 저장 요청
+    await testHarness.byId("profile-close-top").fire("click"); // 저장 후 닫기
+    await testHarness.byId("open-profile").fire("click"); // 저장 상태 재확인
+    assert.equal(testHarness.byId("profile-message").value, "새 상태"); // 확정 상태 복원
+}); // 자동 조회와 저장 검사 끝
+test("추가 정보 자동 조회가 실패하면 다시 조회로 복구", async () => // 조회 실패 복구 경계
+{
+    let attempts = 0; // 추가 정보 조회 횟수
+    const testHarness = setup(async (requestPath) => // 실제 요청 경계
+    {
+        if (requestPath.includes("profile_details.php")) // 추가 정보 요청
+        {
+            attempts++; // 조회 횟수 기록
+            if (attempts === 1) // 최초 오류
+            {
+                throw new Error("조회 실패"); // 일시적인 오류
+            }
+            return { profile: { id: "1", status_message: "복구 상태", has_picture: false } }; // 복구된 본인 정보
+        }
+        if (requestPath.includes("user_blocks.php")) // 차단 목록
+        {
+            return { users: [] }; // 빈 차단 목록
+        }
+        return { user: original }; // 본인 정보
+    }); // 요청 준비 끝
+    await testHarness.byId("open-profile").fire("click"); // 최초 조회 실패
+    assert.equal(testHarness.byId("profile-message").disabled, true); // 미확인 상태 수정 차단
+    await testHarness.byId("profile-reload").fire("click"); // 다시 조회
+    assert.equal(testHarness.byId("profile-message").value, "복구 상태"); // 저장 상태 복구
+    assert.equal(testHarness.byId("profile-message").disabled, false); // 수정 허용
+}); // 자동 조회 실패 복구 검사 끝
 test("본인 조회·취소 시 이메일과 입력 폐기·게스트 숨김", async () => // 본인 정보 수명
 {
     const calls = []; // 실제 경로 기록
     const testHarness = setup(async (path, body) => // 네트워크 경계
     {
         calls.push({ path, body }); // 공개 요청 관측
+        if (path.includes("profile_details.php")) // 확장 정보 조회
+        {
+            return { profile: { id: "1", status_message: "", has_picture: false } }; // 본인 추가 정보
+        }
+        if (path.includes("user_blocks.php")) // 차단 목록 조회
+        {
+            return { users: [] }; // 빈 차단 목록
+        }
         return { user: original }; // 실제 응답 형태
     });
     await testHarness.byId("open-profile").fire("click"); // 내 프로필 열기
@@ -60,7 +131,8 @@ test("본인 조회·취소 시 이메일과 입력 폐기·게스트 숨김", a
     assert.equal(testHarness.byId("profile-username").value, original.username); // 현재 사용자명
     assert.equal(testHarness.byId("profile-submit").disabled, false); // 확인된 정보만 변경 가능
     await testHarness.byId("profile-close-top").fire("click"); // 취소
-    assert.deepEqual(calls, [{ path: "./backend/api/profile.php", body: null }]); // 취소는 변경 없음
+    assert.equal(calls.length, 3); // 본인과 추가 정보 자동 조회
+    assert.ok(calls.every((call) => call.body === null)); // 취소 시 변경 요청 없음
     assert.equal(testHarness.byId("profile-email").textContent, ""); // 닫은 이메일 폐기
     assert.equal(testHarness.byId("profile-username").value, ""); // 이전 입력 폐기
     testHarness.change(null); // 로그아웃 상태
@@ -150,6 +222,14 @@ test("저장 응답 유실은 GET 확인·입력 보존·PATCH 자동 반복 없
     let patches = 0; // 변경 횟수
     const testHarness = setup(async (path, body) => // 커밋 뒤 응답 유실 경계
     {
+        if (path.includes("profile_details.php")) // 추가 정보 조회
+        {
+            return { profile: { id: "1", status_message: "", has_picture: false } }; // 본인 추가 정보
+        }
+        if (path.includes("user_blocks.php")) // 차단 목록 조회
+        {
+            return { users: [] }; // 빈 차단 목록
+        }
         if (body) // 저장 요청
         {
             patches++; // 변경 한 번
@@ -209,7 +289,6 @@ test("확장 프로필 상태와 차단 목록을 실제 요청으로 관리", a
         return { user: original }; // 기존 프로필
     }); // 요청 경계 끝
     await testHarness.byId("open-profile").fire("click"); // 기존 프로필 확인
-    await testHarness.byId("profile-extra-load").fire("click"); // 확장 정보 확인
     assert.equal(testHarness.byId("profile-message").value, "기존 상태"); // 저장 상태 반영
     testHarness.byId("profile-message").value = "새 상태"; // 새 상태 입력
     await testHarness.byId("profile-message-save").fire("click"); // 상태 저장
@@ -246,7 +325,6 @@ test("차단 검색과 해제는 선택한 사용자만 변경", async (context)
         return { user: original }; // 기존 프로필
     }); // 요청 경계 끝
     await testHarness.byId("open-profile").fire("click"); // 본인 정보 열기
-    await testHarness.byId("profile-extra-load").fire("click"); // 차단 목록 확인
     testHarness.byId("profile-block-search").value = "second"; // 검색할 사용자명
     await testHarness.byId("profile-block-find").fire("click"); // 실제 사용자 검색
     await testHarness.byId("profile-block-add").fire("click"); // 선택 사용자 차단
@@ -274,7 +352,6 @@ test("프로필 사진은 파일 원본 multipart로 전송하고 성공 시 표
         return { user: original }; // 기존 본인 정보
     }); // 요청 경계 끝
     await testHarness.byId("open-profile").fire("click"); // 기존 정보 확인
-    await testHarness.byId("profile-extra-load").fire("click"); // 확장 상태 확인
     testHarness.byId("profile-picture-file").files = [new Blob(["png"], { type: "image/png" })]; // 선택한 사진
     await testHarness.byId("profile-picture-save").fire("click"); // 명시적 사진 저장
     assert.ok(sentForm instanceof FormData); // multipart 요청 자료
@@ -297,7 +374,6 @@ test("추가 설정 오류를 해당 영역에 표시", async () => // 보이지
         return { user: original }; // 기존 본인 정보
     }); // 요청 경계 끝
     await testHarness.byId("open-profile").fire("click"); // 프로필 열기
-    await testHarness.byId("profile-extra-load").fire("click"); // 추가 정보 확인
     await testHarness.byId("profile-picture-save").fire("click"); // 파일 없이 저장 요청
     assert.equal(testHarness.byId("profile-extra-status").textContent, "사진 파일을 선택하세요."); // 추가 설정 영역의 오류 안내
     assert.equal(testHarness.byId("profile-picture-feedback").textContent, "사진 파일을 선택하세요."); // 사진 카드의 오류 안내

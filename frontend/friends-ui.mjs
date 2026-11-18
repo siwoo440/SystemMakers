@@ -125,7 +125,7 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
             byId("friend-list").replaceChildren(...data.friends.map((user) => row(user, "friends"))); // 수락된 친구 세로 표시
             byId("friend-incoming").replaceChildren(...data.incoming.map((user) => row(user, "incoming"))); // 받은 요청 표시
             byId("friend-outgoing").replaceChildren(...data.outgoing.map((user) => row(user, "outgoing"))); // 보낸 요청 표시
-            byId("friend-status").textContent = data.friends.length ? "친구 " + data.friends.length + "명" : "수락된 친구가 없습니다."; // 현재 목록 안내
+            byId("friend-status").textContent = data.friends.length ? "친구 " + data.friends.length + "명" : ""; // 친구 수 안내
         }
         catch (error) // 실제 조회 실패
         {

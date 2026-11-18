@@ -65,6 +65,32 @@ function setup(handler, websocketClass = undefined) // 실제 화면 함수와 �
     const send = () => evaluate("sendMessage({ preventDefault: () => undefined })"); // 실제 폼 제출 경로
     return { calls, timers, evaluate, state, send, stop: () => evaluate("pauseMessageFeeds()") }; // 검사 경계 반환
 }
+test("서버 선택은 개인 대화를 닫은 뒤 서버 채널을 불러옴", async (context) => // 개인 대화에서 서버 복귀
+{
+    const harness = setup(() => ({ status: 200, data: {} })); // 화면 실행 환경
+    context.after(harness.stop); // 예약 정리
+    harness.evaluate('var transitions = []; directUI = { close: () => transitions.push("close") }; loadChannels = async () => transitions.push("load");'); // 화면 전환 관측
+    await harness.evaluate("selectServerConversation()"); // 실제 서버 전환 함수
+    assert.equal(harness.evaluate('transitions.join(",")'), "close,load"); // 개인 대화 종료 후 목록 조회
+}); // 서버 화면 복귀 검사 끝
+test("계정 아이콘은 로그인 상태에 맞는 설명과 그림을 표시", (context) => // 아이콘의 접근성과 인증 상태
+{
+    const harness = setup(() => ({ status: 200, data: {} })); // 인증 화면 경계
+    context.after(harness.stop); // 조회 수명 정리
+    harness.evaluate('byId("open-auth").setAttribute = (name, value) => byId("open-auth")[name] = value; renderAuthState();'); // 로그인 상태 반영
+    assert.equal(harness.evaluate('byId("open-auth")["aria-label"]'), "로그아웃"); // 로그아웃 설명
+    assert.equal(harness.evaluate('byId("auth-logout-icon").hidden'), false); // 로그아웃 아이콘
+    harness.evaluate('currentUser = null; renderAuthState();'); // 게스트 상태 반영
+    assert.equal(harness.evaluate('byId("open-auth")["aria-label"]'), "로그인"); // 로그인 설명
+    assert.equal(harness.evaluate('byId("auth-login-icon").hidden'), false); // 로그인 아이콘
+}); // 계정 아이콘 검사 끝
+test("선택한 채널이 없으면 별도 선택 안내를 표시하지 않음", (context) => // 빈 채널 안내 제거
+{
+    const harness = setup(() => ({ status: 200, data: {} })); // 로그인 화면 준비
+    context.after(harness.stop); // 조회 수명 정리
+    harness.evaluate('activeChannel = null; updateHistoryControls();'); // 채널 없는 상태
+    assert.equal(harness.evaluate('byId("history-status").textContent'), ""); // 선택 안내 제거
+}); // 빈 채널 안내 검사 끝
 test("채널 구독 승인과 연결 종료가 실제 조회 예약에 반영", async (context) => // 화면과 구독 상태 연결 검사
 {
     let socket; // 생성된 연결 관찰

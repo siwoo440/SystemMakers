@@ -17,7 +17,7 @@ function element() // DOM 입출력 경계
     }; // 닫기 경계 종료
     return item; // 최소 DOM 요소
 }
-function setup(request, name = "검증 서버", onDeparted = () => undefined, onReload = async () => undefined, address = "https://example.test/Team006/index.html") // 실제 모듈과 외부 DOM 연결
+function setup(request, name = "검증 서버", onDeparted = () => undefined, onReload = async () => undefined, address = "https://example.test/Team006/index.html", onSelect = async () => undefined) // 실제 모듈과 외부 DOM 연결
 {
     const elements = new Map(); // 식별자별 요소
     const byId = (id) => // 동일 요소 재사용
@@ -34,9 +34,29 @@ function setup(request, name = "검증 서버", onDeparted = () => undefined, on
     let ui; // 실제 화면 연결
     const manager = new ServerManager({ request, getUser: () => ({ id: "1" }), onChange: () => ui?.render() }); // 실제 수명 상태
     Object.assign(manager, { identity: "1", selected: "1", servers: [{ id: "1", name, owner_id: "1", role: "owner" }] }); // 확인된 소속 자료
-    ui = mountServerUI({ manager, byId, onDeparted, onReload, onSelect: async () => undefined, onError: async (error) => error.message, isReady: () => true }); // 실제 작업 핸들러
-    return { byId, ui }; // 관측할 DOM 경계
+    ui = mountServerUI({ manager, byId, onDeparted, onReload, onSelect, onError: async (error) => error.message, isReady: () => true }); // 실제 작업 핸들러
+    return { byId, ui, manager }; // 관측할 DOM 경계
 }
+test("참여 서버가 없으면 요청된 안내 문구를 표시하지 않음", () => // 빈 서버 안내 제거
+{
+    const harness = setup(async () => ({})); // 실제 서버 화면
+    harness.manager.servers = []; // 빈 서버 목록
+    harness.manager.selected = null; // 선택된 서버 없음
+    harness.ui.render(); // 현재 상태 표시
+    assert.equal(harness.byId("server-status").textContent, ""); // 안내 문구 없음
+}); // 빈 서버 안내 검사 끝
+test("초대 참여 성공 시 참여한 서버 대화를 자동으로 표시", async () => // 참여 후 서버 화면 전환
+{
+    let selections = 0; // 서버 화면 전환 횟수
+    const harness = setup(async () => ({ server: { id: "2" } }), "검증 서버", () => undefined, async () => undefined, "https://example.test/Team006/index.html", async () => // 참여 응답과 전환 경계
+    {
+        selections++; // 서버 화면 전환 기록
+    }); // 화면 준비 끝
+    await harness.byId("join-server").fire("click"); // 초대 참여 화면
+    harness.byId("server-value").value = "a".repeat(64); // 초대 코드 입력
+    await harness.byId("server-form").fire("submit"); // 참여 확인
+    assert.equal(selections, 1); // 서버 대화 자동 전환
+}); // 초대 참여 화면 검사 끝
 test("서버 관리 창 바깥 클릭은 입력을 정리하고 닫음", async () => // 실제 관리 창 연결
 {
     const testHarness = setup(async () => ({})); // 로그인한 서버 화면

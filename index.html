@@ -25,11 +25,12 @@
                 <h1>SystemMakers<span class="workspace-dot" aria-hidden="true"></span></h1> <!-- 서비스 이름 -->
             </header> <!-- 작업 공간 제목 끝 -->
             <div class="sidebar-scroll" tabindex="0" aria-label="서버와 대화 목록"> <!-- 스크롤할 탐색 영역 -->
+            <section class="server-group" aria-labelledby="selected-server"> <!-- 서버와 채널 묶음 -->
             <section class="server-tools" aria-label="서버 관리"> <!-- 실제 소속 관리 -->
                 <strong id="selected-server">참여 서버 없음</strong> <!-- 현재 서버 이름 -->
                 <p id="server-status" role="status">로그인 후 서버를 확인합니다.</p> <!-- 소속과 역할 -->
-                <div class="server-actions"><button type="button" id="create-server" class="icon-action" aria-label="서버 만들기" data-tooltip="서버 만들기" title="서버 만들기" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V8l8-4 8 4v12M9 20v-5h6v5M12 9v4M10 11h4"/></svg></button><button type="button" id="join-server" class="icon-action" aria-label="초대로 참여" data-tooltip="초대로 참여" title="초대로 참여" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 4h5v16h-5M4 12h11M11 8l4 4-4 4"/></svg></button><button type="button" id="refresh-servers" class="icon-action" aria-label="목록 다시 확인" data-tooltip="목록 다시 확인" title="목록 다시 확인" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 7v5h-5M4 17v-5h5M5 9a7 7 0 0 1 12-2l3 5M19 15a7 7 0 0 1-12 2l-3-5"/></svg></button></div> <!-- 신규 회원의 진입 경로 -->
-                <div class="server-actions"><button type="button" id="invite-server" class="icon-action" aria-label="초대 관리" data-tooltip="초대 관리" title="초대 관리" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M18 8v6M15 11h6"/></svg></button><button type="button" id="leave-server" class="icon-action" aria-label="탈퇴" data-tooltip="탈퇴" title="탈퇴" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 4H5v16h5M20 12H9M13 8l-4 4 4 4"/></svg></button><button type="button" id="delete-server" class="icon-action" aria-label="서버 삭제" data-tooltip="서버 삭제" title="서버 삭제" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg></button></div> <!-- 실제 역할별 관리 버튼 -->
+                <div class="server-actions"><button type="button" id="create-server" class="icon-action" aria-label="서버 만들기" data-tooltip="서버 만들기" title="서버 만들기" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20V8l8-4 8 4v12M9 20v-5h6v5M12 9v4M10 11h4"/></svg></button><button type="button" id="join-server" class="icon-action" aria-label="초대로 참여" data-tooltip="초대로 참여" title="초대로 참여" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 13a4 4 0 0 0 5.7 0l2-2a4 4 0 0 0-5.7-5.7l-1 1M14 11a4 4 0 0 0-5.7 0l-2 2a4 4 0 0 0 5.7 5.7l1-1M18 16v5M15.5 18.5h5"/></svg></button><button type="button" id="refresh-servers" class="icon-action" aria-label="목록 다시 확인" data-tooltip="목록 다시 확인" title="목록 다시 확인" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 7v5h-5M4 17v-5h5M5 9a7 7 0 0 1 12-2l3 5M19 15a7 7 0 0 1-12 2l-3-5"/></svg></button></div> <!-- 신규 회원의 진입 경로 -->
+                <div class="server-actions"><button type="button" id="invite-server" class="icon-action" aria-label="초대 관리" data-tooltip="초대 관리" title="초대 관리" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M18 8v6M15 11h6"/></svg></button><button type="button" id="leave-server" class="icon-action" aria-label="탈퇴" data-tooltip="탈퇴" title="탈퇴" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 4H5v16h5M9 12h11M16 8l4 4-4 4M5 6 10 4v16l-5-2"/></svg></button><button type="button" id="delete-server" class="icon-action" aria-label="서버 삭제" data-tooltip="서버 삭제" title="서버 삭제" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg></button></div> <!-- 실제 역할별 관리 버튼 -->
             </section> <!-- 서버 관리 끝 -->
             <nav class="channel-navigation" aria-label="텍스트 채널"> <!-- 채널 탐색 -->
                 <p class="section-label">텍스트 채널</p> <!-- 채널 목록 제목 -->
@@ -38,6 +39,7 @@
                 <p class="channel-status" id="channel-status" role="status">로그인 후 참여 채널이 표시됩니다.</p> <!-- 빈 목록과 조회 상태 -->
                 <button type="button" class="channel-retry" id="retry-channels" hidden>채널 목록 다시 확인</button> <!-- 실패한 실제 조회 재시도 -->
             </nav> <!-- 채널 탐색 끝 -->
+            </section> <!-- 서버와 채널 묶음 끝 -->
             <section class="direct-navigation" aria-label="개인 대화"> <!-- 개인 대화 탐색 -->
                 <p class="section-label">개인 대화 <button type="button" id="direct-refresh" class="history-button" disabled>목록 새로고침</button></p> <!-- 개인 대화와 목록 갱신 -->
                 <form id="direct-search-form" class="direct-search"><label class="visually-hidden" for="direct-search-input">사용자명 검색</label><input id="direct-search-input" maxlength="32" placeholder="사용자명 검색" autocomplete="off" disabled><button type="submit" id="direct-search-submit" class="search-action icon-action" aria-label="사용자 검색" title="사용자 검색" data-tooltip="사용자 검색" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></svg></button></form> <!-- 사용자 검색 -->
@@ -45,13 +47,12 @@
                 <p id="direct-status" class="channel-status" role="status">로그인 후 개인 대화를 이용하세요.</p> <!-- 조회와 오류 안내 -->
                 <div id="direct-list"></div> <!-- 참여 중인 개인 대화 -->
             </section> <!-- 개인 대화 탐색 끝 -->
-            <div class="connection-status" id="connection-status" role="status">연결 확인 중</div> <!-- 실제 연결 상태 -->
             </div> <!-- 탐색 스크롤 영역 끝 -->
             <footer class="user-panel"> <!-- 사용자 영역 -->
                 <div class="avatar guest-avatar" id="user-avatar" aria-hidden="true">G</div> <!-- 현재 사용자 이니셜 -->
                 <div class="user-details"><strong id="current-user">게스트</strong><span id="session-state" role="status" aria-live="polite">세션 확인 중</span></div> <!-- 사용자 상태와 인증 결과 안내 -->
-                <button type="button" class="login-button" id="open-profile" hidden>내 프로필</button> <!-- 로그인 본인의 정보 조회 -->
-                <button type="button" class="login-button" id="open-auth" disabled>로그인</button> <!-- 실제 인증 상태별 로그인과 로그아웃 -->
+                <button type="button" class="login-button user-icon-button" id="open-profile" aria-label="내 프로필" title="내 프로필" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5"/><path d="M5 20v-1a7 7 0 0 1 14 0v1"/></svg></button> <!-- 내 프로필 아이콘 -->
+                <button type="button" class="login-button user-icon-button" id="open-auth" aria-label="로그인" title="로그인" disabled><svg id="auth-login-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="15" cy="8" r="3"/><path d="M10 19a5 5 0 0 1 10 0M3 12h8M8 9l3 3-3 3"/></svg><svg id="auth-logout-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" hidden><path d="M12 3v9M6.3 5.8a8 8 0 1 0 11.4 0"/></svg></button> <!-- 로그인 상태별 아이콘 -->
             </footer> <!-- 사용자 영역 끝 -->
         </aside> <!-- 채널 영역 끝 -->
         <main class="conversation" id="channel-conversation"> <!-- 채널 대화 영역 -->
@@ -83,8 +84,8 @@
             <div class="composer-region"><form class="composer" id="direct-form"><label class="visually-hidden" for="direct-input">개인 메시지 작성</label><textarea id="direct-input" rows="2" placeholder="개인 메시지 작성" disabled></textarea><div class="composer-footer"><div class="attachment-controls"><input type="file" id="direct-file" class="visually-hidden attachment-input" aria-label="파일 선택" disabled><label for="direct-file" class="attachment-picker icon-action" title="파일 선택" data-tooltip="파일 선택"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 12.5 15 5.5a4 4 0 0 1 5.7 5.7l-9 9a6 6 0 0 1-8.5-8.5l9-9M7 16l8-8"/></svg></label><button type="button" id="direct-upload" disabled>파일 전송</button><button type="button" id="direct-file-clear" class="attachment-clear" aria-label="선택한 파일 제거" title="선택한 파일 제거" disabled hidden>×</button><span id="direct-file-status" role="status">최대 약 5.24 MB</span></div><span class="composer-help">최대 2,000자</span><button type="submit" class="send-button" id="direct-send" disabled>전송 ↗</button></div></form></div> <!-- 개인 메시지와 파일 전송 -->
         </main> <!-- 개인 대화 끝 -->
         <aside class="friend-sidebar" id="friend-panel" aria-label="친구 목록"> <!-- 오른쪽 친구 패널 -->
-            <header class="friend-heading"><h2>친구</h2><button type="button" id="friend-refresh" title="친구 목록 새로고침" aria-label="친구 목록 새로고침" disabled>↻</button></header> <!-- 친구 제목과 새로고침 -->
-            <form id="friend-search-form" class="friend-search"><label class="visually-hidden" for="friend-search-input">친구 사용자명 검색</label><input id="friend-search-input" placeholder="사용자명 검색" autocomplete="off" disabled><button type="submit" id="friend-search-submit" class="search-action icon-action" aria-label="친구 검색" title="친구 검색" data-tooltip="친구 검색" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></svg></button></form> <!-- 친구 요청 대상 검색 -->
+            <header class="friend-heading"><h2>친구</h2><button type="button" id="friend-refresh" class="icon-action" title="친구 목록 새로고침" data-tooltip="친구 목록 새로고침" aria-label="친구 목록 새로고침" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 8a7 7 0 0 0-12-2L5 8M5 4v4h4M5 16a7 7 0 0 0 12 2l2-2M19 20v-4h-4"/><circle cx="12" cy="12" r="1.5"/></svg></button></header> <!-- 친구 제목과 새로고침 -->
+            <form id="friend-search-form" class="friend-search"><label class="visually-hidden" for="friend-search-input">친구 사용자명 검색</label><input id="friend-search-input" placeholder="사용자명 검색" autocomplete="off" disabled><button type="submit" id="friend-search-submit" class="search-action icon-action" aria-label="친구 검색" title="친구 검색" data-tooltip="친구 검색" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="8" r="2"/><path d="M6.5 14a3.5 3.5 0 0 1 7 0M15 15l5 5"/></svg></button></form> <!-- 친구 요청 대상 검색 -->
             <p id="friend-status" class="friend-status" role="status">로그인 후 친구를 확인하세요.</p> <!-- 친구 요청 상태 -->
             <div id="friend-search-results" class="friend-list"></div> <!-- 검색 결과 -->
             <div class="friend-section"><h3>받은 요청</h3><div id="friend-incoming" class="friend-list"></div></div> <!-- 수락 대기 요청 -->
@@ -149,8 +150,7 @@
         </form> <!-- 본인 정보 폼 끝 -->
         <section class="profile-extra" aria-labelledby="profile-extra-title"> <!-- 확장 프로필 영역 -->
             <div class="profile-extra-heading"> <!-- 추가 설정 제목과 조회 -->
-                <div><p class="profile-extra-eyebrow">PROFILE SETTINGS</p><h3 id="profile-extra-title">상태·사진·차단 관리</h3><p class="profile-extra-description">추가 정보를 조회한 뒤 각 설정을 변경할 수 있습니다.</p></div> <!-- 설정과 사용 안내 -->
-                <button type="button" id="profile-extra-load" class="profile-extra-load">추가 정보 조회</button> <!-- 저장 정보 확인 -->
+                <div><p class="profile-extra-eyebrow">PROFILE SETTINGS</p><h3 id="profile-extra-title">상태·사진·차단 관리</h3><p class="profile-extra-description">설정을 변경한 뒤 저장 버튼을 눌러주세요.</p></div> <!-- 설정과 사용 안내 -->
             </div> <!-- 추가 설정 제목 끝 -->
             <p id="profile-extra-status" class="profile-extra-status" role="status" aria-live="polite"></p> <!-- 처리 상태 -->
             <div class="profile-extra-cards"> <!-- 설정별 카드 목록 -->

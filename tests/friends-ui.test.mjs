@@ -29,6 +29,14 @@ function setup(request) // 실제 화면과 서버 경계
     const ui = mountFriendsUI({ byId, request, getUser: () => user, isReady: () => Boolean(user), onOpen: (friend) => opened.push(friend), onError: async (error) => error.message }); // 실제 화면 연결
     return { byId, ui, opened, setUser: (next) => user = next }; // 검사 제어
 }
+test("친구가 없어도 별도 빈 목록 안내 문구는 표시하지 않음", async () => // 요청된 빈 상태 안내 제거
+{
+    const harness = setup(async () => ({ friends: [], incoming: [], outgoing: [] })); // 실제 빈 목록 응답
+    harness.ui.render(); // 로그인한 친구 목록 조회
+    await new Promise((resolve) => setImmediate(resolve)); // 목록 반영 대기
+    assert.equal(harness.byId("friend-status").textContent, ""); // 빈 목록 안내 제거
+    harness.ui.clear(); // 조회 수명 정리
+}); // 빈 친구 상태 검사 끝
 test("수락된 친구 목록과 검색 요청 화면", async () => // 친구 표시와 명시적 요청
 {
     const calls = []; // 서버 요청 기록

@@ -51,7 +51,6 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
         byId("profile-reload").disabled = profileBusy; // 중복 조회 차단
         byId("profile-close-top").disabled = manager.busy; // 상단 닫기 제한
         usernameInput.disabled = manager.busy || !profileLoaded; // 미확인 수정 차단
-        byId("profile-extra-load").disabled = profileBusy || !profileLoaded; // 본인 확인 후 추가 정보 조회
         for (const elementId of ["profile-message", "profile-message-save", "profile-picture-file", "profile-picture-save", "profile-picture-delete", "profile-block-search", "profile-block-find", "profile-block-results", "profile-block-add", "profile-block-list", "profile-block-remove"]) // 확장 조작
         {
             byId(elementId).disabled = profileBusy || !extraLoaded; // 조회와 진행 상태 보호
@@ -178,28 +177,31 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
         }
         render(); // 최신 조작 상태 반영
     }
-    byId("profile-extra-load").addEventListener("click", () => extraAction(async (requestViewVersion) => // 추가 정보 확인
+    async function loadExtra() // 추가 정보 자동 조회
     {
-        const details = await manager.execute("profile_details", null, { user_id: targetId }); // 본인 확장 상태 조회
-        if (!current(requestViewVersion)) // 이전 계정 응답
+        await extraAction(async (requestViewVersion) => // 본인 정보 요청
         {
-            return; // 적용 중단
-        }
-        if (details.profile?.id !== targetId || typeof details.profile.status_message !== "string" || typeof details.profile.has_picture !== "boolean") // 확장 상태 계약 검사
-        {
-            throw new Error("프로필 상태를 확인하지 못했습니다."); // 잘못된 응답 차단
-        }
-        const blocks = await manager.execute("user_blocks"); // 본인 차단 목록 조회
-        if (!current(requestViewVersion)) // 이전 계정 응답
-        {
-            return; // 적용 중단
-        }
-        fillUsers("profile-block-list", blocks.users); // 실제 차단 목록 반영
-        byId("profile-message").value = details.profile.status_message; // 저장 상태 표시
-        showPicture(details.profile.has_picture); // 사진 상태 표시
-        extraLoaded = true; // 조회 확인
-        byId("profile-extra-status").textContent = "추가 정보를 확인했습니다."; // 확인 결과 안내
-    })); // 조회 연결 끝
+            const details = await manager.execute("profile_details", null, { user_id: targetId }); // 본인 확장 상태 조회
+            if (!current(requestViewVersion)) // 이전 계정 응답
+            {
+                return; // 적용 중단
+            }
+            if (details.profile?.id !== targetId || typeof details.profile.status_message !== "string" || typeof details.profile.has_picture !== "boolean") // 확장 상태 계약 검사
+            {
+                throw new Error("프로필 상태를 확인하지 못했습니다."); // 잘못된 응답 차단
+            }
+            const blocks = await manager.execute("user_blocks"); // 본인 차단 목록 조회
+            if (!current(requestViewVersion)) // 이전 계정 응답
+            {
+                return; // 적용 중단
+            }
+            fillUsers("profile-block-list", blocks.users); // 실제 차단 목록 반영
+            byId("profile-message").value = details.profile.status_message; // 저장 상태 표시
+            showPicture(details.profile.has_picture); // 사진 상태 표시
+            extraLoaded = true; // 조회 확인
+            byId("profile-extra-status").textContent = "추가 정보를 확인했습니다."; // 확인 결과 안내
+        }); // 조회 처리 끝
+    }
     byId("profile-message-save").addEventListener("click", () => extraAction(async (requestViewVersion) => // 상태 메시지 변경
     {
         if (!extraLoaded) // 미확인 상태
@@ -293,6 +295,10 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
         await load(requestViewVersion, false); // DB의 현재 정보 조회
         if (current(requestViewVersion) && profileLoaded) // 확인한 같은 계정
         {
+            await loadExtra(); // 상태·사진·차단 목록 자동 조회
+        }
+        if (current(requestViewVersion) && profileLoaded) // 조회 뒤 현재 화면 확인
+        {
             usernameInput.focus(); // 사용자명 수정 진입
         }
     }); // 진입 연결 끝
@@ -325,12 +331,17 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
         }
         render(); // 현재 계정만 잠금 해제
     }); // 저장 연결 끝
-    byId("profile-reload").addEventListener("click", () => // 명시적 재조회
+    byId("profile-reload").addEventListener("click", async () => // 명시적 재조회
     {
         if (profileDialog.open && !manager.busy && !manager.loading && isReady()) // 안정된 현재 화면
         {
+            const requestViewVersion = dialogVersion; // 현재 화면 수명
             byId("profile-error").textContent = ""; // 이전 조회 오류 제거
-            return load(dialogVersion); // 입력을 보존한 현재 상태 확인
+            await load(requestViewVersion); // 입력을 보존한 현재 상태 확인
+            if (current(requestViewVersion) && profileLoaded && !extraLoaded) // 추가 조회 실패 복구
+            {
+                await loadExtra(); // 저장된 추가 정보 재확인
+            }
         }
     }); // 재조회 연결 끝
     byId("profile-close-top").addEventListener("click", () => // 왼쪽 위 닫기

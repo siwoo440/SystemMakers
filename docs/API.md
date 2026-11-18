@@ -1,6 +1,8 @@
 ---
 # SystemMakers API 명세
 
+서버는 여러 채널을 묶으며, 유효한 초대로 서버에 참여한 회원은 `get_channels.php`에서 해당 서버의 전체 채널을 조회한다. 각 채널의 기존 대화는 `get_messages.php?channel_id=...`로 조회하며, 서버에 소속되지 않은 사용자의 접근은 거절한다. 서버 참여 성공 후 화면은 참여한 서버와 채널 목록을 다시 불러온다.
+
 갱신일: 2026-11-04 · 계약 버전: 0.9 · 구현 담당: B·C · 연동 대상: A
 
 회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 0.4에서는 전체 인수 검증과 기대 사용자 헤더에 의한 계정 변경 차단을 추가했다. 서버·채널·프로필 관리 API 구현은 C의 담당이다.

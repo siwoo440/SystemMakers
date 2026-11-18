@@ -27,6 +27,15 @@ function setup(request, timers = { set: () => 1, clear: () => undefined }) // �
     return { byId, ui, setUser: (value) => user = value }; // 관찰 경계
 }
 const emptyPage = { messages: [], pagination: { mode: "initial", has_more: false, next_before_id: null, next_after_id: "0" } }; // 빈 최초 기록 응답
+test("로그인하면 개인 대화의 로그인 안내 제거", async () => // 인증 상태별 안내
+{
+    const harness = setup(async () => ({ conversations: [] })); // 로그인 계정과 빈 목록
+    harness.byId("direct-status").textContent = "로그인 후 개인 대화를 이용하세요."; // 기존 게스트 안내
+    harness.ui.render(); // 로그인 상태 반영
+    assert.equal(harness.byId("direct-status").textContent, ""); // 게스트 안내 제거
+    await new Promise((resolve) => setImmediate(resolve)); // 목록 응답 완료
+    harness.ui.clear(); // 조회 수명 정리
+}); // 로그인 안내 검사 끝
 test("개인 대화에서 선택한 파일만 전송 전에 취소", async () => // 선택 취소와 업로드 차단
 {
     const calls = []; // 실제 요청 기록
