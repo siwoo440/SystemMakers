@@ -1,4 +1,4 @@
-<hr>
+---
 
 # SystemMakers
 
@@ -21,7 +21,8 @@ SystemMakers는 서버·채널과 1:1 개인 대화에서 메시지와 파일을
 - **화면 디자인**: `#262B3F` 배경과 광택을 더한 보라색 버튼·말풍선을 사용합니다. 본인 메시지는 오른쪽, 상대방 메시지는 왼쪽에 표시합니다.
 
 - **같은 Wi-Fi에서 접속** — 서버 PC의 PowerShell에서 `./scripts/show-lan-url.ps1`을 실행해 표시되는 웹 주소를 엽니다. Wi-Fi가 바뀌면 이 주소도 바뀔 수 있습니다.
-- **로컬 기본 주소** — `start-dev.ps1`을 기본 설정으로 실행한 PC에서 접속합니다. [로컬 채팅 열기](http://127.0.0.6:8088/Team006/index.html)
+- **서버 PC에서 접속** — 기본 설정으로 실행한 Windows PC에서 [로컬 채팅 열기](http://127.0.0.6:8088/Team006/index.html)
+- **다른 네트워크에서 접속** — Docker의 HTTPS 웹과 WSS 채팅 연결은 AMD64·ARM64 자동 검사를 통과했습니다. 실제 NAS 도메인과 공인 인증서는 아직 확인되지 않아 공유할 외부 주소는 없습니다. [NAS 배포 안내](docs/NAS-DEPLOYMENT.md)
 - **화면 자료** — 2026년 11월 19일 Chrome에서 예시 계정으로 촬영했습니다. 데스크톱 화면 15장과 390 × 844 크기의 모바일 배치 1장을 담았습니다.
 - [화면 이미지 16장 내려받기](docs/assets/ui/systemmakers-ui-screenshots.zip?raw=true) · [화면별 설계와 수정 파일 보기](docs/UI-DIRECTION.md)
 
@@ -293,7 +294,7 @@ PHP 8.3, MySQL 8.4, Node.js, Composer와 개인 DB 설정이 필요합니다. PH
 .\scripts\start-realtime.ps1 # 별도 터미널의 실시간 서버 시작
 ```
 
-접속 주소: [http://127.0.0.6:8088/Team006/index.html](http://127.0.0.6:8088/Team006/index.html)
+기본 설정으로 실행한 PC에서 [채팅 화면](http://127.0.0.6:8088/Team006/index.html)을 엽니다.
 
 - 웹 주소는 `-WebHost`, 포트는 `-Port`로 지정합니다. MySQL 주소는 별도의 `MYSQL_HOST` 설정을 사용합니다.
 - 자동 검사와 스크린샷 촬영에 표시되는 임시 `127.0.0.1` 주소는 격리된 테스트 서버이며, 위 서비스 접속 주소와 다릅니다.
@@ -320,7 +321,8 @@ PHP 8.3, MySQL 8.4, Node.js, Composer와 개인 DB 설정이 필요합니다. PH
 
 - 개인 대화·첨부 파일·프로필·차단·초대 링크·친구 요청을 제공합니다. 기존 DB의 적용 상태를 확인하고 002~005 마이그레이션을 순서대로 적용해야 합니다.
 - 실제 휴대폰·Safari·Firefox와 운영 환경 검증은 남아 있습니다.
-- 12단계의 Docker·HTTPS·WSS·공유 세션 구성을 추가했습니다. 실제 NAS 배포·외부 접속·성능 검증은 남아 있습니다. 장비 확인과 데이터 이관 절차는 [NAS Docker 배포](docs/NAS-DEPLOYMENT.md)를 따릅니다.
+- `c7b8b39`에서 두 CPU 구조 모두 HTTPS 로그인, WSS 알림, 공유 세션, DB 재시작과 별도 볼륨 복원을 확인했습니다. 로컬 전체 검사 결과는 239개 통과, Docker 전용 1개 건너뜀입니다. [컨테이너 검사 결과](https://github.com/siwoo440/SystemMakers/actions/runs/44439685411)
+- 배포 대상은 UGREEN DH4300 Plus입니다. 소유자의 설치 권한·공유기·도메인을 확인한 뒤 DB 이관과 이동통신망 검사를 진행합니다. 화면과 DB 조회의 추가 최적화 후보도 [남은 작업](docs/DEVELOPMENT-DIRECTION.md)에 모았습니다.
 
 
 ---

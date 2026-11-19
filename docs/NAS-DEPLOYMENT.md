@@ -10,7 +10,7 @@
 | --- | --- |
 | NAS 모델·운영체제 | 본체 라벨과 관리 화면의 시스템 정보 확인 |
 | CPU·메모리·공간 | 64비트 CPU 구조와 이미지 지원, 가용 메모리·DB·첨부·백업 공간 확인 |
-| Docker | 제조사의 해당 모델 지원 목록과 실제 엔진 확인. 모델 미확인 상태에서 설치 가능 여부 단정 금지 |
+| Docker | DH4300 Plus는 Docker를 지원한다. 소유자에게 실제 설치 상태와 프로젝트 실행 권한을 확인한다. |
 | Compose | Docker Compose V2 사용. 검사 구성의 !override 문법은 2.24.4 이상 필요 |
 | 공유기 | 관리자 설정·TCP 포트포워딩 권한·상위 공유기 또는 통신사 모뎀 구성 확인 |
 | 인터넷 | WAN 주소와 외부 주소 비교, 이중 NAT·CGNAT·통신사 수신 제한 확인 |
@@ -30,7 +30,7 @@ NAS 관리 화면, MySQL 3306, 웹 내부 80, Ratchet 8090은 별도로 외부 �
 
 공식 안내의 설치 경로는 App Center의 Docker 앱과 Docker → Project → Create다. 이 구성은 저장소 전체 빌드 문맥을 사용하므로 해당 UI의 build 지원과 Compose 버전을 확인하고, CLI를 사용할 때는 소유자가 허용한 SSH 계정으로 실행한다. amd64 이미지 강제 실행이나 임의의 비공식 앱 설치를 전제로 하지 않는다.
 
-공식 PHP 8.3 Apache Bookworm과 MySQL 8.4 이미지 목록에 arm64v8이 포함돼 있음을 확인했다. 실제 NAS의 UGOS·CPU·볼륨에서 실행된 결과는 아직 없다. GitHub Actions에 네이티브 AMD64·ARM64 검사를 함께 구성하며 이를 실제 NAS 배포 검증과 구분한다.
+공식 PHP 8.3 Apache Bookworm과 MySQL 8.4 이미지에는 arm64v8이 포함된다. `c7b8b39`로 실행한 GitHub Actions에서 Linux AMD64·ARM64 컨테이너가 모두 통과했다. 실제 DH4300 Plus의 UGOS 버전·볼륨 권한·공인 인증서와 이동통신망 접속은 아직 확인할 항목이다. [검증 기록](PHASE-12-VERIFICATION.md#후속-코드-검증)
 
 ---
 ## 2. 서비스 구조와 보존 경계

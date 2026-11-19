@@ -66,4 +66,10 @@
 
 자동 검사는 별도 smtest 프로젝트와 검사 CA를 사용한다. 공개 CA나 공인 DNS를 사용하지 않으며 TLS 검증을 끄지 않는다. 정상 실행 결과가 확인되더라도 실제 NAS CPU·공유기·공인 인증서 검증은 남는다.
 
-현재 남은 작업과 완료 기준은 [통합 작업 목록](DEVELOPMENT-DIRECTION.md)에 있다.
+---
+
+## 후속 코드 검증
+
+`c7b8b39`의 Windows 전용 DB 회귀 검사에서 239개가 통과했고 로컬 Docker 검사 1개를 건너뛰었다. 같은 커밋의 Linux AMD64·ARM64 Docker 작업은 모두 성공했다. 컨테이너 검사에는 정적 파일을 다시 요청할 때 압축 여부에 따라 올바른 304 응답을 받는지도 포함한다. [코드와 로컬 검사 기록](https://github.com/siwoo440/SystemMakers/commit/c7b8b39039a5afd6c748b7fbd06442de9bab9374) · [두 환경의 CI 결과](https://github.com/siwoo440/SystemMakers/actions/runs/44439685411)
+
+실제 NAS와 이동통신망에서 남은 작업은 [통합 작업 목록](DEVELOPMENT-DIRECTION.md)에 있다.

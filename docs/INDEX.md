@@ -3,9 +3,9 @@
 
 - [로컬 실행과 검사](LOCAL-SETUP.md): 실행 환경, 스키마, 개발 데이터와 테스트 설정.
 - [NAS Docker 배포](NAS-DEPLOYMENT.md): 장비·공유기 확인, HTTPS·WSS, DB 보존·복원과 접속 링크 출력.
-- [API 명세](API.md): 요청·응답, 인증·권한과 메시지 조회 규칙.
-- [DB 구조](DATABASE.md): 테이블·관계·잠금·삭제와 변경 파일.
-- [남은 작업과 완료 기준](DEVELOPMENT-DIRECTION.md)에서 NAS 실배포, 외부 접속, 실제 기기·운영 검증을 관리한다.
+- [API 명세](API.md)는 공개 PHP 경로 34개의 요청·응답과 권한을 다룬다.
+- [DB 구조](DATABASE.md)는 001~005 적용 후 14개 테이블의 관계와 데이터 보존 규칙을 다룬다.
+- [남은 작업과 완료 기준](DEVELOPMENT-DIRECTION.md)에서 NAS 실배포, 외부 접속, 실제 기기 검증과 추가 최적화 후보를 관리한다.
 - [변수명 작성과 호환성](VARIABLE-NAMING.md): lowerCamelCase와 외부 계약 구분.
 - [현재 화면 기획서와 수정 파일](UI-DIRECTION.md) · [실제 화면 16장](../README.md#화면-살펴보기).
 - [한국어 커밋 메시지](COMMIT-MESSAGES.md).

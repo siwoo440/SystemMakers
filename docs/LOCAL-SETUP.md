@@ -18,7 +18,7 @@
 ## 2. 데이터베이스 구조 적용
 
 - 새로운 DB는 `backend/sql/schema.sql`을 적용한 뒤 001 변경을 적용하고 아래 002~005 도구를 순서대로 실행한다.
-- 기존 DB는 먼저 백업한 뒤 변경 전용 계정과 명시적인 MYSQL_* 환경 변수를 설정하고 아래 도구를 실행한다.
+- 기존 DB는 먼저 백업하고 001~005 중 이미 적용한 변경을 확인한다. 변경 전용 계정과 명시적인 MYSQL_* 환경 변수로 아직 적용하지 않은 도구만 순서대로 실행한다.
 - 변경 도구는 개인 웹 설정을 자동으로 불러오거나 DB 권한을 올리지 않는다. 기존 구조·이름 충돌과 부분 적용을 확인하며, 완료 시 변경 파일 해시를 출력한다.
 - MySQL DDL의 파일 전체 자동 롤백은 보장되지 않는다. 실패하면 실제 적용 상태를 확인한다.
 
@@ -47,18 +47,27 @@
 ---
 ## 같은 Wi-Fi에서 개발용으로 공유
 
-- 서버 컴퓨터의 Wi-Fi 사설 IPv4 주소는 `ipconfig`에서 확인한다. 아래 주소는 예시이며 네트워크 변경 시 다시 확인한다.
+- 웹과 실시간 서버는 같은 Wi-Fi 사설 IPv4에 연결한다. 네트워크를 바꾸면 새 주소를 확인한다.
 - MySQL은 서버 컴퓨터의 로컬 주소에 두고, 기존 DB를 백업한 뒤 001~005 적용 상태를 확인한다.
 - PowerShell 7 터미널 두 개를 열어 각각 아래 명령을 실행한다. 두 서버와 MySQL이 켜져 있어야 한다.
 
 ```powershell
-.\scripts\start-dev.ps1 -WebHost '10.0.10.58' -AllowLan # 웹 서버 실행
-.\scripts\start-realtime.ps1 -RealtimeHost '10.0.10.58' -AllowLan # 실시간 서버 실행
+. .\scripts\lan-supervisor-utils.ps1 # Wi-Fi 주소 확인 함수 불러오기
+$wifiAddress = Get-SystemMakersWifiAddress # 현재 Wi-Fi 사설 주소
+.\scripts\start-dev.ps1 -WebHost $wifiAddress -AllowLan # 첫 번째 터미널의 웹 서버
 ```
 
-- 같은 Wi-Fi의 다른 기기에서 `http://10.0.10.58:8088/Team006/index.html`에 접속한다. 웹과 실시간 서버에 같은 IP를 사용한다.
+두 번째 터미널도 저장소 루트에서 실행한다.
+
+```powershell
+. .\scripts\lan-supervisor-utils.ps1 # Wi-Fi 주소 확인 함수 불러오기
+$wifiAddress = Get-SystemMakersWifiAddress # 현재 Wi-Fi 사설 주소
+.\scripts\start-realtime.ps1 -RealtimeHost $wifiAddress -AllowLan # 두 번째 터미널의 실시간 서버
+```
+
+- 별도 PowerShell 창에서 `./scripts/show-lan-url.ps1`을 실행하고 표시된 주소를 같은 Wi-Fi의 다른 기기에서 연다.
 - Windows 방화벽의 TCP 8088·8090 허용 여부와 Wi-Fi의 기기 간 차단 설정에 따라 다른 기기 접속이 제한될 수 있다.
-- 개발용 HTTP와 WebSocket은 암호화되지 않으므로 신뢰하는 네트워크와 테스트 계정으로만 사용한다. 인터넷 공개에는 HTTPS·WSS 등 별도 구성이 필요하다.
+- 개발용 HTTP와 WebSocket은 신뢰하는 Wi-Fi에서 테스트 계정으로 사용한다. 다른 네트워크에서는 [NAS Docker 배포 절차](NAS-DEPLOYMENT.md)에 따라 공인 HTTPS·WSS 주소를 구성하고 이동통신망에서 확인한다.
 
 ---
 ## 같은 Wi-Fi 개발 서버 자동 실행

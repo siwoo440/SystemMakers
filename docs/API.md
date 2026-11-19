@@ -3,11 +3,11 @@
 
 서버는 여러 채널을 묶으며, 유효한 초대로 서버에 참여한 회원은 `get_channels.php`에서 해당 서버의 전체 채널을 조회한다. 각 채널의 기존 대화는 `get_messages.php?channel_id=...`로 조회하며, 서버에 소속되지 않은 사용자의 접근은 거절한다. 서버 참여 성공 후 화면은 참여한 서버와 채널 목록을 다시 불러온다.
 
-갱신일: 2026-11-04 · 계약 버전: 0.9 · 구현 담당: B·C · 연동 대상: A
+2026년 11월 19일 기준으로 [라우터](../router.php)가 허용하는 PHP API 파일은 34개다. 같은 파일의 GET·POST 등 메서드는 한 경로로 센다. 채널·개인 대화·친구·첨부·프로필의 입력과 응답을 아래에 정리했다.
 
-회원 인증과 채널별 메시지 저장·조회를 위한 API 계약이다. GET csrf.php·get_current_user.php·get_channels.php·get_messages.php·health.php와 POST register.php·login.php·logout.php·send_message.php를 구현하고 웹 화면에 연결했다. 0.4에서는 전체 인수 검증과 기대 사용자 헤더에 의한 계정 변경 차단을 추가했다. 서버·채널·프로필 관리 API 구현은 C의 담당이다.
+Windows 개발과 NAS Docker는 같은 API와 세션·CSRF·접근 권한 검사를 사용한다. NAS에서는 같은 HTTPS 출처로 API를 호출하고 WSS는 새 메시지 알림에 사용한다. [실시간 연결](REALTIME.md)
 
-0.5에서 [7단계 규칙](PHASE-7-RULES.md)을 설계했고 0.6에서 서버 관리, 0.7에서 채널 관리, 0.8에서 GET/PATCH 본인 프로필을 구현했다. 0.9는 11단계에서 확인한 접근 종료·늦은 응답의 화면 정리 계약을 명확히 한 문서 변경이며 API 입력·응답·경로 추가는 없다. 공개 경로는 22개이며 profile.php 한 경로가 GET과 PATCH를 지원한다. 최신 전체 165개 검사와 브라우저 결과·미검증 범위는 [11단계 결과](PHASE-11-VERIFICATION.md)에 기록했다.
+[7단계 규칙](PHASE-7-RULES.md)부터 11단계까지의 계약은 서버·채널·프로필 관리를 포함했다. 당시 22개 경로와 165개 검사 결과는 [11단계 기록](PHASE-11-VERIFICATION.md)에 있다. 이후 추가한 12개 경로는 [확장 API 표](#개인-대화첨부프로필-api)에 정리했다.
 
 ---
 ## 1. 공통 규칙
@@ -15,11 +15,11 @@
 | 항목 | 계약 |
 |---|---|
 | 기본 경로 | 프로젝트 진입 화면 기준 `./backend/api/`; 개발 주소에서는 `/Team006/backend/api/` |
-| 소스 위치 | `backend/api/`; PHP 개발 라우터의 허용 목록을 통해 실제 파일 실행 |
-| 요청 | POST는 `Content-Type: application/json`; GET은 쿼리 매개변수 사용 |
-| 응답 | `Content-Type: application/json; charset=utf-8`, `Cache-Control: no-store` |
+| 소스 위치 | Windows 개발 서버와 NAS Apache가 같은 라우터의 허용 목록에서 `backend/api/` 파일을 실행 |
+| 요청 | GET은 쿼리 매개변수, 일반 쓰기는 JSON 사용. 첨부와 프로필 사진 업로드는 `multipart/form-data` 사용 |
+| 응답 | 기본은 JSON과 `Cache-Control: no-store`. 첨부 다운로드와 프로필 사진 조회는 권한 확인 후 파일 바이트 반환 |
 | 인증 | 같은 출처의 PHP 세션 쿠키; 토큰을 localStorage에 저장하지 않음 |
-| 상태 변경 보호 | 모든 POST에 `X-CSRF-Token` 헤더 적용; 회원가입·로그인 포함 |
+| 상태 변경 보호 | 회원가입·로그인을 포함한 POST와 PATCH·DELETE 요청에 `X-CSRF-Token` 헤더 적용 |
 | 화면 계정 보호 | 로그인한 웹 화면은 `X-Expected-User-Id` 헤더에 확인한 사용자 ID 전달; 보호된 API는 현재 세션과 불일치 시 403 SESSION_CHANGED |
 | 문자 | UTF-8; 잘못된 UTF-8 입력 거절 |
 | ID | 모든 자원 ID는 JSON에서도 양의 10진수 문자열; `"1"` 형식 |
@@ -88,6 +88,8 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 
 ---
 ## 3. 엔드포인트 목록
+
+아래 표는 기본 인증·채널 대화·서버 경로를 다룬다. 채널 관리와 본인 프로필은 9절, 개인 대화·첨부·프로필 확장·친구 경로는 [확장 API 표](#개인-대화첨부프로필-api)에서 확인한다.
 
 | 메서드 | 경로 | 로그인 | CSRF | 정상 상태 |
 |---|---|---|---|---|
@@ -457,7 +459,7 @@ confirm_name은 삭제 미리보기에서 확인한 현재 이름이다. 화면�
 | 409 | USERNAME_TAKEN | 다른 계정의 사용자명과 중복 |
 | 429 | RATE_LIMITED | 초대 발급·참여 제한, Retry-After 포함 |
 
-나머지 오류는 기존 공통 계약과 같다. [7단계 인수 확인표](PHASE-7-RULES.md#6-역할별-인수-확인표)의 기존 검사에 seed 없는 전체 관리 흐름과 계정·소속 종료 회귀를 추가했다. 최신 전체 165개와 두 브라우저 근거는 [11단계 결과](PHASE-11-VERIFICATION.md)에 있다. 실제 휴대폰·Safari·Firefox는 미검증이다.
+나머지 오류는 기존 공통 계약과 같다. [7단계 인수 확인표](PHASE-7-RULES.md#6-역할별-인수-확인표)에 이어 초기 데이터 없이 실행한 관리 흐름과 계정·소속 종료를 검사했다. 당시 165개 검사와 두 브라우저 결과는 [11단계 기록](PHASE-11-VERIFICATION.md)에 있다.
 
 ---
 ### 9.8 접근 종료와 늦은 응답의 화면 계약 · 11단계
