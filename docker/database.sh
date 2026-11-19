@@ -34,7 +34,8 @@ case "${1:-}" in # 명시적 관리 작업 선택
         mysqldump --user=root --single-transaction --hex-blob --routines --triggers --events --no-tablespaces --set-gtid-purged=OFF "$MYSQL_DATABASE" # 바이너리와 관계 보존
         ;; # 백업 분기 끝
     restrict-app) # 운영 앱의 DDL 권한 제거
-        mysql_admin -e "REVOKE ALL PRIVILEGES ON \`$MYSQL_DATABASE\`.* FROM '$MYSQL_USER'@'%'; GRANT SELECT, INSERT, UPDATE, DELETE ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'%';" # 명시적 최소 앱 권한
+        grantDatabase=$(printf '%s' "$MYSQL_DATABASE" | sed 's/_/\\_/g') # 공식 이미지와 같은 밑줄 식별자 이스케이프
+        mysql_admin -e "REVOKE ALL PRIVILEGES ON \`$grantDatabase\`.* FROM '$MYSQL_USER'@'%'; GRANT SELECT, INSERT, UPDATE, DELETE ON \`$grantDatabase\`.* TO '$MYSQL_USER'@'%';" # 대상 DB의 최소 앱 권한
         ;; # 권한 분기 끝
     *) # 미지정 작업 거절
         echo '작업: bootstrap-empty | restore-empty | backup | restrict-app' >&2 # 가능한 관리 명령 안내

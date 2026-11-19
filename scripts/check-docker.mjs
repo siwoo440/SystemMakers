@@ -46,6 +46,7 @@ try // 실패 시에도 검사 자원 정리
     compose(['exec', '-T', 'web', 'apachectl', '-t']); // Apache 운영 진입점 문법
     admin('bootstrap-empty'); // 빈 검사 DB만 명시적으로 준비
     admin('restrict-app'); // 실제 DML 전용 계정으로 앱 검사
+    assert.throws(() => compose(['exec', '-T', 'database', 'sh', '-c', 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u "$MYSQL_USER" "$MYSQL_DATABASE" -e "CREATE TABLE privilege_probe (id INT)"'], { stdio: 'pipe' }), (error) => /ERROR 1142/u.test(String(error.stderr))); // 앱 계정의 실제 DDL 거절
     const rootCertificate = path.join(scratch, 'root.crt'); // 이번 검사 CA 파일
     await until(() => // CA 발급 완료 대기
     {
