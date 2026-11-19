@@ -67,5 +67,5 @@ function run_channel_management(PDO $databaseConnection, string $operation, stri
             throw $caughtException; // 실제 DB 실패 처리
         }
         return ['data' => ['channel' => ['id' => $savedChannelId, 'server_id' => (string) $serverRecord['id'], 'server_name' => $serverRecord['name'], 'name' => $requestInput['name']]], 'status' => $operation === 'create_channel' ? 201 : 200]; // 기존 목록과 같은 공개 객체
-    }); // 전체 업무 종료
+    });
 }

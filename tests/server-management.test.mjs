@@ -161,4 +161,4 @@ test("8단계 공개 API와 보존 마이그레이션", async (context) => // �
         assert.equal(testFixture.sql("SELECT COUNT(*) FROM servers"), "1"); // 다른 서버 보존
         assert.equal(testFixture.sql("SELECT COUNT(*) FROM users"), "3"); // 계정 보존
     });
-}); // 전체 인수 종료
+});

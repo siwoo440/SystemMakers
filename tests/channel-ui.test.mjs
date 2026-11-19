@@ -13,7 +13,7 @@ function element() // 최소 DOM 입출력 경계
     {
         item.open = false; // 닫힌 상태
         item.fire("close"); // 입력 정리 경계
-    }; // 닫기 동작 끝
+    };
     return item; // 독립 요소
 }
 function setup(request, role = "owner", initial = { id: "2", title: "개발", serverId: "1" }) // 실제 화면과 인증 경계
@@ -26,7 +26,7 @@ function setup(request, role = "owner", initial = { id: "2", title: "개발", se
             elements.set(id, element()); // 요소 준비
         }
         return elements.get(id); // 같은 화면 객체
-    }; // 조회 함수 종료
+    };
     let active = initial; // 현재 선택 채널
     let user = { id: "1" }; // 인증한 계정
     let ui; // 실제 화면 연결
@@ -39,7 +39,7 @@ function setup(request, role = "owner", initial = { id: "2", title: "개발", se
     {
         failures++; // 전달한 현재 오류만 집계
         return error.message; // 사용자 오류 안내
-    } }); // 실제 화면 초기화
+    } });
     return { ui, manager, byId, deleted, reloads: () => reloads, failures: () => failures, select: (value) => active = value, changeUser: (value) => user = value }; // 검사 제어 경계
 }
 test("채널 관리 창 바깥 클릭은 입력을 정리하고 닫음", async () => // 실제 관리 창 연결
@@ -52,7 +52,7 @@ test("채널 관리 창 바깥 클릭은 입력을 정리하고 닫음", async (
     dialog.fire("click", { target: dialog, clientX: 10, clientY: 10 }); // 창 바깥 선택
     assert.equal(dialog.open, false); // 실제 창 닫힘
     assert.equal(testHarness.byId("channel-value").value, ""); // 입력 정리
-}); // 채널 창 닫기 검사 끝
+});
 test("일반 회원 관리 버튼 숨김과 빈 서버의 관리자 생성", () => // 권한과 빈 서버 진입
 {
     const member = setup(async () => ({}), "member"); // 일반 소속
@@ -93,7 +93,7 @@ test("삭제 이름 변경은 같은 대상의 새 미리보기 요구", async (
         }
         testHarness.select({ id: "99", title: "다른 채널", serverId: "1" }); // 외부 선택 변경
         throw Object.assign(new Error("이름 불일치"), { status: 409, code: "NAME_MISMATCH" }); // 실제 삭제 거절
-    }); // 네트워크 경계 끝
+    });
     await testHarness.byId("delete-channel").fire("click"); // 첫 미리보기
     await testHarness.byId("channel-manage-form").fire("submit"); // 삭제 요청
     assert.deepEqual(ids, ["2", "2"]); // 같은 대상 재조회

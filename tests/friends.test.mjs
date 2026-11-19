@@ -41,4 +41,4 @@ test("친구 요청은 상대방 수락 후 양쪽에 표시", async (context) =
     assert.equal((await pendingAccept).status, 403); // 확정된 차단 이후 수락 거절
     assert.equal((await bob.request("friends.php")).data.friends.length, 0); // 경합 중 친구 미생성
     assert.throws(() => execFileSync(environment.php, ["-c", process.env.PHP_TEST_INI || path.join(environment.root, ".runtime/php.ini"), path.join(environment.root, "scripts/migrate-005.php")], { env: environment.env, windowsHide: true, stdio: "pipe" })); // 재적용과 기존 관계 덮어쓰기 차단
-}); // 친구 관계 검사 끝
+});

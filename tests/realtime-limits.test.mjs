@@ -7,4 +7,4 @@ test('실제 WebSocket 버퍼가 큰 프레임과 분할 누적 및 느린 수�
     const phpBinary = process.env.PHP_TEST_BIN || path.resolve('.runtime/php83/php.exe'); // PHP 위치
     const result = execFileSync(phpBinary, ['-c', process.env.PHP_TEST_INI || path.resolve('.runtime/php83.ini'), 'tests/helpers/realtime-limits.php'], { encoding: 'utf8', windowsHide: true }); // 실제 프로토콜 검사
     assert.deepEqual(JSON.parse(result), { normal: true, large: true, fragmented: true, slow: true, emptyFragments: true }); // 모든 제한 검사
-}); // 버퍼 검사 끝
+});

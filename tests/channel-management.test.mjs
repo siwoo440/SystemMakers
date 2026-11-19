@@ -123,4 +123,4 @@ test("9단계 채널 관리의 실제 권한·보존·경합", async (context) =
         assert.equal(testFixture.sql("SELECT COUNT(*) FROM servers"), "2"); // 다른 서버 보존
         assert.equal(testFixture.sql("SELECT COUNT(*) FROM channels WHERE server_id=" + other.server.id), "2"); // 다른 채널 보존
     });
-}); // 실제 채널 관리 검사 종료
+});

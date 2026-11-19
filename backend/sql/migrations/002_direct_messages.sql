@@ -1,5 +1,5 @@
 CREATE TABLE direct_conversations -- 개인 대화 쌍
-(
+( -- 열과 제약 조건 시작
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- 대화 식별자
     user_a_id BIGINT UNSIGNED NOT NULL, -- 작은 참여자 ID
     user_b_id BIGINT UNSIGNED NOT NULL, -- 큰 참여자 ID
@@ -12,7 +12,7 @@ CREATE TABLE direct_conversations -- 개인 대화 쌍
     CONSTRAINT fk_direct_user_b FOREIGN KEY (user_b_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT -- 둘째 참여자 보존
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci; -- 트랜잭션 설정
 CREATE TABLE direct_messages -- 개인 대화 메시지
-(
+( -- 열과 제약 조건 시작
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- 메시지 식별자
     conversation_id BIGINT UNSIGNED NOT NULL, -- 소속 대화
     user_id BIGINT UNSIGNED NOT NULL, -- 작성 사용자
@@ -26,7 +26,7 @@ CREATE TABLE direct_messages -- 개인 대화 메시지
     CONSTRAINT fk_direct_message_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT -- 작성자 보존
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci; -- 트랜잭션 설정
 CREATE TABLE user_blocks -- 사용자 차단 관계
-(
+( -- 열과 제약 조건 시작
     blocker_id BIGINT UNSIGNED NOT NULL, -- 차단 사용자
     blocked_id BIGINT UNSIGNED NOT NULL, -- 차단 대상
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 차단 시각

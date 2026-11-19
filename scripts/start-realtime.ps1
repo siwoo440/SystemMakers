@@ -1,11 +1,11 @@
 param # 실시간 서버 실행 인수
-(
+( # 실행 인수 목록 시작
     [string]$phpPath = '', # PHP 실행 파일 경로
     [string]$phpIni = '', # PHP 설정 파일 경로
     [string]$realtimeHost = '127.0.0.6', # 실시간 서버 주소
     [int]$webPort = 8088, # 웹 서버 포트
     [switch]$allowLan # 사설망 접속 명시 허용
-)
+) # 실행 인수 목록 끝
 $ErrorActionPreference = 'Stop' # 오류 발생 시 종료
 $projectRoot = Split-Path -Parent $PSScriptRoot # 프로젝트 루트
 $localSettings = Join-Path $projectRoot '.runtime/web-env.json' # 개인 환경 설정

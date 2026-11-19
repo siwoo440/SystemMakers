@@ -11,5 +11,5 @@ export function bindBackdropDismiss(dialog, canDismiss = () => true) // 대화�
         {
             dialog.close(); // 기존 닫기 정리 실행
         }
-    }); // 바깥 클릭 연결 끝
-} // 공통 처리 끝
+    });
+}

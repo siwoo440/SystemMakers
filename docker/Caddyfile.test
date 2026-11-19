@@ -2,12 +2,12 @@ https://localhost { # 격리된 컨테이너 검사 주소
     tls internal # 공개 인증서 발급 없는 검사 인증서
     request_body { # 첨부 요청 상한
         max_size 7MB # 운영과 같은 요청 한도
-    } # 요청 상한 끝
+    }
     @realtime path /Team006/realtime # 운영과 같은 실시간 경로
     handle @realtime { # 실제 TLS 업그레이드 검사
         reverse_proxy realtime:8090 # 독립 Ratchet 프로세스
-    } # 실시간 전달 끝
+    }
     handle { # 운영과 같은 웹 진입
         reverse_proxy web:80 # 실제 Apache와 PHP
-    } # 웹 전달 끝
-} # 검사 사이트 끝
+    }
+}

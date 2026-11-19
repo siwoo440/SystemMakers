@@ -1,5 +1,5 @@
 CREATE TABLE friendships -- 친구 요청과 수락 관계
-(
+( -- 열과 제약 조건 시작
     user_a_id BIGINT UNSIGNED NOT NULL, -- 작은 사용자 식별자
     user_b_id BIGINT UNSIGNED NOT NULL, -- 큰 사용자 식별자
     requester_id BIGINT UNSIGNED NOT NULL, -- 요청 보낸 사용자

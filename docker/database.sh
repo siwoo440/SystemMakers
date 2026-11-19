@@ -1,4 +1,5 @@
 #!/bin/sh
+# 시스템 셸로 DB 관리 작업 실행
 set -eu # 오류와 누락 변수의 즉시 중단
 case "${MYSQL_DATABASE:-}:${MYSQL_USER:-}" in # SQL 식별자 허용 문자 검사
     *[!a-zA-Z0-9_:]*|:*|*:) exit 1 ;; # 비어 있거나 잘못된 이름 거절

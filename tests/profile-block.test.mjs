@@ -13,11 +13,11 @@ test("프로필 상태와 차단 및 안전한 사진", async (context) => // �
     {
         origin = new URL(url).origin; // 실제 요청 출처
         return originalFetch(url, options); // 원래 요청 수행
-    }; // fetch 래퍼 종료
+    };
     context.after(() => // 전역 요청 복원
     {
         globalThis.fetch = originalFetch; // 원래 fetch 복원
-    }); // 정리 경계
+    });
     const testFixture = await fixture(context); // 검사 전용 데이터베이스
     testFixture.sql(readFileSync(path.join(testFixture.root, "backend/sql/migrations/002_direct_messages.sql"), "utf8")); // 개인 대화 구조 적용
     const migration = () => execFileSync(testFixture.php, ["-c", process.env.PHP_TEST_INI || path.join(testFixture.root, ".runtime/php.ini"), path.join(testFixture.root, "scripts/migrate-003.php")], { env: testFixture.env, encoding: "utf8", windowsHide: true, stdio: "pipe" }); // 보존형 변경 도구
@@ -51,7 +51,7 @@ test("프로필 상태와 차단 및 안전한 사진", async (context) => // �
         form.append("picture", new Blob([bytes], { type: "image/png" }), "avatar.png"); // 검사 파일
         const response = await originalFetch(origin + "/Team006/backend/api/profile_picture.php", { method: "POST", headers: { Cookie: owner.cookie, "X-Expected-User-Id": owner.id, "X-CSRF-Token": token }, body: form }); // 세션과 요청 토큰
         return { status: response.status, body: await response.json() }; // JSON 결과
-    }; // 업로드 함수 끝
+    };
     assert.equal((await upload(png, "wrong")).status, 403); // 사진 CSRF 차단
     assert.equal((await upload(Buffer.from("not an image"))).status, 422); // 위조 사진 차단
     assert.equal((await upload(Buffer.alloc(1048577))).status, 422); // 사진 바이트 상한
@@ -68,4 +68,4 @@ test("프로필 상태와 차단 및 안전한 사진", async (context) => // �
     assert.equal((await owner.request("profile_picture.php", {}, {}, "DELETE")).status, 200); // 사진 삭제
     assert.equal((await detail(other, owner.id)).data.profile.has_picture, false); // 삭제 상태 반영
     assert.equal((await detail(other, owner.id)).data.profile.status_message, ""); // 상태 메시지 보존
-}); // 검사 종료
+});

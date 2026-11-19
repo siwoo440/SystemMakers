@@ -123,7 +123,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
         server.stderr.on("data", (chunk) => // 실행 오류 기록
         {
             stderr += chunk; // 실패 진단 누적
-        }); // 로그 수집 종료
+        });
         const origin = "http://127.0.0.1:" + httpPort; // 로컬 HTTP 주소
         async function request(route, options = {}) // 실제 HTTP JSON 요청
         {
@@ -163,7 +163,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
             assert.equal((await request("/api/csrf.php", { headers: authHeaders })).body.data.csrf_token, token); // 같은 세션 토큰 유지
             assert.notEqual((await request("/api/csrf.php")).body.data.csrf_token, token); // 다른 세션 토큰 분리
             assert.match((await request("/secure-cookie")).response.headers.get("set-cookie"), /; secure/i); // 운영 환경 Secure 강제
-        }); // CSRF 검사 종료
+        });
         await context.test("게스트 로그인 상태 조회 후 기존 CSRF 유지와 POST 허용", async () => // 일반 비로그인 조회의 토큰 폐기 회귀
         {
             const issued = await request("/api/csrf.php"); // 독립 게스트 세션 발급
@@ -175,7 +175,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
             assert.equal((await request("/api/csrf.php", { headers: guestHeaders })).body.data.csrf_token, guestToken); // 원래 세션과 토큰 유지
             const submission = await request("/validate", { method: "POST", headers: { ...guestHeaders, "Content-Type": "application/json", "X-CSRF-Token": guestToken }, body: '{"id":"1"}' }); // 최초 토큰으로 실제 보호 요청
             assert.equal(submission.response.status, 200); // 기존 토큰 검증 성공
-        }); // 게스트 토큰 회귀 검사 종료
+        });
         await context.test("비로그인 401과 메서드 우선 405 및 Allow", async () => // 보호 및 메서드 누락 포착
         {
             assert.equal((await request("/api/get_current_user.php")).response.status, 401); // 비로그인 보호
@@ -186,7 +186,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
                 assert.equal(result.response.headers.get("allow"), "GET"); // 지원 메서드 안내
             }
             assert.equal((await request("/api/csrf.php?unexpected=1")).response.status, 400); // GET 미허용 필드 차단
-        }); // 인증 기본 검사 종료
+        });
         await context.test("PDO 실제 연결과 상태 응답", async () => // 연결 설정 누락 포착
         {
             assert.deepEqual((await request("/api/health.php")).body, { success: true, data: { status: "ok" } }); // 민감 정보 없는 상태
@@ -194,7 +194,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
             const databaseSettings = (await request("/db")).body.data; // 실제 PDO 설정 응답
             assert.ok(databaseSettings.emulated === false || databaseSettings.emulated === 0); // PHP 버전별 비활성 속성 형식
             assert.deepEqual({ ...databaseSettings, emulated: false }, { timezone: "+00:00", charset: "utf8mb4", emulated: false, exception_mode: 2 }); // UTC와 실제 prepare 속성
-        }); // DB 검사 종료
+        });
         await context.test("본문 객체·크기·미디어 유형·필드·CSRF 검증", async () => // 잘못된 입력 수락 포착
         {
             const cases = [["[]", 400], ["null", 400], ["{", 400], ['{"id":1}', 422], ['{"id":18446744073709551615}', 422], ['{"id":"1","extra":1}', 422], ['{}', 422], ['{"id":"1","text":7}', 422], ['{"id":"1","text":"가나다라마"}', 422], ['{"id":"1","text":"\\u0000"}', 422], ['{"id":"1","text":"' + "x".repeat(33000) + '"}', 413]]; // 독립 오류 기대값
@@ -210,7 +210,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
             const boundary = '{"id":"1"}' + " ".repeat(32758); // 정확히 32 KiB인 JSON 본문
             assert.equal((await request("/validate", { method: "POST", headers: postHeaders, body: boundary })).response.status, 200); // 본문 상한 경계 허용
             assert.equal((await request("/validate", { method: "POST", headers: postHeaders, body: new Blob([boundary + " "]).stream(), duplex: "half" })).response.status, 413); // 길이 헤더 없는 실제 크기 차단
-        }); // 입력 검사 종료
+        });
         await context.test("정규 64비트 ID와 조회 0 커서 경계", async () => // 숫자 변환과 범위 오류 포착
         {
             for (const invalid of ["0", "01", "-1", "+1", "1.0", " 1", "18446744073709551616", "999999999999999999999", "1e2"]) // 잘못된 ID 목록
@@ -221,7 +221,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
             assert.equal((await request("/id?value=1&value=2")).response.status, 400); // 중복 조회 키 차단
             assert.equal((await request("/id?value=1&%76alue=2")).response.status, 400); // 인코딩된 중복 키 차단
             assert.equal((await request("/id?value=0&zero=1")).body.data.id, "0"); // 명시된 초기 커서 허용
-        }); // ID 검사 종료
+        });
         await context.test("실제 계정 확인과 문자열 ID", async () => // 세션 정보만 신뢰하는 오류 포착
         {
             await request("/fixture-auth", { headers: authHeaders }); // 실제 사용자 세션 준비
@@ -231,7 +231,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
             assert.equal(user.email, "member@example.com"); // 본인 이메일 반환
             assert.match(user.created_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/); // UTC 응답 형식
             assert.deepEqual(Object.keys(user).sort(), ["created_at", "email", "id", "username"]); // 비밀번호 해시 비노출
-        }); // 사용자 검사 종료
+        });
         const authenticationCases = // 서로 독립적인 인증 수명 시나리오
         [ // 인증 사례 목록
             ["삭제 계정 인증 무효화", "999", 0, 0, 401], // 실제 DB 계정 부재
@@ -270,7 +270,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
                     assert.equal(current.body.data.user.id, "1"); // 실제 사용자 조회 성공
                     assert.equal((await request("/api/csrf.php", { headers: scenarioHeaders })).body.data.csrf_token, scenarioToken); // 유효한 인증 세션 토큰 유지
                 }
-            }); // 독립 인증 검사 종료
+            });
         }
         await context.test("채널 존재와 멤버십 404·403 구분", async () => // 존재와 권한 혼동 포착
         {
@@ -281,7 +281,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
             assert.deepEqual((await request("/api/get_messages.php?channel_id=1", memberOptions)).body.data.messages, []); // 소속 채널 기록 조회 허용
             assert.equal((await request("/api/get_messages.php?channel_id=999", memberOptions)).response.status, 404); // 없는 채널 구분
             assert.equal((await request("/api/get_messages.php?channel_id=1", outsiderOptions)).response.status, 403); // 미소속 채널 거절
-        }); // 소속 검사 종료
+        });
         await context.test("내부 예외와 DB 실패 원인 비노출", async () => // 민감 오류 유출 포착
         {
             for (const route of ["/boom", "/warning", "/db-failure", "/config-missing"]) // 실제 내부 실패 경로
@@ -291,7 +291,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
                 assert.equal(result.body.error.code, "INTERNAL_ERROR"); // 안정 오류 코드
                 assert.doesNotMatch(JSON.stringify(result.body), /sensitive|SQL|password|root|127\.0\.0\.1|\.php|missing_sensitive/i); // 내부 원인 비노출
             }
-        }); // 오류 검사 종료
+        });
     }
     finally // 검증 자원 정리
     {
@@ -302,4 +302,4 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
         }
         sql("DROP DATABASE " + database + ";", false); // 무작위 전용 DB만 삭제
     }
-}); // 전체 통합 검증 종료
+});

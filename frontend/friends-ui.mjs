@@ -210,13 +210,13 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
                 await report(error, requestVersion, userId); // 현재 계정 오류 안내
             }
         }
-    }); // 검색 연결 끝
+    });
     byId("friend-search-input").addEventListener("input", () => // 검색어 변경
     {
         searchVersion++; // 이전 결과 무효화
         searchController?.abort(); // 이전 검색 취소
         byId("friend-search-results").replaceChildren(); // 이전 결과 제거
-    }); // 검색어 연결 끝
+    });
     byId("friend-refresh").addEventListener("click", refresh); // 명시적 목록 확인
     return { render, refresh, clear }; // 계정과 목록 수명 연결
 }

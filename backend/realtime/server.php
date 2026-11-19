@@ -27,11 +27,11 @@ try // 설정과 서버의 안전한 시작
     {
         $wsServer->expirePartialMessages(); // 느린 수신 연결 정리
         $relay->tick(); // 활성 구독 갱신
-    }); // 감시 타이머 등록
+    });
     $loop->addPeriodicTimer(5, static function (): void // 장기 실행 DB 연결 감시
     {
         db()->query('SELECT 1')->fetchColumn(); // 실패 시 바깥 예외 처리와 재시작
-    }); // DB 감시 등록
+    });
     $server->run(); // 실시간 서버 대기
 }
 catch (Throwable $exception) // 설정과 실행 실패의 안전한 종료

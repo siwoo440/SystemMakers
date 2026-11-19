@@ -26,7 +26,7 @@ test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { ski
             const result = await response.json(); // 실제 API 본문
             session.token = result.data?.csrf_token || session.token; // 최신 CSRF 보관
             return { status: response.status, ...result }; // 검사 가능한 응답
-        }; // 요청 경계 끝
+        };
         return session; // 독립 사용자 상태
     }
     async function account(role) // 실제 가입과 로그인
@@ -52,13 +52,16 @@ test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { ski
         }
         return socket; // 연결 상태 반환
     }
-    const page = await fetch(`${origin}/Team006/index.html`); // 실제 운영 진입점
+    const page = await fetch(`${origin}/Team006/index.html`, { headers: { 'Accept-Encoding': 'gzip' } }); // 압축을 요청한 실제 운영 진입점
     assert.equal(page.status, 200); // Apache 라우팅 성공
     const pageTag = page.headers.get('etag'); // 프록시가 전달한 화면 식별표
     assert.ok(pageTag); // 화면 버전 확인
-    const unchangedPage = await fetch(`${origin}/Team006/index.html`, { headers: { 'If-None-Match': pageTag } }); // 같은 화면 재요청
-    assert.equal(unchangedPage.status, 304); // 프록시 경유 캐시 재검증
-    assert.equal(await unchangedPage.text(), ''); // 중복 본문 전송 방지
+    for (const encoding of ['gzip', 'identity']) // 압축과 원본 응답 재검증
+    {
+        const unchangedPage = await fetch(`${origin}/Team006/index.html`, { headers: { 'If-None-Match': pageTag, 'Accept-Encoding': encoding } }); // 보관한 화면 식별표 전달
+        assert.equal(unchangedPage.status, 304, `인코딩 ${encoding}, 요청 태그 ${pageTag}, 응답 태그 ${unchangedPage.headers.get('etag')}`); // 프록시 경유 캐시 재검증
+        assert.equal(await unchangedPage.text(), ''); // 중복 본문 전송 방지
+    }
     assert.ok(page.headers.get('content-security-policy').includes(origin.replace(/^https:/u, 'wss:'))); // 명시적 운영 WSS 허용
     for (const hidden of ['.git/config', '.runtime/web-env.json', 'backend/config/database.php', 'backend/sql/schema.sql', 'docker/php.ini', 'tests/docker-flow.test.mjs', '%2e%2e/backend/config/database.php']) // 비공개 경로 목록
     {
@@ -111,4 +114,4 @@ test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { ski
     assert.equal(hash(Buffer.from(await downloaded.arrayBuffer())), hash(new Uint8Array(5242880))); // 바이너리 데이터 보존
     assert.equal((await member.request('logout.php', {})).status, 200); // 웹 세션 폐기
     await until(() => memberSocket.closed && directSocket.closed); // Ratchet에서 같은 로그아웃 반영
-}); // 컨테이너 흐름 검사 끝
+});

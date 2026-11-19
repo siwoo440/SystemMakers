@@ -73,7 +73,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             server.stderr.on("data", (value) => // 서버 진단 수집
             {
                 logs += value; // 실패 원인 기록
-            }); // 수집 등록 종료
+            });
             servers.push(server); // 종료 대상 등록
             origins.push("http://127.0.0.1:" + httpPort); // 접속 주소 등록
         }
@@ -136,7 +136,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             assert.equal(verified, "verified"); // 원문 공백 포함 해시 일치
             expectError(await request("/api/get_current_user.php", { headers: { Cookie: session.cookie } }), 401, "UNAUTHORIZED"); // 가입 후 게스트 유지
             assert.equal(sql("SELECT COUNT(*) FROM server_members"), "0"); // 자동 멤버십 없음
-        }); // 실제 저장 검증 종료
+        });
         if (!publicUser) // 기본 구현 실패 후 연쇄 실패 방지
         {
             return; // 최초 누락 실패 결과 유지
@@ -149,13 +149,13 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             const attempts = await Promise.all([0, 1, 2, 3].map(async (index) => // 실제 동시 가입 요청
             {
                 return post("register", { username: "racer_" + index, email: "race@example.com", password }, await guest(index), {}, index); // 다른 이름의 동일 이메일
-            })); // 동시 결과 수집
+            }));
             assert.deepEqual(attempts.map((value) => value.response.status).sort(), [201, 409, 409, 409]); // 하나만 저장
             for (const result of attempts.filter((value) => value.response.status === 409)) // UNIQUE 충돌 결과
             {
                 assert.equal(result.body.error.code, "EMAIL_TAKEN"); // DB 경쟁의 계약 오류 매핑
             }
-        }); // 중복 검증 종료
+        });
         await context.test("메서드·본문·CSRF·필드 우선순위와 실패의 DB 무변경", async () => // 검증 전 쓰기와 제한 누적 포착
         {
             const usersBefore = sql("SELECT COUNT(*) FROM users"); // 기존 사용자 수
@@ -178,7 +178,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             expectError(await post("logout", "{", session), 401, "UNAUTHORIZED"); // 로그아웃 인증 우선
             assert.equal(sql("SELECT COUNT(*) FROM users"), usersBefore); // 검증 실패 가입 없음
             assert.equal(sql("SELECT COUNT(*) FROM auth_rate_limits"), "0"); // 검증 실패 시도 미누적
-        }); // 검증 우선순위 종료
+        });
         await context.test("한글 사용자명의 가입과 로그인", async () => // 한글 이름의 저장과 인증 확인
         {
             const koreanSession = await guest(); // 별도 게스트 세션
@@ -188,7 +188,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             const loggedIn = await post("login", { email: "korean@example.test", password }, koreanSession); // 기존 이메일 로그인
             assert.equal(loggedIn.response.status, 200); // 로그인 성공
             assert.equal(loggedIn.body.data.user.username, "김하늘"); // 로그인 응답의 한글 이름
-        }); // 한글 가입 검사 종료
+        });
         await context.test("비밀번호 문자 길이와 이메일·사용자명·알 수 없는 필드", async () => // 문자 경계와 비문자 입력 확인
         {
             const invalidPasswords = ["x".repeat(7), "x".repeat(65), "x".repeat(8) + "\0", 123, null]; // 잘못된 원문 경계
@@ -210,7 +210,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             assert.equal(longLogin.response.status, 200); // 한글 원문의 정상 검증
             const wrongLongLogin = await post("login", { email: "boundary2@example.com", password: validPasswords[2] + "다" }, await guest()); // 72바이트 뒤에 추가된 문자
             expectError(wrongLongLogin, 401, "INVALID_CREDENTIALS"); // 뒤쪽 문자의 일치 확인
-        }); // 필드 경계 검증 종료
+        });
         await context.test("기존 bcrypt 계정은 원문으로 로그인하고 72바이트 뒤 추가 문자는 거절", async () => // 기존 해시와 입력 절단 악용 방지
         {
             const legacyPassword = "가".repeat(24); // 기존에 허용된 72바이트 비밀번호
@@ -220,7 +220,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             expectError(wrong, 401, "INVALID_CREDENTIALS"); // 절단된 비밀번호 인증 차단
             const correct = await post("login", { email: "legacy@example.com", password: legacyPassword }, await guest()); // 기존 비밀번호 로그인
             assert.equal(correct.response.status, 200); // 이전 계정 호환
-        }); // 기존 해시 호환 검사 끝
+        });
         await context.test("같은 자격증명 오류·세션과 토큰 교체·인증 중 거절·로그아웃", async () => // 해시 비교 우회와 세션 고정 포착
         {
             const missing = await post("login", { email: "missing@example.com", password }, session); // 없는 사용자 로그인
@@ -246,7 +246,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             assert.match(out.response.headers.get("set-cookie"), /expires=.*1970|Max-Age=0/i); // 쿠키 만료
             assert.match(out.response.headers.get("set-cookie"), /path=\/.*HttpOnly.*SameSite=Lax/i); // 동일 쿠키 속성
             expectError(await request("/api/get_current_user.php", { headers: { Cookie: signed.cookie } }), 401, "UNAUTHORIZED"); // 세션 파일 인증 폐기
-        }); // 인증 흐름 검증 종료
+        });
         await context.test("유휴 만료의 게스트 전환과 기존 CSRF 거절", async () => // 만료 세션의 재로그인 차단 오류 포착
         {
             sql("DELETE FROM auth_rate_limits"); // 독립 시나리오 제한 초기화
@@ -255,14 +255,14 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             const signed = { cookie: logged.response.headers.get("set-cookie").split(";")[0], token: logged.body.data.csrf_token }; // 실제 인증 쿠키
             await request("/expire", { headers: { Cookie: signed.cookie } }); // 유휴 수명 만료
             expectError(await post("login", { email: member.email, password }, signed), 403, "CSRF_INVALID"); // 만료 토큰 인증 폐기
-        }); // 만료 검증 종료
+        });
         await context.test("키 누락 로그인만 실패 폐쇄와 응답 비밀 비노출", async () => // 제한 없는 설정 누락 인증 포착
         {
             const result = await post("/key-missing", { email: member.email, password }, await guest()); // 키 누락 실제 로그인
             expectError(result, 500, "INTERNAL_ERROR"); // 제한 생략 없는 실패
             assert.doesNotMatch(JSON.stringify(result.body), /secret|AUTH_RATE|password_hash|SELECT|\.php/i); // 내부 원인 숨김
             assert.equal((await request("/api/health.php")).response.status, 200); // 다른 API 정상 작동
-        }); // 설정 실패 검증 종료
+        });
         await context.test("같은 게스트의 동시 로그인과 로그아웃의 오래된 세션 복원 차단", async () => // 잠금 해제 뒤 오래된 인증 상태 덮어쓰기 포착
         {
             sql("DELETE FROM auth_rate_limits"); // 독립 경쟁 시나리오 제한 초기화
@@ -281,7 +281,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             assert.equal((await post("logout", {}, signed)).response.status, 200); // 인증 직후 실제 로그아웃
             expectError(await request("/api/get_current_user.php", { headers: { Cookie: fresh.cookie } }), 401, "UNAUTHORIZED"); // 원래 게스트 인증 없음
             expectError(await request("/api/get_current_user.php", { headers: { Cookie: signed.cookie } }), 401, "UNAUTHORIZED"); // 로그아웃 인증 복원 없음
-        }); // 동시 세션 경쟁 검증 종료
+        });
         await context.test("이메일 고정 창·성공 횟수 유지·세션 교체 우회 차단·만료 초기화", async () => // 성공 시 초기화와 세션별 제한 오류 포착
         {
             sql("DELETE FROM auth_rate_limits"); // 전용 시나리오 제한 초기화
@@ -301,7 +301,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             sql("UPDATE auth_rate_limits SET window_started_at=UTC_TIMESTAMP()-INTERVAL 901 SECOND"); // 15분 창 만료
             expectError(await post("login", { email: member.email, password: "WrongPassword123" }, await guest()), 401, "INVALID_CREDENTIALS"); // 창 만료 후 재허용
             assert.equal(sql("SELECT SUM(attempts) FROM auth_rate_limits"), "2"); // 두 버킷 새 창 한 번씩
-        }); // 이메일 제한 검증 종료
+        });
         await context.test("접속 IP 30회·프록시 헤더 무시·차단의 횟수 보존", async () => // 이메일 변경과 위조 IP의 제한 우회 포착
         {
             sql("DELETE FROM auth_rate_limits"); // 전용 시나리오 제한 초기화
@@ -315,7 +315,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             expectError(blocked, 429, "RATE_LIMITED"); // IP 제한
             assert.equal(sql("SELECT SUM(attempts) FROM auth_rate_limits"), total); // 양쪽 버킷 미누적
             assert.equal(sql("SELECT MAX(attempts) FROM auth_rate_limits WHERE scope='login_ip'"), "30"); // IP 상한 유지
-        }); // IP 제한 검증 종료
+        });
         await context.test("네 PHP 프로세스의 동시 이메일 제한 원자성", async () => // 읽기 후 쓰기의 동시 초과 허용 포착
         {
             sql("DELETE FROM auth_rate_limits"); // 독립 동시성 시나리오 초기화
@@ -325,7 +325,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
             assert.equal(results.filter((value) => value.response.status === 429).length, 7); // 나머지 제한
             assert.equal(sql("SELECT attempts FROM auth_rate_limits WHERE scope='login_email'"), "5"); // 이메일 실제 누적 상한
             assert.equal(sql("SELECT attempts FROM auth_rate_limits WHERE scope='login_ip'"), "5"); // 차단의 IP 미누적
-        }); // 동시 제한 검증 종료
+        });
     }
     finally // 테스트 자원 정리
     {
@@ -339,4 +339,4 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
         }
         sql("DROP DATABASE " + database, false); // 검증한 무작위 테스트 DB만 제거
     }
-}); // 전체 실제 인증 검증 종료
+});

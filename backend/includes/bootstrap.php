@@ -11,12 +11,12 @@ set_error_handler(function (int $severity, string $message, string $file, int $l
         return false; // PHP 기본 억제 처리
     }
     throw new ErrorException($message, 0, $severity, $file, $line); // 화면 출력 없는 예외 전환
-}); // 경고 처리기 등록
+});
 set_exception_handler(function (Throwable $caughtException): void // 처리되지 않은 내부 예외
 {
     error_log('SystemMakers internal API failure.'); // 비밀 없는 서버 진단
     respond_error('INTERNAL_ERROR', '요청을 처리할 수 없습니다.', 500); // 상세 원인 비노출
-}); // 예외 처리기 등록
+});
 register_shutdown_function(function (): void // 치명적인 종료 오류 처리
 {
     $lastError = error_get_last(); // 마지막 PHP 오류
@@ -24,7 +24,7 @@ register_shutdown_function(function (): void // 치명적인 종료 오류 처�
     {
         respond_error('INTERNAL_ERROR', '요청을 처리할 수 없습니다.', 500); // 일반 JSON 오류 반환
     }
-}); // 종료 처리기 등록
+});
 date_default_timezone_set('UTC'); // PHP 날짜 UTC 기준
 require_once __DIR__ . '/../config/database.php'; // PDO 연결 함수
 require_once __DIR__ . '/session.php'; // 보안 세션 함수

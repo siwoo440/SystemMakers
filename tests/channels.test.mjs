@@ -76,7 +76,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.equal(result.response.status, 200); // 공개 경로 연결 확인
             assert.deepEqual(result.body.data.channels, []); // 소속 없는 계정의 빈 결과
             assert.equal(sql("SELECT COUNT(*) FROM server_members;"), "0"); // 조회 중 자동 가입 차단
-        }); // 빈 목록 검사 종료
+        });
         await context.test("메서드·인증·조회 조건 검사", async () => // 인증 없는 목록과 입력 누락 검사 포착
         {
             assert.equal((await request("/Team006/backend/api/get_channels.php")).response.status, 401); // 게스트 목록 차단
@@ -85,7 +85,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.equal(method.response.status, 405); // 메서드 검사 우선
             assert.equal(method.response.headers.get("allow"), "GET"); // 지원 메서드 안내
             assert.equal((await request("/Team006/backend/api/get_channels.php?user_id=2", { Cookie: ownerCookie })).response.status, 400); // 타인 식별자 조회 거절
-        }); // 공통 보호 검사 종료
+        });
         const seedArgs = ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/seed-dev.php"), "--owner=owner", "--member=member"]; // 명시적인 개발 데이터 대상
         await context.test("기존 계정의 개발 서버·멤버십·채널 준비", async () => // 개발 데이터 누락과 임의 계정 생성 포착
         {
@@ -97,7 +97,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.equal(sql("SELECT COUNT(*) FROM channels;"), "3"); // 개발 채널 세 개 준비
             assert.equal(sql("SELECT role FROM server_members WHERE user_id=1;"), "owner"); // 생성자 소속 일치
             assert.equal(sql("SELECT role FROM server_members WHERE user_id=2;"), "member"); // 지정한 멤버만 소속 추가
-        }); // 개발 데이터 검사 종료
+        });
         await context.test("실제 소속별 목록·문자열 ID·순서·공개 필드", async () => // 다른 서버 목록 유출과 ID 변형 포착
         {
             sql("INSERT INTO servers (id,name,owner_id) VALUES (99,'private',3); INSERT INTO server_members (server_id,user_id,role) VALUES (99,3,'owner'); INSERT INTO channels (id,server_id,name) VALUES (99,99,'private');"); // 타인 전용 채널 준비
@@ -110,7 +110,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.deepEqual(Object.keys(owner.body.data.channels[0]).sort(), ["id", "name", "server_id", "server_name"]); // 비밀 없는 공개 필드
             assert.equal(owner.body.data.channels[0].server_id, "1"); // 문자열 서버 ID
             assert.equal(owner.response.headers.get("cache-control"), "no-store"); // 사용자 목록 캐시 차단
-        }); // 소속 목록 검사 종료
+        });
         await context.test("개발 준비 재실행과 기존 대화 보존", async () => // 중복 서버 생성과 초기화 포착
         {
             sql("INSERT INTO messages (channel_id,user_id,content) VALUES (1,1,'preserved');"); // 보존할 실제 대화
@@ -121,7 +121,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.equal(sql("SELECT COUNT(*) FROM channels;"), "4"); // 기존 채널 보존
             assert.equal(sql("SELECT content FROM messages;"), "preserved"); // 메시지 초기화 없음
             assert.equal(sql("SELECT role FROM server_members WHERE user_id=2;"), "admin"); // 재실행 시 관리자 강등 없음
-        }); // 재실행 검사 종료
+        });
         await context.test("운영 환경·없는 계정의 개발 데이터 생성 거절", async () => // 잘못된 실행 범위와 부분 데이터 포착
         {
             for (const options of [{ args: seedArgs, env: { ...serverEnvironment, APP_ENV: "production" } }, { args: [...seedArgs, "--member=missing"], env: serverEnvironment }]) // 거절할 실행 조건
@@ -131,7 +131,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
                 assert.equal(sql("SELECT COUNT(*) FROM server_members;"), "3"); // 부분 멤버십 생성 없음
                 assert.equal(sql("SELECT COUNT(*) FROM channels;"), "4"); // 부분 채널 생성 없음
             }
-        }); // CLI 보호 검사 종료
+        });
     }
     finally // 전용 검증 자원 정리
     {
@@ -142,4 +142,4 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
         }
         sql("DROP DATABASE " + database + ";", false); // 검증한 이름의 전용 DB만 삭제
     }
-}); // 전체 채널 통합 검사 종료
+});

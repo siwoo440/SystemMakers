@@ -50,7 +50,7 @@ test("최초 조회 완료 후 2초 예약과 요청 중 추가 예약 없음", 
     await pending; // 완료와 재예약 확인
     assert.equal(testHarness.timers.size, 1); // 완료 이후에만 다음 예약
     testHarness.feed.pause(); // 브라우저 수명 종료
-}); // 예약 검사 종료
+});
 test("내 전송이 앞서 표시돼도 신규 조회 커서 유지와 적체 소진", async () => // 전송 응답의 커서 건너뛰기 포착
 {
     const testHarness = await setup((count) => count === 1 ? page(["1"], "initial") : count === 2 ? page(["2", "3"], "after", true) : page(["4", "5"], "after")); // 조회 전 도착한 다른 사용자 메시지
@@ -63,7 +63,7 @@ test("내 전송이 앞서 표시돼도 신규 조회 커서 유지와 적체 �
     assert.equal(testHarness.feed.after, "5"); // 적체 소진 후 커서
     assert.equal(testHarness.timers.size, 1); // 소진 후 일반 폴링 복귀
     testHarness.feed.pause(); // 작업 종료
-}); // 전송과 신규 경합 검사 종료
+});
 test("이전 조회의 폴링 커서 보존과 큰 문자열 ID 정렬", async () => // 이전 커서 덮어쓰기와 Number 변환 포착
 {
     const testHarness = await setup((count) => count === 1 ? page(["9007199254740993", "9007199254740995"], "initial", true) : count === 2 ? page(["9007199254740991"], "before") : page([], "after", false, "9007199254740995")); // 큰 ID의 이전과 신규 응답
@@ -76,7 +76,7 @@ test("이전 조회의 폴링 커서 보존과 큰 문자열 ID 정렬", async (
     await testHarness.tick(); // 정상 신규 확인
     assert.equal(testHarness.calls[2].query.after_id, "9007199254740995"); // 실제 최신 조회 커서
     testHarness.feed.pause(); // 작업 종료
-}); // 이전 조회 검사 종료
+});
 test("채널 이동과 로그아웃 이후 지연된 응답·오류 무시", async () => // 취소 이후 화면과 타이머 부활 포착
 {
     let release; // 지연 응답 제어
@@ -88,7 +88,7 @@ test("채널 이동과 로그아웃 이후 지연된 응답·오류 무시", asy
     await pending; // 이전 요청 종료
     assert.deepEqual(testHarness.feed.list(), []); // 이전 응답 적용 없음
     assert.equal(testHarness.timers.size, 0); // 종료 후 폴링 재예약 없음
-}); // 수명 검사 종료
+});
 test("오류 간격 상한과 성공 복구 후 2초 예약", async () => // 실패 폭주와 복구 지연 포착
 {
     let succeed = false; // 실제 응답 성공 전환
@@ -99,7 +99,7 @@ test("오류 간격 상한과 성공 복구 후 2초 예약", async () => // 실
             throw new Error("offline"); // 실제 실패 경로
         }
         return page([], "initial"); // 정상 빈 채널 복구
-    }); // 외부 경계 준비 완료
+    });
     await testHarness.feed.activate(); // 최초 실패
     assert.equal([...testHarness.timers.values()][0].delay, 4000); // 첫 오류 대기 증가
     for (let attempt = 0; attempt < 5; attempt++) // 반복 연결 실패
@@ -111,7 +111,7 @@ test("오류 간격 상한과 성공 복구 후 2초 예약", async () => // 실
     await testHarness.tick(); // 실제 성공 경로
     assert.equal([...testHarness.timers.values()][0].delay, 2000); // 정상 간격 복귀
     testHarness.feed.pause(); // 작업 종료
-}); // 오류 복구 검사 종료
+});
 test("권한 상실의 기록 제거와 폴링 종료", async () => // 사라진 접근 권한의 대화 노출 포착
 {
     const testHarness = await setup((count) => // 순차 권한 응답
@@ -121,7 +121,7 @@ test("권한 상실의 기록 제거와 폴링 종료", async () => // 사라진
             return page(["1"], "initial"); // 조회된 기록
         }
         throw Object.assign(new Error("forbidden"), { status: 403 }); // 실제 권한 상실
-    }); // 권한 상황 준비 완료
+    });
     await testHarness.feed.activate(); // 최초 기록 확인
     await testHarness.tick(); // 현재 소속 재확인
     assert.deepEqual(testHarness.feed.list(), []); // 기존 대화 제거
@@ -129,7 +129,7 @@ test("권한 상실의 기록 제거와 폴링 종료", async () => // 사라진
     assert.equal(testHarness.timers.size, 0); // 폴링 종료
     testHarness.feed.add(message("2")); // 권한 확인 뒤 도착한 이전 전송 성공
     assert.deepEqual(testHarness.feed.list(), []); // 늦은 저장 응답으로 대화 부활 없음
-}); // 권한 검사 종료
+});
 test("일시 정지 채널의 전송 거절도 과거 기록과 커서 제거", async () => // 다른 채널로 이동한 뒤 전송 거절의 과거 대화 노출 포착
 {
     const testHarness = await setup(() => page(["1"], "initial", true)); // 과거 대화가 있는 실제 상태
@@ -142,7 +142,7 @@ test("일시 정지 채널의 전송 거절도 과거 기록과 커서 제거", 
     assert.equal(testHarness.timers.size, 0); // 폴링 예약 제거
     await testHarness.feed.activate(); // 접근 거절 채널의 재선택
     assert.equal(testHarness.calls.length, 1); // 임의 재조회와 과거 표시 없음
-}); // 정지 채널 권한 검사 종료
+});
 test("잘못된 채널과 커서 응답의 원자적 거절", async () => // 잘못된 응답의 일부 반영 포착
 {
     const testHarness = await setup((count) => count === 1 ? page(["1"], "initial") : { messages: [message("2"), message("3", "9")], pagination: { mode: "after", has_more: false, next_before_id: "2", next_after_id: "3" } }); // 다른 채널이 섞인 응답
@@ -151,7 +151,7 @@ test("잘못된 채널과 커서 응답의 원자적 거절", async () => // 잘
     assert.deepEqual(testHarness.feed.list().map((item) => item.id), ["1"]); // 일부 응답도 적용 없음
     assert.equal(testHarness.feed.after, "1"); // 확인되지 않은 커서 사용 없음
     testHarness.feed.pause(); // 작업 종료
-}); // 응답 검사 종료
+});
 test("브라우저 기본 타이머의 전역 호출 대상 유지", async () => // Window 타이머의 Illegal invocation 포착
 {
     const { MessageFeed } = await import(pathToFileURL(resolve("frontend/message-feed.mjs"))); // 실제 브라우저 모듈
@@ -163,11 +163,11 @@ test("브라우저 기본 타이머의 전역 호출 대상 유지", async () =>
         assert.equal(this, globalThis, "전역 타이머 호출 대상 필요"); // Window 동작 경계
         scheduled = true; // 실제 예약 성공 확인
         return 1; // 테스트 예약 식별자
-    }; // 예약 경계 설정 종료
+    };
     globalThis.clearTimeout = function () // 브라우저의 취소 호출 제약 재현
     {
         assert.equal(this, globalThis, "전역 취소 호출 대상 필요"); // Window 동작 경계
-    }; // 취소 경계 설정 종료
+    };
     try // 전역 경계 복구 보장
     {
         const feed = new MessageFeed({ channelId: "1", request: async () => page([], "initial"), onChange: () => undefined, onError: () => undefined }); // 기본 타이머를 사용하는 실제 조회
@@ -180,7 +180,7 @@ test("브라우저 기본 타이머의 전역 호출 대상 유지", async () =>
         globalThis.setTimeout = originalSet; // 예약 함수 복원
         globalThis.clearTimeout = originalClear; // 취소 함수 복원
     }
-}); // 브라우저 타이머 검사 종료
+});
 
 test("실시간 구독 중 안전망 조회와 연결 종료 후 기존 간격 복구", async () => // 실시간 상태별 조회 간격 검증
 {
@@ -194,7 +194,7 @@ test("실시간 구독 중 안전망 조회와 연결 종료 후 기존 간격 �
     await harness.tick(); // 대체 조회 실행
     assert.equal(harness.calls.length, 2); // 실제 메시지 확인
     harness.feed.pause(); // 예약 정리
-}); // 구독 상태 검사 끝
+});
 
 test("진행 중 도착한 실시간 알림은 요청 완료 후 신규 기록 조회", async () => // 진행 중 알림 유실 방지
 {
@@ -214,4 +214,4 @@ test("진행 중 도착한 실시간 알림은 요청 완료 후 신규 기록 �
     assert.deepEqual(harness.feed.list().map((entry) => entry.id), ["1", "2"]); // 실제 신규 메시지 표시
     assert.equal(harness.calls.length, 3); // 중복 알림의 단일 후속 조회
     harness.feed.pause(); // 예약 정리
-}); // 조회 경합 검사 끝
+});

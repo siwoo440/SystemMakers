@@ -21,7 +21,7 @@ function setup(request) // 실제 화면과 서버 경계
             elements.set(id, element()); // 새 요소 생성
         }
         return elements.get(id); // 현재 요소 반환
-    }; // 조회 함수 끝
+    };
     globalThis.document = { createElement: element }; // 버튼과 칸 생성 경계
     globalThis.window = { setTimeout: () => 1, clearTimeout: () => undefined }; // 자동 갱신 예약 경계
     let user = { id: "1", username: "alice" }; // 로그인 계정
@@ -36,7 +36,7 @@ test("친구가 없어도 별도 빈 목록 안내 문구는 표시하지 않음
     await new Promise((resolve) => setImmediate(resolve)); // 목록 반영 대기
     assert.equal(harness.byId("friend-status").textContent, ""); // 빈 목록 안내 제거
     harness.ui.clear(); // 조회 수명 정리
-}); // 빈 친구 상태 검사 끝
+});
 test("수락된 친구 목록과 검색 요청 화면", async () => // 친구 표시와 명시적 요청
 {
     const calls = []; // 서버 요청 기록
@@ -49,7 +49,7 @@ test("수락된 친구 목록과 검색 요청 화면", async () => // 친구 �
             return { users: [friend] }; // 검색 결과
         }
         return { friends: [friend], incoming: [], outgoing: [] }; // 수락된 친구 목록
-    }); // 서버 경계 끝
+    });
     harness.ui.render(); // 현재 계정 최초 조회
     await new Promise((resolve) => setImmediate(resolve)); // 비동기 목록 반영
     assert.equal(harness.byId("friend-list").children.length, 1); // 수락된 친구 한 칸
@@ -61,7 +61,7 @@ test("수락된 친구 목록과 검색 요청 화면", async () => // 친구 �
     assert.deepEqual(calls.find((call) => call.body?.action === "request").body, { action: "request", user_id: "2" }); // 선택한 사용자만 요청
     harness.ui.clear(); // 화면 수명 종료
     assert.equal(harness.byId("friend-list").children.length, 0); // 로그아웃 목록 제거
-}); // 친구 화면 검사 끝
+});
 test("계정 종료 후 늦은 친구 응답 무시", async () => // 이전 계정 자료 노출 차단
 {
     let finish; // 지연 응답 제어
@@ -73,4 +73,4 @@ test("계정 종료 후 늦은 친구 응답 무시", async () => // 이전 계�
     finish({ friends: [{ id: "2", username: "bob" }], incoming: [], outgoing: [] }); // 늦은 친구 응답
     await new Promise((resolve) => setImmediate(resolve)); // 비동기 응답 처리
     assert.equal(harness.byId("friend-list").children.length, 0); // 이전 목록 복원 차단
-}); // 수명 검사 끝
+});

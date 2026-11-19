@@ -23,11 +23,11 @@ async function websocket(port, cookie, origin) // 실제 WebSocket 클라이언�
     socket.on('close', () => // 연결 종료 처리
     {
         closed = true; // 종료 상태 기록
-    }); // 종료 처리 등록
+    });
     socket.on('error', () => // 연결 오류 처리
     {
         closed = true; // 오류 상태 기록
-    }); // 오류 처리 등록
+    });
     socket.on('data', (chunk) => // 수신 데이터 처리
     {
         buffer = Buffer.concat([buffer, chunk]); // 미완성 데이터 연결
@@ -61,12 +61,12 @@ async function websocket(port, cookie, origin) // 실제 WebSocket 클라이언�
                 socket.end(); // 클라이언트 연결 종료
             }
         }
-    }); // 데이터 처리 등록
+    });
     await new Promise((resolve, reject) => // 연결 대기
     {
         socket.once('connect', resolve); // 연결 성공 처리
         socket.once('error', reject); // 연결 오류 처리
-    }); // 연결 대기 종료
+    });
     socket.write(`GET /Team006/realtime HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: 13\r\nOrigin: ${origin}\r\nCookie: ${cookie}\r\n\r\n`); // 브라우저와 같은 업그레이드 요청
     for (let attempt = 0; attempt < 100 && !upgraded && !closed; attempt++) // 제한된 핸드셰이크 대기
     {
@@ -91,8 +91,8 @@ async function websocket(port, cookie, origin) // 실제 WebSocket 클라이언�
                 frame[6 + index] = payload[index] ^ mask[index % 4]; // 각 바이트 마스킹
             }
             socket.write(frame); // 실제 프레임 전송
-        } // 전송 처리 종료
-    }; // 클라이언트 생성 종료
+        }
+    };
     return client; // 클라이언트 반환
 }
 async function until(check) // 제한된 비동기 상태 대기
@@ -152,7 +152,7 @@ test('실제 멤버만 새 메시지 알림을 받고 로그아웃 이후 연결
     assert.equal((await owner.request('send_message.php', { channel_id: channel.id, content: '둘째 알림' })).status, 201); // 다음 메시지 저장
     await until(() => ownSocket.messages.length === 2); // 유지된 연결 알림
     assert.equal(memberSocket.messages.length, 1); // 폐기된 연결 알림 차단
-}); // 실제 통합 검사 종료
+});
 
 test('개인 대화 참여자만 본문 없는 알림을 받고 세션 종료 시 연결 폐기', async (context) => // 개인 대화 실시간 권한 검사
 {
@@ -198,4 +198,4 @@ test('개인 대화 참여자만 본문 없는 알림을 받고 세션 종료 �
     await until(() => bobSocket.isClosed()); // 로그아웃 연결 종료
     environment.sql('DELETE FROM direct_conversations WHERE id=' + conversationId); // 대화 제거 경합
     await until(() => aliceSocket.isClosed()); // 삭제된 대화 구독 종료
-}); // 개인 대화 실시간 검사 끝
+});

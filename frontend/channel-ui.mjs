@@ -168,7 +168,7 @@ export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, o
             }
         }
         render(); // 현재 처리 종료 상태
-    }); // 제출 연결 끝
+    });
     for (const [elementId, nextOperation] of [["create-channel", "create"], ["rename-channel", "rename"], ["delete-channel", "delete"]]) // 관리 진입 버튼
     {
         byId(elementId).addEventListener("click", () => open(nextOperation)); // 고정된 작업 열기
@@ -182,7 +182,7 @@ export function mountChannelUI({ manager, byId, getChannel, isReady, onReload, o
         {
             uiEvent.preventDefault(); // 처리 결과 전에 닫기 차단
         }
-    }); // Escape 처리 끝
+    });
     managementDialog.addEventListener("close", reset); // 모든 종료의 확인 값 폐기
     return { render, clear }; // 계정·소속 변경 연결
 }

@@ -47,7 +47,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
                 session.token = payload.data.csrf_token; // 인증 교체 후 최신 토큰
             }
             return { status: response.status, ...payload }; // 실제 상태와 공개 자료
-        }; // 실제 요청 경계 종료
+        };
         return session; // 독립 로그인 세션
     }
     const password = "AcceptancePass123!"; // 검증 전용 비밀번호
@@ -94,7 +94,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
             }
             ownerUser = owner.user; // 실제 소유자 보관
             memberUser = member.user; // 실제 참여자 보관
-        }); // 가입과 인증 검사 종료
+        });
         await context.test("명시적 개발 소속·채널·원문 전송·다른 회원 조회", async () => // 개발 데이터와 실제 웹 계약 연결 포착
         {
             execFileSync(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), path.join(projectRoot, "scripts/seed-dev.php"), "--owner=accept_owner", "--member=accept_member"], { env: serverEnvironment, windowsHide: true }); // 기존 계정만 개발 서버 연결
@@ -110,7 +110,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
             assert.deepEqual(viewed.data.messages, [saved]); // DB 원문과 공개 응답 일치
             assert.deepEqual((await member.request("get_messages.php?channel_id=" + channel + "&after_id=" + saved.id)).data.messages, []); // 후속 폴링의 중복 없음
             assert.deepEqual((await owner.request("get_messages.php?channel_id=" + channel)).data.messages, [saved]); // 새 화면의 기록 복원
-        }); // 소속과 메시지 검사 종료
+        });
         await context.test("CSRF·타인 채널·없는 채널·작성자 위조의 무저장", async () => // 보호 검사 연결 누락 포착
         {
             const before = sql("SELECT COUNT(*) FROM messages"); // 실패 전 저장 수
@@ -120,7 +120,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
             assert.equal((await owner.request("get_messages.php?channel_id=18446744073709551615")).status, 404); // 없는 채널 구분
             assert.equal((await owner.request("send_message.php", { channel_id: channel, content: "forged", user_id: memberUser.id })).status, 422); // 작성자 위조 입력 거절
             assert.equal(sql("SELECT COUNT(*) FROM messages"), before); // 실패 전체의 저장 없음
-        }); // 권한과 입력 검사 종료
+        });
         await context.test("공유 쿠키 계정 변경의 저장·조회·로그아웃 사전 거절", async () => // 새 CSRF로 다른 작성자의 초안 저장 포착
         {
             const before = sql("SELECT COUNT(*) FROM messages"); // 기존 대화 수
@@ -140,7 +140,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
             }
             assert.equal(sql("SELECT COUNT(*) FROM messages"), before); // 다른 작성자로 저장 없음
             assert.equal((await member.request("send_message.php", { channel_id: channel, content: "member own message" }, { "X-Expected-User-Id": memberUser.id })).status, 201); // 일치한 계정은 정상 전송
-        }); // 계정 변경 검사 종료
+        });
         await context.test("탈퇴 뒤 조회·전송 차단과 로그아웃 후 복원 불가", async () => // 기존 소속과 폐기 쿠키의 재사용 포착
         {
             sql("DELETE FROM server_members WHERE user_id=" + memberUser.id); // 실제 테스트 계정 탈퇴
@@ -153,7 +153,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
             owner.cookie = previousCookie; // 폐기된 쿠키 재사용 시도
             assert.equal((await owner.request("get_messages.php?channel_id=" + channel)).status, 401); // 폐기 인증 복원 불가
             assert.equal(sql("SELECT COUNT(*) FROM messages WHERE id=" + saved.id), "1"); // 로그아웃과 탈퇴의 기존 대화 보존
-        }); // 종료 흐름 검사 종료
+        });
     }
     finally // 무작위 테스트 자원 정리
     {
@@ -164,4 +164,4 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
         }
         sql("DROP DATABASE " + database, false); // 이름을 검증한 독립 DB만 삭제
     }
-}); // 전체 인수 흐름 종료
+});

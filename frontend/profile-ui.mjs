@@ -200,7 +200,7 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
             showPicture(details.profile.has_picture); // 사진 상태 표시
             extraLoaded = true; // 조회 확인
             byId("profile-extra-status").textContent = "추가 정보를 확인했습니다."; // 확인 결과 안내
-        }); // 조회 처리 끝
+        });
     }
     byId("profile-message-save").addEventListener("click", () => extraAction(async (requestViewVersion) => // 상태 메시지 변경
     {
@@ -301,7 +301,7 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
         {
             usernameInput.focus(); // 사용자명 수정 진입
         }
-    }); // 진입 연결 끝
+    });
     profileForm.addEventListener("submit", async (uiEvent) => // 명시적 사용자명 저장
     {
         uiEvent.preventDefault(); // 페이지 이동 방지
@@ -330,7 +330,7 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
             }
         }
         render(); // 현재 계정만 잠금 해제
-    }); // 저장 연결 끝
+    });
     byId("profile-reload").addEventListener("click", async () => // 명시적 재조회
     {
         if (profileDialog.open && !manager.busy && !manager.loading && isReady()) // 안정된 현재 화면
@@ -343,14 +343,14 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
                 await loadExtra(); // 저장된 추가 정보 재확인
             }
         }
-    }); // 재조회 연결 끝
+    });
     byId("profile-close-top").addEventListener("click", () => // 왼쪽 위 닫기
     {
         if (!manager.busy) // 처리 중 닫기 제한
         {
             profileDialog.close(); // 닫기 이벤트로 정보 폐기
         }
-    }); // 상단 닫기 연결 끝
+    });
     profileDialog.addEventListener("click", (uiEvent) => // 바깥 배경 선택
     {
         if (manager.busy || uiEvent.target !== profileDialog) // 진행 중 또는 내부 선택
@@ -362,14 +362,14 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
         {
             profileDialog.close(); // 바깥 선택 시 창 닫기
         }
-    }); // 배경 닫기 연결 끝
+    });
     profileDialog.addEventListener("cancel", (uiEvent) => // Escape 수명 보호
     {
         if (manager.busy) // 변경 결과 대기
         {
             uiEvent.preventDefault(); // 처리 중 종료 차단
         }
-    }); // Escape 연결 끝
+    });
     profileDialog.addEventListener("close", reset); // 모든 닫기에서 이메일·입력 폐기
     return { render, clear }; // 계정 수명과 연결할 경계
 }

@@ -16,7 +16,7 @@ function element() // 브라우저 입출력 경계
     {
         item.open = false; // 표시 종료
         item.fire("close"); // 민감 정보 정리
-    }; // 닫기 경계 끝
+    };
     return item; // 독립 DOM 요소
 }
 function setup(request) // 실제 화면과 상태 모듈
@@ -29,7 +29,7 @@ function setup(request) // 실제 화면과 상태 모듈
             elements.set(id, element()); // 독립 요소 생성
         }
         return elements.get(id); // 기존 요소 반환
-    }; // DOM 경계 종료
+    };
     let user = { ...original }; // 현재 계정
     let ui; // 화면 연결
     let failures = 0; // 오류 전달 횟수
@@ -44,7 +44,7 @@ function setup(request) // 실제 화면과 상태 모듈
     {
         failures++; // 현재 오류 전달
         return error.code === "CSRF_INVALID" ? "보호 정보를 갱신했습니다. 다시 저장하세요." : error.message; // 사용자 안내
-    } }); // 실제 화면 연결 종료
+    } });
     return { ui, manager, byId, applied, failures: () => failures, user: () => user, change: (next) => user = next }; // 검사 제어
 }
 test("프로필을 열면 추가 정보가 자동 조회되고 저장하지 않은 상태는 닫을 때 폐기", async () => // 자동 조회와 취소 경계
@@ -68,7 +68,7 @@ test("프로필을 열면 추가 정보가 자동 조회되고 저장하지 않�
             return { users: [] }; // 빈 차단 목록
         }
         return { user: original }; // 본인 정보
-    }); // 요청 준비 끝
+    });
     await testHarness.byId("open-profile").fire("click"); // 프로필 열기
     assert.equal(testHarness.byId("profile-message").value, "기존 상태"); // 추가 버튼 없는 자동 조회
     assert.equal(testHarness.byId("profile-message").disabled, false); // 조회 후 즉시 수정 허용
@@ -83,7 +83,7 @@ test("프로필을 열면 추가 정보가 자동 조회되고 저장하지 않�
     await testHarness.byId("profile-close-top").fire("click"); // 저장 후 닫기
     await testHarness.byId("open-profile").fire("click"); // 저장 상태 재확인
     assert.equal(testHarness.byId("profile-message").value, "새 상태"); // 확정 상태 복원
-}); // 자동 조회와 저장 검사 끝
+});
 test("추가 정보 자동 조회가 실패하면 다시 조회로 복구", async () => // 조회 실패 복구 경계
 {
     let attempts = 0; // 추가 정보 조회 횟수
@@ -103,13 +103,13 @@ test("추가 정보 자동 조회가 실패하면 다시 조회로 복구", asyn
             return { users: [] }; // 빈 차단 목록
         }
         return { user: original }; // 본인 정보
-    }); // 요청 준비 끝
+    });
     await testHarness.byId("open-profile").fire("click"); // 최초 조회 실패
     assert.equal(testHarness.byId("profile-message").disabled, true); // 미확인 상태 수정 차단
     await testHarness.byId("profile-reload").fire("click"); // 다시 조회
     assert.equal(testHarness.byId("profile-message").value, "복구 상태"); // 저장 상태 복구
     assert.equal(testHarness.byId("profile-message").disabled, false); // 수정 허용
-}); // 자동 조회 실패 복구 검사 끝
+});
 test("본인 조회·취소 시 이메일과 입력 폐기·게스트 숨김", async () => // 본인 정보 수명
 {
     const calls = []; // 실제 경로 기록
@@ -287,13 +287,13 @@ test("확장 프로필 상태와 차단 목록을 실제 요청으로 관리", a
             return { status_message: body.status_message }; // 저장 결과
         }
         return { user: original }; // 기존 프로필
-    }); // 요청 경계 끝
+    });
     await testHarness.byId("open-profile").fire("click"); // 기존 프로필 확인
     assert.equal(testHarness.byId("profile-message").value, "기존 상태"); // 저장 상태 반영
     testHarness.byId("profile-message").value = "새 상태"; // 새 상태 입력
     await testHarness.byId("profile-message-save").fire("click"); // 상태 저장
     assert.ok(calls.some((call) => call.requestPath.endsWith("profile_details.php") && call.method === "PATCH" && call.body.status_message === "새 상태")); // 실제 상태 저장 요청
-}); // 확장 정보 검사 끝
+});
 
 test("차단 검색과 해제는 선택한 사용자만 변경", async (context) => // 공개 검색과 본인 차단 관리
 {
@@ -323,14 +323,14 @@ test("차단 검색과 해제는 선택한 사용자만 변경", async (context)
             return { users: blocked }; // 현재 저장 목록
         }
         return { user: original }; // 기존 프로필
-    }); // 요청 경계 끝
+    });
     await testHarness.byId("open-profile").fire("click"); // 본인 정보 열기
     testHarness.byId("profile-block-search").value = "second"; // 검색할 사용자명
     await testHarness.byId("profile-block-find").fire("click"); // 실제 사용자 검색
     await testHarness.byId("profile-block-add").fire("click"); // 선택 사용자 차단
     await testHarness.byId("profile-block-remove").fire("click"); // 본인 차단 해제
     assert.deepEqual(changes, [{ body: { user_id: "2" }, method: "POST" }, { body: { user_id: "2" }, method: "DELETE" }]); // 선택 대상과 요청 방식
-}); // 차단 조작 검사 끝
+});
 test("프로필 사진은 파일 원본 multipart로 전송하고 성공 시 표시", async () => // 사진 저장의 브라우저 경계
 {
     let sentForm = null; // 전송된 파일 본문
@@ -350,7 +350,7 @@ test("프로필 사진은 파일 원본 multipart로 전송하고 성공 시 표
             return { has_picture: true }; // 저장 확인
         }
         return { user: original }; // 기존 본인 정보
-    }); // 요청 경계 끝
+    });
     await testHarness.byId("open-profile").fire("click"); // 기존 정보 확인
     testHarness.byId("profile-picture-file").files = [new Blob(["png"], { type: "image/png" })]; // 선택한 사진
     await testHarness.byId("profile-picture-save").fire("click"); // 명시적 사진 저장
@@ -358,7 +358,7 @@ test("프로필 사진은 파일 원본 multipart로 전송하고 성공 시 표
     assert.ok(sentForm.get("picture") instanceof Blob); // 사진 파일 보존
     assert.equal(testHarness.byId("profile-picture-preview").hidden, false); // 저장 후 사진 표시
     assert.match(testHarness.byId("profile-picture-preview").src, /profile_picture\.php\?user_id=1$/); // 인증된 본인 사진 경로
-}); // 사진 화면 검사 끝
+});
 test("추가 설정 오류를 해당 영역에 표시", async () => // 보이지 않는 상단 오류 방지
 {
     const testHarness = setup(async (requestPath) => // 실제 프로필 요청 경계
@@ -372,12 +372,12 @@ test("추가 설정 오류를 해당 영역에 표시", async () => // 보이지
             return { users: [] }; // 빈 차단 목록
         }
         return { user: original }; // 기존 본인 정보
-    }); // 요청 경계 끝
+    });
     await testHarness.byId("open-profile").fire("click"); // 프로필 열기
     await testHarness.byId("profile-picture-save").fire("click"); // 파일 없이 저장 요청
     assert.equal(testHarness.byId("profile-extra-status").textContent, "사진 파일을 선택하세요."); // 추가 설정 영역의 오류 안내
     assert.equal(testHarness.byId("profile-picture-feedback").textContent, "사진 파일을 선택하세요."); // 사진 카드의 오류 안내
-}); // 추가 설정 오류 검사 끝
+});
 test("프로필 상단 버튼과 바깥 클릭으로 닫기", async () => // 두 닫기 경로
 {
     const testHarness = setup(async () => ({ user: original })); // 본인 정보 조회
@@ -392,4 +392,4 @@ test("프로필 상단 버튼과 바깥 클릭으로 닫기", async () => // 두
     dialog.fire("click", { target: dialog, clientX: 5, clientY: 5 }); // 창 바깥 배경
     assert.equal(dialog.open, false); // 바깥 클릭은 닫기
     assert.equal(testHarness.byId("profile-email").textContent, ""); // 닫은 정보 제거
-}); // 닫기 검사 끝
+});

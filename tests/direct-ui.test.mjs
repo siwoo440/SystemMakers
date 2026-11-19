@@ -20,7 +20,7 @@ function setup(request, timers = { set: () => 1, clear: () => undefined }) // �
             elements.set(id, element()); // 화면 요소 준비
         }
         return elements.get(id); // 현재 요소 반환
-    }; // 화면 조회 끝
+    };
     globalThis.document = { createElement: element }; // 버튼 생성 경계
     let user = { id: "1", username: "alice" }; // 로그인 계정
     const ui = mountDirectUI({ byId, request, getUser: () => user, isReady: () => Boolean(user), onOpen: () => undefined, onError: async (error) => error.message, createMessage: (message) => message, setTimer: timers.set, clearTimer: timers.clear }); // 실제 화면 연결
@@ -35,7 +35,7 @@ test("로그인하면 개인 대화의 로그인 안내 제거", async () => // 
     assert.equal(harness.byId("direct-status").textContent, ""); // 게스트 안내 제거
     await new Promise((resolve) => setImmediate(resolve)); // 목록 응답 완료
     harness.ui.clear(); // 조회 수명 정리
-}); // 로그인 안내 검사 끝
+});
 test("개인 대화에서 선택한 파일만 전송 전에 취소", async () => // 선택 취소와 업로드 차단
 {
     const calls = []; // 실제 요청 기록
@@ -43,7 +43,7 @@ test("개인 대화에서 선택한 파일만 전송 전에 취소", async () =>
     {
         calls.push(path); // 요청 주소 기록
         return path.includes("list_dms") ? { conversations: [{ id: "10", other_user: { id: "2", username: "bob" } }] } : emptyPage; // 대화와 빈 기록
-    }); // 화면 준비 끝
+    });
     await harness.ui.refresh(); // 기존 대화 조회
     await harness.byId("direct-list").children[0].fire("click"); // 실제 대화 선택
     const input = harness.byId("direct-file"); // 파일 선택 영역
@@ -55,7 +55,7 @@ test("개인 대화에서 선택한 파일만 전송 전에 취소", async () =>
         {
             files = []; // 선택 파일 제거
         }
-    } }); // 입력 속성 설정 끝
+    } });
     input.fire("change"); // 선택 상태 반영
     assert.equal(harness.byId("direct-file-clear").disabled, false); // 선택 취소 가능
     harness.byId("direct-file-clear").fire("click"); // 명시적 선택 취소
@@ -64,7 +64,7 @@ test("개인 대화에서 선택한 파일만 전송 전에 취소", async () =>
     assert.equal(harness.byId("direct-file-status").textContent, "최대 약 5.24 MB"); // 기본 안내 복구
     assert.equal(calls.some((path) => path.includes("upload_attachment")), false); // 서버 전송 없음
     harness.ui.clear(); // 조회 수명 정리
-}); // 개인 파일 취소 검사 끝
+});
 test("사용자 검색부터 개인 대화 생성과 본인 메시지 전송", async () => // 실제 버튼과 API 연결
 {
     const calls = []; // 실제 요청 관찰
@@ -88,7 +88,7 @@ test("사용자 검색부터 개인 대화 생성과 본인 메시지 전송", a
             return { message: { id: "3", conversation_id: "10", user_id: "1", username: "alice", content: body.content, created_at: "2026-11-11T00:00:00Z" } }; // 저장 응답
         }
         return { conversations: [] }; // 기존 대화 목록
-    }); // 요청 경계 연결 끝
+    });
     harness.byId("direct-search-input").value = "bob"; // 검색어 입력
     await harness.byId("direct-search-form").fire("submit"); // 명시적 검색
     await harness.byId("direct-search-results").children[0].fire("click"); // 상대방 선택
@@ -100,7 +100,7 @@ test("사용자 검색부터 개인 대화 생성과 본인 메시지 전송", a
     assert.equal(harness.byId("direct-messages").children[0].text, "안녕하세요"); // 저장한 본문 표시
     assert.equal(harness.byId("direct-input").value, ""); // 성공한 초안 제거
     harness.ui.clear(); // 조회 수명 종료
-}); // 전송 검사 끝
+});
 test("대화 전환과 계정 종료 후 늦은 기록 응답 무시", async () => // 다른 상대방과 계정의 기록 혼합 차단
 {
     let resolveOld; // 이전 조회 응답 제어
@@ -116,7 +116,7 @@ test("대화 전환과 계정 종료 후 늦은 기록 응답 무시", async () 
             return oldPage; // 첫 대화의 늦은 응답
         }
         return emptyPage; // 두 번째 대화 기록
-    }); // 요청 경계 연결 끝
+    });
     await harness.ui.refresh(); // 실제 대화 목록 조회
     const pending = harness.byId("direct-list").children[0].fire("click"); // 첫 상대방 선택
     await harness.byId("direct-list").children[1].fire("click"); // 다른 상대방 선택
@@ -128,7 +128,7 @@ test("대화 전환과 계정 종료 후 늦은 기록 응답 무시", async () 
     harness.ui.clear(); // 이전 계정 자료 제거
     assert.equal(harness.byId("direct-list").children.length, 0); // 이전 목록 제거
     assert.equal(harness.byId("direct-input").value, ""); // 이전 초안 제거
-}); // 수명 검사 끝
+});
 test("대화 생성 응답이 늦어도 이후 선택한 상대방 유지", async () => // 생성 결과의 화면 전환 경합 차단
 {
     let finishCreate; // 늦은 생성 응답 제어
@@ -148,7 +148,7 @@ test("대화 생성 응답이 늦어도 이후 선택한 상대방 유지", asyn
             return pendingCreate; // 지연된 생성 결과
         }
         return emptyPage; // 기존 대화 기록
-    }); // 응답 경계 끝
+    });
     await harness.ui.refresh(); // 기존 대화 목록
     harness.byId("direct-search-input").value = "bob"; // 새 상대방 검색어
     await harness.byId("direct-search-form").fire("submit"); // 검색 실행
@@ -158,7 +158,7 @@ test("대화 생성 응답이 늦어도 이후 선택한 상대방 유지", asyn
     await pending; // 생성 처리 종료
     assert.equal(harness.byId("direct-title").textContent, "carol"); // 이후 선택한 상대방 유지
     harness.ui.clear(); // 대화 수명 정리
-}); // 대화 생성 경합 검사 끝
+});
 test("개인 대화 자동 갱신은 마지막 조회 이후 메시지만 추가", async () => // 새 메시지 누락과 중복 표시 차단
 {
     let nextTimer; // 다음 갱신 예약
@@ -197,7 +197,7 @@ test("개인 대화 자동 갱신은 마지막 조회 이후 메시지만 추가
     harness.ui.renameUser("1", "alice2"); // 개인 대화에 프로필 반영
     assert.equal(harness.byId("direct-messages").children[0].name, "alice2"); // 다음 메시지 전에 이름 갱신
     harness.ui.clear(); // 예약 수명 종료
-}); // 자동 갱신 검사 끝
+});
 test("개인 파일 전송은 저장 메시지에 확인된 다운로드 정보를 표시", async () => // 전송한 파일의 메시지 연결 누락 차단
 {
     const uploads = []; // 실제 전송 요청
@@ -213,7 +213,7 @@ test("개인 파일 전송은 저장 메시지에 확인된 다운로드 정보�
             return { message: { id: "7", conversation_id: "10", user_id: "1", username: "alice", content: "파일: 문서.txt", created_at: "2026-11-11T00:00:00Z" }, attachment: { id: "9", message_id: "7", original_name: "문서.txt", file_size: 4 } }; // 확정된 저장 결과
         }
         return emptyPage; // 최초 빈 기록
-    }); // 응답 경계 끝
+    });
     await harness.ui.refresh(); // 대화 목록 확인
     await harness.byId("direct-list").children[0].fire("click"); // 실제 상대방 선택
     harness.byId("direct-file").files = [new File(["data"], "문서.txt")]; // 사용자 파일 선택
@@ -223,7 +223,7 @@ test("개인 파일 전송은 저장 메시지에 확인된 다운로드 정보�
     assert.equal(uploads[0].get("target_id"), "10"); // 선택한 대화의 파일
     assert.equal(harness.byId("direct-messages").children[0].attachment.original_name, "문서.txt"); // 메시지에 첨부 정보 표시
     harness.ui.clear(); // 조회 수명 종료
-}); // 개인 파일 전송 검사 끝
+});
 test("개인 파일 전송 중에는 선택 취소를 막음", async () => // 저장 결과 대기 보호
 {
     let finishUpload; // 업로드 완료 제어
@@ -239,7 +239,7 @@ test("개인 파일 전송 중에는 선택 취소를 막음", async () => // �
             return uploadResult; // 저장 결과 대기
         }
         return emptyPage; // 빈 대화 기록
-    }); // 화면 연결 끝
+    });
     await harness.ui.refresh(); // 대화 목록 조회
     await harness.byId("direct-list").children[0].fire("click"); // 개인 대화 선택
     harness.byId("direct-file").files = [new File(["data"], "문서.txt")]; // 전송할 파일 선택
@@ -251,7 +251,7 @@ test("개인 파일 전송 중에는 선택 취소를 막음", async () => // �
     finishUpload({ message: { id: "7", conversation_id: "10", user_id: "1", username: "alice", content: "파일: 문서.txt", created_at: "2026-11-11T00:00:00Z" }, attachment: { id: "9", message_id: "7", original_name: "문서.txt", file_size: 4 } }); // 정상 저장 응답
     await pending; // 저장 결과 처리
     harness.ui.clear(); // 조회 수명 정리
-}); // 전송 중 보호 검사 끝
+});
 test("복원한 개인 메시지의 첨부는 별도 권한 조회 뒤 표시", async () => // 새로고침 뒤 파일 링크 누락 차단
 {
     const harness = setup(async (path) => // 공개 API 응답
@@ -265,10 +265,10 @@ test("복원한 개인 메시지의 첨부는 별도 권한 조회 뒤 표시", 
             return { attachments: [{ id: "9", message_id: "7", original_name: "공유.txt", file_size: 3 }] }; // 상대방의 첨부 정보
         }
         return { messages: [{ id: "7", conversation_id: "10", user_id: "2", username: "bob", content: "파일: 공유.txt", created_at: "2026-11-11T00:00:00Z" }], pagination: { mode: "initial", has_more: false, next_before_id: "7", next_after_id: "7" } }; // 복원된 저장 메시지
-    }); // 응답 경계 끝
+    });
     await harness.ui.refresh(); // 대화 목록 확인
     await harness.byId("direct-list").children[0].fire("click"); // 기록과 파일 정보 조회
     await new Promise((resolve) => setImmediate(resolve)); // 비동기 파일 조회 완료
     assert.equal(harness.byId("direct-messages").children[0].attachment.original_name, "공유.txt"); // 상대방 파일 표시
     harness.ui.clear(); // 조회 수명 종료
-}); // 개인 파일 복원 검사 끝
+});

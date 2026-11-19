@@ -1,5 +1,5 @@
 CREATE TABLE user_profiles -- 확장 프로필
-(
+( -- 열과 제약 조건 시작
     user_id BIGINT UNSIGNED NOT NULL, -- 프로필 소유자
     status_message VARCHAR(200) NOT NULL DEFAULT '', -- 상태 메시지
     picture_mime VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NULL, -- 검증된 이미지 형식

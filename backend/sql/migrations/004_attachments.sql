@@ -1,5 +1,5 @@
 CREATE TABLE message_attachments -- 메시지 첨부 파일
-(
+( -- 열과 제약 조건 시작
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, -- 첨부 식별자
     channel_message_id BIGINT UNSIGNED NULL, -- 채널 메시지 연결
     direct_message_id BIGINT UNSIGNED NULL, -- 개인 메시지 연결

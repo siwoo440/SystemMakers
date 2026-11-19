@@ -89,7 +89,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.equal(older.messages.at(-1).id, "150"); // 배타적 이전 커서
             assert.deepEqual(older.pagination, { mode: "before", has_more: false, next_before_id: "2", next_after_id: "150" }); // 이전 결과 방향
             assert.deepEqual(Object.keys(latest.messages[0]).sort(), ["channel_id", "content", "created_at", "id", "user_id", "username"]); // 이메일과 비밀 필드 비노출
-        }); // 최초·이전 검사 종료
+        });
         await context.test("100개 초과 신규 적체의 누락과 중복 없는 페이지", async () => // 전체 최댓값 커서 오류 포착
         {
             const first = await page("?channel_id=1&after_id=0&limit=100"); // 처음부터 신규 조회
@@ -100,7 +100,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.equal(next.messages[0].id, "202"); // 첫 페이지와 중복 없음
             assert.equal(next.messages.at(-1).id, "250"); // 마지막 메시지 도달
             assert.equal(next.pagination.has_more, false); // 적체 소진
-        }); // 신규 적체 검사 종료
+        });
         await context.test("빈 최초·이전·신규 페이지와 존재하지 않는 범위 커서", async () => // 빈 결과의 잘못된 커서 초기화 포착
         {
             for (const [query, mode, after] of [["?channel_id=2", "initial", "0"], ["?channel_id=1&before_id=1", "before", "0"], ["?channel_id=1&after_id=777", "after", "777"]]) // 독립적인 빈 결과 계약
@@ -108,7 +108,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
                 const result = await page(query); // 실제 빈 조회
                 assert.deepEqual(result, { messages: [], pagination: { mode, has_more: false, next_before_id: null, next_after_id: after } }); // 정확한 빈 페이지 응답
             }
-        }); // 빈 결과 검사 종료
+        });
         await context.test("메서드·인증·잘못된 조회·채널 권한", async () => // 인증 우회와 잘못된 입력 허용 포착
         {
             assert.equal((await request("", false, "POST")).status, 405); // 메서드 우선
@@ -124,7 +124,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             sql("DELETE FROM server_members WHERE server_id=1 AND user_id=1"); // 조회 후 실제 탈퇴
             assert.equal((await request("?channel_id=1&after_id=0")).status, 403); // 현재 소속 재검사
             sql("INSERT INTO server_members(server_id,user_id,role) VALUES(1,1,'owner')"); // 뒤 검사 소속 복원
-        }); // 접근과 입력 검사 종료
+        });
         await context.test("큰 문자열 ID와 한글·태그·개행 원문", async () => // 정수 정밀도와 HTML 변형 포착
         {
             sql("INSERT INTO messages(id,channel_id,user_id,content) VALUES(9007199254740993,1,1,CONVERT(0x" + Buffer.from("<b>한글 😀</b>\n원문").toString("hex") + " USING utf8mb4)),(9007199254740995,1,1,'last')"); // 안전 정수 밖의 실제 자료
@@ -133,7 +133,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.equal(result.messages[0].content, "<b>한글 😀</b>\n원문"); // 원문 그대로 반환
             assert.equal(result.pagination.next_after_id, "9007199254740993"); // 실제 반환 ID 커서
             assert.equal(result.pagination.has_more, true); // 다음 큰 ID 존재
-        }); // 큰 ID 검사 종료
+        });
     }
     finally // 독립 자원 정리
     {
@@ -144,4 +144,4 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
         }
         sql("DROP DATABASE " + database, false); // 무작위 테스트 DB만 삭제
     }
-}); // 실제 조회 전체 검사 종료
+});

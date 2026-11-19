@@ -18,4 +18,4 @@ test("대화상자 바깥 클릭만 닫고 처리 중에는 유지", () => // �
     busy = false; // 요청 종료
     clickHandler({ target: dialog, clientX: 10, clientY: 10 }); // 바깥 영역 선택
     assert.equal(closeCount, 1); // 바깥 클릭 닫기
-}); // 바깥 닫기 검사 끝
+});

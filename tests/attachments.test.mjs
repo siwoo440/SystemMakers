@@ -38,7 +38,7 @@ test("개인 대화의 파일 저장과 다운로드 권한", async (context) =>
     const blocked = await fetch(environment.origin + "/Team006/backend/api/upload_attachment.php", { method: "POST", headers: { Cookie: alice.cookie, "X-Expected-User-Id": alice.id, "X-CSRF-Token": alice.token }, body: blockedForm }); // 차단 이후 실제 요청
     assert.equal(blocked.status, 403); // 차단 중 파일 전송 거절
     assert.equal(environment.sql("SELECT COUNT(*) FROM message_attachments"), "1"); // 차단 파일 미저장
-}); // 첨부 통합 검사 끝
+});
 
 test("채널 파일 접근과 업로드 크기 제한", async (context) => // 실제 채널 파일 검사
 {
@@ -56,7 +56,7 @@ test("채널 파일 접근과 업로드 크기 제한", async (context) => // �
         form.append("target_id", channelId); // 대상 채널
         form.append("file", new Blob([data]), "검사.txt"); // 검사 파일
         return fetch(environment.origin + "/Team006/backend/api/upload_attachment.php", { method: "POST", headers: { Cookie: session.cookie, "X-Expected-User-Id": session.id, "X-CSRF-Token": csrf }, body: form }); // 실제 인증 요청
-    }; // 전송 함수 끝
+    };
     assert.equal((await uploadFile(owner, "파일", "wrong")).status, 403); // CSRF 검사
     assert.equal((await uploadFile(outsider, "외부")).status, 403); // 채널 외부 전송 금지
     assert.equal((await uploadFile(owner, "")).status, 422); // 빈 파일 거절
@@ -69,4 +69,4 @@ test("채널 파일 접근과 업로드 크기 제한", async (context) => // �
     assert.equal((await owner.request("get_messages.php?channel_id=" + channelId)).data.messages[0].id, saved.message.id); // 기존 채널 기록과 연결
     assert.equal(environment.sql("SELECT COUNT(*) FROM message_attachments"), "1"); // 잘못된 요청의 부분 저장 없음
     assert.throws(() => execFileSync(environment.php, ["-c", process.env.PHP_TEST_INI || path.join(environment.root, ".runtime/php.ini"), path.join(environment.root, "scripts/migrate-004.php")], { env: environment.env, windowsHide: true, stdio: "pipe" })); // 재적용과 데이터 덮어쓰기 차단
-}); // 채널 첨부 검사 끝
+});

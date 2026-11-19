@@ -87,7 +87,7 @@ function startRealtime(channelId) // 선택 채널의 실시간 알림 연결
         {
             channel.feed.requestRealtimeRefresh(); // 권한 확인과 조회 중 알림 보존
         }
-    } }); // 실시간 연결 준비 끝
+    } });
     realtimeClient.start(); // 선택 채널의 알림 구독 시작
 }
 function updateHistoryControls() // 기록 조회 버튼과 갱신 상태 표시
@@ -186,7 +186,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
             renderChannels(); // 재확인 버튼 표시
             updateComposer(); // 권한 없는 전송 차단
         }
-    } }); // 조회 경계 연결 종료
+    } });
     channel.attachments = createAttachmentView({ kind: "channel", targetId: channelId, userId, getUser: () => currentUser, request: requestEndpoint, onChange: () => // 권한 확인된 파일 정보 표시
     {
         if (currentUser?.id !== userId || channels[channelId] !== channel || activeChannel !== channelId || channelFeed.blocked || directUI?.isActive()) // 이전 계정 또는 화면
@@ -215,7 +215,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         {
             byId("channel-file-status").textContent = "파일 정보를 확인하지 못했습니다. 다시 확인합니다."; // 자동 조회 복구 안내
         }
-    } }); // 첨부 조회 연결 끝
+    } });
     return channelFeed; // 채널별 독립 조회 상태 반환
 }
 function validId(identifierValue) // 큰 정수 문자열 계약 검사
@@ -325,7 +325,7 @@ function renderChannels() // 실제 소속 채널 목록 생성
         channelButton.classList.toggle("active", channelId === activeChannel && !directUI?.isActive()); // 현재 채널 강조
         channelButton.addEventListener("click", () => selectChannel(channelId)); // 확인한 식별자로만 채널 선택
         return channelButton; // 완성한 탐색 버튼
-    }); // 채널 버튼 생성 끝
+    });
     channelList.replaceChildren(...channelButtons); // 이전 계정 목록 제거 후 교체
     byId("channel-status").hidden = channelButtons.length > 0 && !channelLoading && !channelError; // 비어 있거나 실패한 목록 안내
     byId("channel-status").textContent = !currentUser ? "로그인 후 참여 채널이 표시됩니다." : channelLoading ? "채널을 확인하는 중입니다." : channelError || (serverManager.selected ? emptyChannelHint() : ""); // 빈 서버와 미소속 구분
@@ -491,7 +491,7 @@ async function loadChannels() // 로그인 사용자의 실제 소속 채널 조
             channel.serverId = channelEntry.server_id; // 서버별 독립 탐색 조건
             channel.feed ??= createChannelFeed(channelEntry.id, channel, userId); // 계정과 채널별 독립 기록 상태
             nextChannels[channelEntry.id] = channel; // 확인한 소속 채널 보관
-        }); // 소속 채널 준비 끝
+        });
         savedDrafts = null; // 확인 후 만료 전 초안 참조 제거
         channels = nextChannels; // 확인한 소속 채널만 유지
         channelLoading = false; // 채널 조회 완료
@@ -786,7 +786,7 @@ function clearAuthErrors() // 인증 입력 오류와 안내 초기화
         byId(`auth-${field}`).setCustomValidity(""); // 브라우저 입력 오류 초기화
         byId(`auth-${field}`).removeAttribute("aria-invalid"); // 이전 오류 접근성 상태 제거
         byId(`${field}-error`).textContent = ""; // 필드 오류 안전한 초기화
-    }); // 인증 입력 필드 순회 끝
+    });
     byId("auth-feedback").textContent = ""; // 이전 처리 결과 초기화
     byId("auth-feedback").classList.remove("success"); // 성공 안내 색상 초기화
 }
@@ -801,7 +801,7 @@ function showAuthError(message, fields = {}) // 실제 실패와 필드 오류 �
             byId(`auth-${field}`).setAttribute("aria-invalid", "true"); // 오류 접근성 상태 표시
             firstInvalid = firstInvalid || byId(`auth-${field}`); // 첫 오류 필드 선택
         }
-    }); // 오류 필드 처리 끝
+    });
     byId("auth-feedback").textContent = message; // 실제 실패 안내 안전한 출력
     byId("auth-feedback").classList.remove("success"); // 오류 안내 색상 복원
     if (authDialog.open) // 인증 대화상자 표시 여부
@@ -1308,10 +1308,10 @@ directUI = mountDirectUI({ byId, request: requestEndpoint, getUser: () => curren
         {
             feed.requestRealtimeRefresh(); // 권한 확인과 조회 중 알림 보존
         }
-    } }); // 알림 클라이언트 준비 끝
+    } });
     client.start(); // 개인 알림 연결
     return client; // 대화 전환 시 종료할 연결
-} }); // 개인 대화 연결 끝
+} });
 friendsUI = mountFriendsUI({ byId, request: requestEndpoint, getUser: () => currentUser, isReady: () => Boolean(currentUser && csrfToken && !authBusy && !authInitializing && !sendRequest), onOpen: (user) => directUI.startConversation(user), onError: serverFailure }); // 친구 요청과 개인 대화 연결
 document.addEventListener("visibilitychange", () => // 빈 서버를 포함한 창 복귀 갱신
 {
@@ -1319,14 +1319,14 @@ document.addEventListener("visibilitychange", () => // 빈 서버를 포함한 �
     {
         loadChannels(); // 서버 목록의 별도 폴링 없는 재확인
     }
-}); // 창 복귀 연결 끝
+});
 byId("load-older").addEventListener("click", () => channels[activeChannel]?.feed.older()); // 현재 채널의 이전 기록 추가
 byId("retry-messages").addEventListener("click", () => channels[activeChannel]?.feed.activate()); // 확인하지 못한 대화 수동 재조회
 window.addEventListener("pagehide", () => // 화면 종료 시 모든 대화 조회 정리
 {
     pauseMessageFeeds(); // 채널 조회 중단
     directUI?.suspend(); // 개인 조회 중단
-}); // 화면 종료 연결 끝
+});
 window.addEventListener("pageshow", (uiEvent) => // 뒤로 가기 캐시에서 복구된 화면
 {
     if (uiEvent.persisted && currentUser && directUI?.isActive()) // 복원된 개인 대화
@@ -1338,7 +1338,7 @@ window.addEventListener("pageshow", (uiEvent) => // 뒤로 가기 캐시에서 �
         channels[activeChannel].feed.activate(); // 남은 신규 기록 확인 재개
         startRealtime(activeChannel); // 현재 채널의 알림 연결 복구
     }
-}); // 화면 수명 복구 연결 종료
+});
 messageInput.addEventListener("input", () => // 입력 수정 상태 처리
 {
     if (channels[activeChannel]) // 선택한 실제 채널 여부
@@ -1347,13 +1347,13 @@ messageInput.addEventListener("input", () => // 입력 수정 상태 처리
         channels[activeChannel].error = false; // 이전 오류 색상 제거
     }
     updateComposer(); // 최신 초안과 글자 수 갱신
-}); // 입력 수정 처리 끝
+});
 byId("message-form").addEventListener("submit", sendMessage); // 실제 메시지 저장 연결
 byId("channel-file").addEventListener("change", () => // 파일 선택 상태 반영
 {
     byId("channel-file-status").textContent = byId("channel-file").files[0]?.name || "최대 약 5.24 MB"; // 선택한 파일 이름 안내
     updateComposer(); // 파일 전송 가능 여부 갱신
-}); // 파일 선택 처리 끝
+});
 byId("channel-upload").addEventListener("click", sendChannelFile); // 사용자 명시적 파일 전송
 byId("channel-file-clear").addEventListener("click", clearChannelFile); // 선택 파일 취소
 messageInput.addEventListener("keydown", (uiEvent) => // 키보드 전송 처리
@@ -1363,7 +1363,7 @@ messageInput.addEventListener("keydown", (uiEvent) => // 키보드 전송 처리
         uiEvent.preventDefault(); // 기본 줄바꿈 차단
         byId("message-form").requestSubmit(); // 동일한 유효성 경로로 전송
     }
-}); // 키보드 전송 처리 끝
+});
 messageScroll.addEventListener("scroll", () => // 사용자의 대화 읽기 위치 추적
 {
     if (!channels[activeChannel]) // 선택한 채널 없는 상태
@@ -1376,7 +1376,7 @@ messageScroll.addEventListener("scroll", () => // 사용자의 대화 읽기 위
         channels[activeChannel].unread = 0; // 확인한 새 메시지 수 초기화
         showNewMessages(); // 새 메시지 안내 갱신
     }
-}); // 읽기 위치 추적 끝
+});
 byId("new-messages").addEventListener("click", scrollToBottom); // 새 메시지로 직접 이동
 byId("sidebar-toggle").addEventListener("click", () => setSidebar(!sidebarOpen)); // 모바일 목록 전환
 byId("direct-sidebar-toggle").addEventListener("click", () => setSidebar(!sidebarOpen)); // 개인 화면의 모바일 목록 전환
@@ -1409,7 +1409,7 @@ document.addEventListener("keydown", (uiEvent) => // 모바일 목록 키보드 
             focusableButtons[uiEvent.shiftKey ? focusableButtons.length - 1 : 0].focus(); // 목록 안 첫쪽 또는 끝쪽 이동
         }
     }
-}); // 모바일 목록 키보드 제어 끝
+});
 byId("open-auth").addEventListener("click", () => currentUser ? logout() : openAuth()); // 현재 인증 상태별 로그인과 로그아웃 연결
 byId("close-auth").addEventListener("click", () => authDialog.close()); // 요청 대기 중 비활성화된 닫기 버튼 연결
 byId("switch-auth").addEventListener("click", () => switchAuth(authMode === "login" ? "register" : "login")); // 인증 화면 전환 연결
@@ -1422,7 +1422,7 @@ authForm.addEventListener("input", (uiEvent) => // 수정한 필드의 이전 �
         uiEvent.target.removeAttribute("aria-invalid"); // 수정 전 접근성 오류 상태 제거
         byId(`${fieldName}-error`).textContent = ""; // 수정한 필드의 오류 문구 제거
     }
-}); // 인증 입력 오류 정리 끝
+});
 authForm.addEventListener("submit", submitAuth); // 실제 가입과 로그인 제출 연결
 authDialog.addEventListener("cancel", (uiEvent) => // 요청 중 Escape 닫기 제어
 {
@@ -1430,7 +1430,7 @@ authDialog.addEventListener("cancel", (uiEvent) => // 요청 중 Escape 닫기 �
     {
         uiEvent.preventDefault(); // 응답 처리 전 모달 닫기 차단
     }
-}); // 요청 중 Escape 닫기 제어 끝
+});
 authDialog.addEventListener("close", () => // 인증 화면 닫힌 뒤 정리
 {
     authForm.reset(); // 입력한 자격 증명 제거
@@ -1443,7 +1443,7 @@ authDialog.addEventListener("close", () => // 인증 화면 닫힌 뒤 정리
     {
         lastAuthTrigger.focus(); // 이전 인증 버튼 포커스 복원
     }
-}); // 인증 닫기 정리 끝
+});
 authDialog.addEventListener("click", (uiEvent) => // 모달 바깥 클릭 처리
 {
     const dialogBounds = authDialog.getBoundingClientRect(); // 모달 실제 화면 위치
@@ -1451,7 +1451,7 @@ authDialog.addEventListener("click", (uiEvent) => // 모달 바깥 클릭 처리
     {
         authDialog.close(); // 인증 화면 닫기
     }
-}); // 모달 바깥 클릭 처리 끝
+});
 renderChannels(); // 실제 조회 전 빈 채널 목록
 renderEmptyConversation(); // 로그인 필요 초기 화면
 checkConnections(); // 실제 공통 API 상태 확인 시작

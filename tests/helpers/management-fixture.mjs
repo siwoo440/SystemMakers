@@ -24,7 +24,7 @@ export async function fixture(context) // 독립 공개 API 검사 환경
         locks.forEach((connection) => connection.kill()); // 실패로 남은 잠금 해제
         server?.kill(); // 추가 HTTP 처리 종료
         sql("DROP DATABASE " + database, false); // 해당 DB만 정리
-    }); // 검사 종료 처리 끝
+    });
     sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 기존 스키마 적용
     const sessionDirectory = path.join(projectRoot, ".runtime", database); // 독립 세션 폴더
     mkdirSync(sessionDirectory, { recursive: true }); // 검사 저장소 준비
@@ -49,7 +49,7 @@ export async function fixture(context) // 독립 공개 API 검사 환경
             const payload = await response.json(); // 실제 JSON 응답
             session.token = payload.data?.csrf_token || session.token; // CSRF 갱신
             return { status: response.status, retry: response.headers.get("retry-after"), ...payload }; // 검사 결과
-        }; // 요청 함수 종료
+        };
         return session; // 독립 클라이언트
     }
     for (let attempt = 0; attempt < 50; attempt++) // 제한된 시작 확인
@@ -91,12 +91,12 @@ export async function fixture(context) // 독립 공개 API 검사 환경
             process.stdout.once("data", resolve); // 잠금 이후 신호
             process.once("error", reject); // 실행 실패
             process.once("exit", (code) => code && reject(new Error("잠금 연결 실패"))); // 조기 종료 확인
-        }); // 신호 확인 끝
+        });
         return async () => // 명시적 커밋 경계
         {
             process.stdin.end("release\n"); // 잠금 해제 지시
             await new Promise((resolve) => process.once("exit", resolve)); // 커밋 완료 확인
-        }; // 해제 함수 종료
+        };
     }
     return { root: projectRoot, env: serverEnvironment, php: phpBinary, origin, sql, client, account, migrate, hold }; // 검사 경계 반환
 }

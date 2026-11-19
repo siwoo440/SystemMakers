@@ -1,7 +1,7 @@
 ﻿param # 감시기 실행 옵션
-(
+( # 실행 인수 목록 시작
     [int]$intervalSeconds = 15 # 상태 확인 간격
-)
+) # 실행 인수 목록 끝
 $ErrorActionPreference = 'Stop' # 준비 실패 즉시 중단
 $projectRoot = Split-Path -Parent $PSScriptRoot # 프로젝트 기준 폴더
 . (Join-Path $PSScriptRoot 'lan-supervisor-utils.ps1') # 와이파이와 포트 검사 함수

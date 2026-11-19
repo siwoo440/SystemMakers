@@ -51,7 +51,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
                 assert.equal(asset.headers.get("x-content-type-options"), "nosniff"); // 자원 형식 자동 추측 차단
                 assert.ok((await asset.text()).length > 0); // 실제 자원 본문 확인
             }
-        }); // 팀 경로 자원 검사 종료
+        });
         await context.test("Team006 하위 경로에서 실제 PHP API 연결", async () => // 팀 폴더 API 연결 확인
         {
             const token = await fetch(origin + "/Team006/backend/api/csrf.php"); // 상대 경로 CSRF 발급
@@ -61,7 +61,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
             assert.equal(current.status, 401); // 실제 인증 검사 도달
             const missing = await fetch(origin + "/Team006/backend/api/missing.php"); // 없는 API 요청
             assert.equal(missing.status, 404); // 없는 API 차단
-        }); // 팀 경로 API 검사 종료
+        });
         await context.test("Team006 하위 경로의 비공개 파일 차단", async () => // 팀 폴더 배치 시 보안 범위 확인
         {
             for (const file of ["backend/config/database.php", "backend/includes/auth.php", "backend/sql/schema.sql", "scripts/seed-dev.php", ".git/config", ".runtime/php.ini", "%2e%2e%2fbackend%2fconfig%2fdatabase.php"]) // 노출 금지 파일 목록
@@ -71,7 +71,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
             }
             const similarPrefix = await fetch(origin + "/Team006extra/backend/api/csrf.php"); // 유사한 다른 폴더 접두사 요청
             assert.equal(similarPrefix.status, 404); // 팀 폴더 경계 밖 접근 거절
-        }); // 팀 경로 비공개 파일 검사 종료
+        });
         await context.test("홈과 정적 파일 응답", async () => // 웹 파일 공개 확인
         {
             const home = await fetch(origin); // 홈 화면 조회
@@ -90,7 +90,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
                 assert.equal(asset.headers.get("x-content-type-options"), "nosniff"); // MIME 해석 제한
                 assert.ok((await asset.text()).length > 0); // 실제 자원 본문 확인과 정리
             }
-        }); // 홈 검사 종료
+        });
         await context.test("같은 화면 파일의 재요청은 본문 없이 응답", async () => // 조건부 다운로드 검사
         {
             const url = origin + "/Team006/frontend/app.css"; // 공개 스타일 파일
@@ -110,7 +110,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
             const api = await fetch(origin + "/api/csrf.php", { headers: { "If-None-Match": "*" } }); // 개인 응답의 캐시 분리
             assert.equal(api.headers.get("cache-control"), "no-store"); // 인증 정보 보관 차단
             assert.equal(api.status, 200); // 실제 토큰 발급 유지
-        }); // 정적 파일 재검증 끝
+        });
         await context.test("실제 CSRF와 비로그인 응답", async () => // API 연결 검사
         {
             const token = await fetch(origin + "/api/csrf.php"); // CSRF 발급 요청
@@ -121,7 +121,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
             const missing = await fetch(origin + "/api/missing.php"); // 없는 API 조회
             assert.equal(missing.status, 404); // 없는 경로 거절
             assert.equal((await missing.json()).success, false); // 공통 오류 구조
-        }); // API 검사 종료
+        });
         await context.test("회원 API 공개 경로와 POST 전용 처리", async () => // 인증 API 라우팅 누락 포착
         {
             for (const file of ["register.php", "login.php", "logout.php", "send_message.php"]) // 상태 변경 API 목록
@@ -131,7 +131,7 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
                 assert.equal(response.headers.get("allow"), "POST"); // 허용 메서드 안내
                 assert.equal((await response.json()).error.code, "METHOD_NOT_ALLOWED"); // 일관된 API 오류 형식
             }
-        }); // 회원 경로 검사 종료
+        });
         await context.test("SQL 설정 이력 실행 도구의 외부 접근 거절", async () => // 비공개 경로 보호
         {
             for (const path of ["/backend/sql/schema.sql", "/backend/config/database.php", "/backend/includes/auth.php", "/scripts/seed-dev.php", "/scripts/seed-dev.ps1", "/.git/config", "/.runtime/php.ini", "/docs/API.md", "/%2e%2e/backend/sql/schema.sql"]) // 비공개 경로 목록
@@ -140,10 +140,10 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
                 assert.equal(response.status, 404, path); // 파일 미공개 확인
                 assert.ok(!(await response.text()).includes("CREATE TABLE")); // SQL 원문 비노출
             }
-        }); // 비공개 경로 검사 종료
+        });
     }
     finally // 테스트 서버 종료
     {
         child.kill(); // 소유한 PHP 서버만 종료
     }
-}); // 웹 라우터 검사 종료
+});

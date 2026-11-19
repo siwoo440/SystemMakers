@@ -112,7 +112,7 @@ function management_preview(PDO $databaseConnection, string $userId, array $requ
             }
         }
         return ['data' => $responseData, 'status' => 200]; // 스냅샷 종료 뒤 반환
-    }); // 미리보기 업무 종료
+    });
 }
 function run_management(PDO $databaseConnection, string $operation, string $userId, array $requestInput): array // 공개 진입점의 단일 업무 계약
 {
@@ -240,5 +240,5 @@ function run_management(PDO $databaseConnection, string $operation, string $user
             return ['data' => ['server_id' => (string) $serverRecord['id'], 'deleted' => true], 'status' => 200]; // 삭제 완료
         }
         throw new LogicException('Unknown management operation.'); // 내부 분기 누락
-    }); // 업무 트랜잭션 종료
+    });
 }

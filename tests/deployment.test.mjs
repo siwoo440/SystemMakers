@@ -19,7 +19,7 @@ test('공개 출처는 HTTPS와 정확한 주소만 허용', () => // 운영 출
         assert.equal(settings({ APP_PUBLIC_ORIGIN: origin }), 'REJECTED', origin); // 잘못된 출처 차단
     }
     assert.equal(settings({ APP_ENV: 'test', APP_PUBLIC_ORIGIN: 'http://127.0.0.1:18088' }), '"http://127.0.0.1:18088"'); // 명시적 검사 환경 지원
-}); // 출처 검사 끝
+});
 test('전체 인터페이스 수신은 명시적 컨테이너 설정과 공개 출처 필요', () => // 컨테이너 수신 경계
 {
     assert.equal(settings({ REALTIME_LISTEN_HOST: '0.0.0.0' }, 'realtime_configuration()'), 'REJECTED'); // 기존 기본 보호
@@ -28,7 +28,7 @@ test('전체 인터페이스 수신은 명시적 컨테이너 설정과 공개 �
     assert.equal(configured.host, '0.0.0.0'); // 컨테이너 내부 수신
     assert.equal(configured.origin, 'https://chat.example.com'); // 정확한 출처 사용
     assert.equal(settings({ REALTIME_CONTAINER: '1', REALTIME_LISTEN_HOST: '0.0.0.0', APP_PUBLIC_ORIGIN: 'https://chat.example.com', REALTIME_ALLOWED_ORIGIN: 'https://other.example.com' }, 'realtime_configuration()'), 'REJECTED'); // 출처 불일치 차단
-}); // 수신 검사 끝
+});
 test('공개 주소 출력 도구는 검증 상태와 정확한 링크를 표시', () => // 주소와 배포 완료 구분
 {
     const result = execFileSync(phpBinary, ['-c', phpIni, 'scripts/show-public-url.php'], { env: { ...process.env, APP_ENV: 'production', APP_PUBLIC_ORIGIN: 'https://chat.example.com:8443' }, encoding: 'utf8', windowsHide: true }); // 실제 주소 출력
@@ -36,7 +36,7 @@ test('공개 주소 출력 도구는 검증 상태와 정확한 링크를 표시
     assert.match(result, /WSS 진단: wss:\/\/chat\.example\.com:8443\/Team006\/realtime/u); // 실시간 주소 확인
     assert.match(result, /실제 외부 접속 확인 필요/u); // 미검증 안내 유지
     assert.throws(() => execFileSync(phpBinary, ['-c', phpIni, 'scripts/show-public-url.php'], { env: { ...process.env, APP_PUBLIC_ORIGIN: '' }, stdio: 'pipe', windowsHide: true })); // 설정 누락의 실패 종료
-}); // 주소 출력 검사 끝
+});
 test('실제 라우터는 운영 WSS CSP를 적용하고 잘못된 출처는 거절', async (context) => // 실제 HTTP 보안 헤더 검사
 {
     for (const publicOrigin of ['https://chat.example.com:8443', 'https://chat.example.com/path']) // 정상과 잘못된 운영 설정
@@ -81,4 +81,4 @@ test('실제 라우터는 운영 WSS CSP를 적용하고 잘못된 출처는 거
             server.kill(); // 임시 프로세스 종료
         }
     }
-}); // 운영 라우터 검사 끝
+});

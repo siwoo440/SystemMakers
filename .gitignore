@@ -4,14 +4,19 @@
 /backend/realtime/vendor/
 # 개인 환경 설정과 접속 정보
 .env
+# 환경별 개인 설정 제외
 .env.*
+# 공유용 환경 설정 예시 포함
 !.env.example
+# 로컬 PHP 설정 제외
 config.local.php
 # 실행 로그와 임시 테스트 결과
 *.log
+# 테스트 결과 폴더 제외
 test-results/
 # 운영 백업 원본 제외
 backups/
 # 운영체제 임시 파일
 .DS_Store
+# Windows 미리보기 캐시 제외
 Thumbs.db

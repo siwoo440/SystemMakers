@@ -32,7 +32,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
             button.setAttribute("aria-pressed", String(active && selected?.id === conversation.id)); // 현재 대화 상태
             button.addEventListener("click", () => open(conversation)); // 확인한 대화 선택
             return button; // 생성한 버튼
-        })); // 목록 교체 끝
+        }));
     }
     function render() // 로그인과 입력 상태 반영
     {
@@ -191,7 +191,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 {
                     byId("direct-file-status").textContent = "파일 정보를 확인하지 못했습니다. 다시 확인합니다."; // 후속 조회 안내
                 }
-            } })); // 개인 첨부 조회 연결 끝
+            } }));
         }
         renderMessages(); // 선택한 대화의 기존 기록 복원
         renderList(); // 선택 상태 갱신
@@ -319,7 +319,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 button.textContent = user.username; // 안전한 사용자명 표시
                 button.addEventListener("click", () => requestVersion === version && getUser()?.id === userId ? startConversation(user) : undefined); // 확인한 계정의 대화 시작
                 return button; // 검색 결과 반환
-            })); // 검색 결과 교체 끝
+            }));
             byId("direct-status").textContent = response.users.length ? "사용자를 선택해 대화를 시작하세요." : "일치하는 사용자가 없습니다."; // 실제 검색 결과 안내
         }
         catch (error) // 검색 실패
@@ -329,20 +329,20 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 await report(error, requestVersion, userId); // 현재 계정 오류 안내
             }
         }
-    }); // 검색 연결 끝
+    });
     byId("direct-search-input").addEventListener("input", () => // 새 검색어 편집
     {
         searchVersion++; // 이전 검색 결과 무효화
         searchController?.abort(); // 진행 중인 검색 취소
         byId("direct-search-results").replaceChildren(); // 이전 검색 결과 제거
-    }); // 검색어 편집 연결 끝
+    });
     byId("direct-refresh").addEventListener("click", refresh); // 대화 목록 명시적 갱신
     byId("direct-input").addEventListener("input", render); // 초안 유효성 갱신
     byId("direct-file").addEventListener("change", () => // 파일 선택 상태 갱신
     {
         byId("direct-file-status").textContent = byId("direct-file").files[0]?.name || "최대 약 5.24 MB"; // 선택한 파일 이름 안내
         render(); // 파일 전송 가능 여부 갱신
-    }); // 파일 선택 처리 끝
+    });
     byId("direct-file-clear").addEventListener("click", () => // 선택한 개인 파일 취소
     {
         if (byId("direct-file-clear").disabled) // 전송 중 또는 선택 없음
@@ -352,7 +352,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         byId("direct-file").value = ""; // 선택한 파일만 제거
         byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 기본 파일 안내 복구
         render(); // 취소와 전송 상태 갱신
-    }); // 선택 취소 연결 끝
+    });
     byId("direct-upload").addEventListener("click", async () => // 명시적 개인 파일 전송
     {
         render(); // 계정과 전송 가능 여부 확인
@@ -415,7 +415,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 onBusyChange(); // 계정 전환 잠금 해제
             }
         }
-    }); // 개인 파일 전송 연결 끝
+    });
     byId("direct-older").addEventListener("click", () => selected && feeds.get(selected.id)?.older()); // 명시적 이전 기록 조회
     byId("direct-form").addEventListener("submit", async (event) => // 사용자 명시적 전송
     {
@@ -476,7 +476,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 onBusyChange(); // 계정 전환 잠금 해제
             }
         }
-    }); // 전송 연결 끝
+    });
     function suspend() // 화면 이탈 시 조회 중단
     {
         feeds.get(selected?.id)?.pause(); // 현재 기록 조회 중단

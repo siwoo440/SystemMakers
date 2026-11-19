@@ -1,5 +1,5 @@
 CREATE TABLE server_invites -- 서버별 현재 초대 상태
-(
+( -- 열과 제약 조건 시작
     server_id BIGINT UNSIGNED NOT NULL, -- 대상 서버
     token_hash BINARY(32) NOT NULL, -- 원문 없는 코드 해시
     created_by BIGINT UNSIGNED NOT NULL, -- 실제 발급 소유자
@@ -14,7 +14,7 @@ CREATE TABLE server_invites -- 서버별 현재 초대 상태
     CONSTRAINT chk_invites_expiry CHECK (expires_at > created_at) -- 올바른 유효 기간
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci; -- 트랜잭션과 한글 설정
 CREATE TABLE management_rate_limits -- 관리 요청 전용 제한
-(
+( -- 열과 제약 조건 시작
     bucket_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL, -- HMAC 처리 대상
     scope ENUM('invite_issue_user','invite_join_user','invite_join_ip') NOT NULL, -- 제한 범위
     attempts INT UNSIGNED NOT NULL DEFAULT 0, -- 허용한 시도 수

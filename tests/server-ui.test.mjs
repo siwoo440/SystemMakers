@@ -14,7 +14,7 @@ function element() // DOM 입출력 경계
     {
         item.open = false; // 닫힌 상태
         item.fire("close"); // 실제 닫기 핸들러
-    }; // 닫기 경계 종료
+    };
     return item; // 최소 DOM 요소
 }
 function setup(request, name = "검증 서버", onDeparted = () => undefined, onReload = async () => undefined, address = "https://example.test/Team006/index.html", onSelect = async () => undefined) // 실제 모듈과 외부 DOM 연결
@@ -27,7 +27,7 @@ function setup(request, name = "검증 서버", onDeparted = () => undefined, on
             elements.set(id, element()); // DOM 경계 준비
         }
         return elements.get(id); // 현재 화면 요소
-    }; // 조회 경계 종료
+    };
     globalThis.document = { createElement: element }; // 서버 버튼 생성 경계
     globalThis.location = new URL(address); // 현재 페이지의 같은 출처 주소
     globalThis.history = { state: null, replaceState: (_state, _title, url) => globalThis.location = new URL(url, globalThis.location) }; // 주소 표시 정리 경계
@@ -44,19 +44,19 @@ test("참여 서버가 없으면 요청된 안내 문구를 표시하지 않음"
     harness.manager.selected = null; // 선택된 서버 없음
     harness.ui.render(); // 현재 상태 표시
     assert.equal(harness.byId("server-status").textContent, ""); // 안내 문구 없음
-}); // 빈 서버 안내 검사 끝
+});
 test("초대 참여 성공 시 참여한 서버 대화를 자동으로 표시", async () => // 참여 후 서버 화면 전환
 {
     let selections = 0; // 서버 화면 전환 횟수
     const harness = setup(async () => ({ server: { id: "2" } }), "검증 서버", () => undefined, async () => undefined, "https://example.test/Team006/index.html", async () => // 참여 응답과 전환 경계
     {
         selections++; // 서버 화면 전환 기록
-    }); // 화면 준비 끝
+    });
     await harness.byId("join-server").fire("click"); // 초대 참여 화면
     harness.byId("server-value").value = "a".repeat(64); // 초대 코드 입력
     await harness.byId("server-form").fire("submit"); // 참여 확인
     assert.equal(selections, 1); // 서버 대화 자동 전환
-}); // 초대 참여 화면 검사 끝
+});
 test("서버 관리 창 바깥 클릭은 입력을 정리하고 닫음", async () => // 실제 관리 창 연결
 {
     const testHarness = setup(async () => ({})); // 로그인한 서버 화면
@@ -67,7 +67,7 @@ test("서버 관리 창 바깥 클릭은 입력을 정리하고 닫음", async (
     dialog.fire("click", { target: dialog, clientX: 10, clientY: 10 }); // 창 바깥 선택
     assert.equal(dialog.open, false); // 실제 창 닫힘
     assert.equal(testHarness.byId("server-value").value, ""); // 입력 정리
-}); // 서버 창 닫기 검사 끝
+});
 test("공유 링크는 새로고침 후에도 명시적 참여 전 요청을 보내지 않음", async () => // 방문만으로 가입되는 오류 차단
 {
     const requests = []; // 서버 변경 요청 관측
@@ -90,7 +90,7 @@ test("공유 링크는 새로고침 후에도 명시적 참여 전 요청을 보
     assert.equal(requests.length, 1); // 한 번의 변경 요청
     assert.match(requests[0].path, /join_server\.php$/); // 기존 참여 API
     assert.deepEqual(requests[0].body, { code }); // 본문으로만 코드 전달
-}); // 공유 링크 참여 검사 끝
+});
 test("발급한 공유 링크는 같은 출처와 fragment만 사용", async () => // 코드의 서버 요청 주소 노출 차단
 {
     const code = "b".repeat(64); // 발급된 코드 형식
@@ -102,7 +102,7 @@ test("발급한 공유 링크는 같은 출처와 fragment만 사용", async () 
     assert.equal(testHarness.byId("invite-link").value, "https://example.test/Team006/index.html#invite=" + code); // 공유 주소와 코드 위치
     testHarness.byId("server-dialog").close(); // 민감한 화면 종료
     assert.equal(testHarness.byId("invite-link").value, ""); // 공유 주소 원문 제거
-}); // 발급 링크 검사 끝
+});
 test("초대 폐기는 발급한 링크 원문과 복사 기능도 제거", async () => // 폐기된 링크의 계속 공유 차단
 {
     const testHarness = setup(async (path) => // 초대 상태와 변경 응답
@@ -116,14 +116,14 @@ test("초대 폐기는 발급한 링크 원문과 복사 기능도 제거", asyn
             return { code: "c".repeat(64), expires_at: "2026-10-22T00:00:00Z" }; // 발급 원문과 만료
         }
         return { revoked: true }; // 폐기 결과
-    }); // 요청 경계 연결 끝
+    });
     await testHarness.byId("invite-server").fire("click"); // 초대 관리 진입
     await testHarness.byId("server-form").fire("submit"); // 링크 발급
     assert.equal(testHarness.byId("copy-invite-link").disabled, false); // 발급 링크 복사 가능
     await testHarness.byId("revoke-invite").fire("click"); // 사용자 폐기 요청
     assert.equal(testHarness.byId("invite-link").value, ""); // 폐기 링크 원문 제거
     assert.equal(testHarness.byId("copy-invite-link").disabled, true); // 폐기 링크 복사 차단
-}); // 초대 폐기 검사 끝
+});
 test("재발급 응답 유실 시 이전 원문 복사 차단", async () => // 무효 코드를 계속 공유하는 오류 차단
 {
     let issued = 0; // 네트워크 응답 순서
@@ -138,7 +138,7 @@ test("재발급 응답 유실 시 이전 원문 복사 차단", async () => // �
             return { code: "a".repeat(64), expires_at: "2026-10-22T00:00:00Z" }; // 이번 원문
         }
         throw new Error("응답 유실"); // 재발급 결과 불명확
-    }); // 연결 종료
+    });
     await testHarness.byId("invite-server").fire("click"); // 초대 화면 열기
     await testHarness.byId("server-form").fire("submit"); // 실제 제출
     assert.equal(testHarness.byId("invite-code").value.length, 64); // 최초 원문 표시
@@ -168,7 +168,7 @@ test("삭제 이름 불일치는 새 미리보기 후 다시 확인", async () =
             return { name: previews === 1 ? "검증 서버" : "바뀐 서버", channel_count: "1", member_count: "1", message_count: "2" }; // 최신 영향
         }
         throw Object.assign(new Error("현재 이름 확인 필요"), { status: 409, code: "NAME_MISMATCH" }); // 변경 사이의 이름 경합
-    }); // 연결 종료
+    });
     await testHarness.byId("delete-server").fire("click"); // 삭제 영향 조회
     await testHarness.byId("server-form").fire("submit"); // 실제 삭제 요청
     assert.equal(previews, 2); // 새 영향 재조회
@@ -201,9 +201,9 @@ test("서버 삭제 미리보기가 실패하면 네 버튼을 차단", async ()
     {
         calls++; // 조회 요청 기록
         throw Object.assign(new Error("조회 실패"), { status: 503 }); // 미리보기 실패
-    }); // 화면 준비
+    });
     await testHarness.byId("delete-server").fire("click"); // 삭제 창 열기
     assert.equal(testHarness.byId("server-submit").disabled, true); // 미확인 삭제 차단
     await testHarness.byId("server-form").fire("submit"); // 제출 시도
     assert.equal(calls, 1); // 삭제 요청 없음
-}); // 실패 경계 검사 종료
+});

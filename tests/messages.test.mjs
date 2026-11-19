@@ -94,7 +94,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
             server.stderr.on("data", (value) => // 서버 오류 수집
             {
                 logs += value; // 시작 실패 원인 보관
-            }); // 오류 수집 등록 종료
+            });
             servers.push(server); // 종료 대상 등록
             origins.push("http://127.0.0.1:" + httpPort); // 접속 주소 등록
         }
@@ -151,17 +151,17 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
             process.stdout.on("data", (value) => // 결과 스트림 관측
             {
                 connection.output += value; // SQL 완료 표식 수집
-            }); // 표식 수집 등록 종료
+            });
             process.stderr.on("data", (value) => // 실제 SQL 오류 관측
             {
                 connection.errors += value; // 실패 진단 수집
-            }); // 오류 수집 등록 종료
+            });
             connection.command = async (statement) => // 표식 기반 SQL 완료 대기
             {
                 const marker = "done_" + (++connection.serial); // 연결별 고유 완료 표식
                 process.stdin.write(statement + "; SELECT '" + marker + "';\n"); // SQL과 완료 표식 전송
                 await waitUntil(() => connection.output.split(/\r?\n/).includes(marker), "SQL 완료 실패: " + connection.errors); // 실제 완료 관측
-            }; // 명령 함수 등록 종료
+            };
             connections.push(connection); // 정리 대상 등록
             await connection.command("SET SESSION time_zone='+00:00'"); // UTC 연결 준비
             return connection; // 실제 연결 반환
@@ -188,7 +188,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
             assert.match(firstMessage.created_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/); // UTC ISO 시각
             assert.equal(sql("SELECT CONCAT(channel_id,':',user_id,':',HEX(content)) FROM messages WHERE id=" + firstMessage.id), "1:" + member.user.id + ":" + hex(content)); // 실제 DB 원문과 소속
             assert.equal(sql("SELECT COUNT(*) FROM messages WHERE channel_id IN (2,3)"), "0"); // 다른 채널 오염 없음
-        }); // 실제 저장 검증 종료
+        });
         if (!firstMessage) // 미구현의 최초 실패 이후 중단
         {
             return; // 누락 기능 실패 유지
@@ -214,7 +214,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
             expectError(await post("send_message", { channel_id: "2", content: "no" }, member), 403, "FORBIDDEN"); // 다른 서버 접근 거절
             expectError(await post("send_message", { channel_id: "18446744073709551615", content: "no" }, member), 404, "CHANNEL_NOT_FOUND"); // 최대 ID의 없는 채널
             assert.equal(sql("SELECT COUNT(*) FROM messages"), before); // 모든 실패의 저장 없음
-        }); // 검증 순서 검사 종료
+        });
         await context.test("ID 형식·유니코드 경계·공백·NUL·원문 길이", async () => // UTF-16과 바이트 길이 혼동 포착
         {
             for (const invalidChannelId of [1, null, "0", "01", "+1", " 1", "1.0", "18446744073709551616", [], "-1"]) // 잘못된 ID 목록
@@ -234,7 +234,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
                 assert.equal(result.body.data.message.content, content); // 앞뒤 개행 포함 원문 유지
                 assert.equal(sql("SELECT HEX(content) FROM messages WHERE id=" + result.body.data.message.id), hex(content)); // 실제 DB 바이트 일치
             }
-        }); // 입력 경계 검사 종료
+        });
         await context.test("DB 쓰기 실패 롤백과 연결 오류 비노출", async () => // 부분 저장과 내부 오류 누출 포착
         {
             const before = sql("SELECT COUNT(*) FROM messages"); // 오류 전 저장 수
@@ -253,7 +253,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
             }
             expectError(await post("/connection-failure", { channel_id: "1", content: "failure" }, member), 500, "INTERNAL_ERROR"); // 연결 오류 공통 처리
             assert.equal((await post("send_message", { channel_id: "1", content: "recovered" }, member)).response.status, 201); // 다음 요청 정상 저장
-        }); // 실제 DB 오류 검사 종료
+        });
         await context.test("네 PHP 프로세스의 같은 세션 잠금 해제와 채널 직렬화", async () => // 세션 잠금과 ID 선할당 포착
         {
             const blocker = await openConnection(); // 채널 선점 연결
@@ -274,7 +274,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
             const ids = results.map((value) => value.body.data.message.id).sort((left, right) => BigInt(left) < BigInt(right) ? -1 : 1); // 손실 없는 ID 정렬
             assert.equal(new Set(ids).size, 4); // 네 고유 ID
             assert.equal(sql("SELECT GROUP_CONCAT(id ORDER BY id) FROM messages WHERE content LIKE 'parallel_%'"), ids.join(",")); // 모든 커밋 ID 조회 가능
-        }); // 채널 동시성 검사 종료
+        });
         await context.test("앞선 INSERT 지연 중 후속 ID 발급 차단과 커밋 순서", async () => // 작은 ID의 뒤늦은 커밋 포착
         {
             const userLock = await openConnection(); // 첫 INSERT 지연용 연결
@@ -298,7 +298,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
             assert.equal(later.response.status, 201); // 후속 커밋 성공
             assert.ok(BigInt(earlier.body.data.message.id) < BigInt(later.body.data.message.id)); // 채널 커밋 순서와 ID 증가 일치
             assert.equal(sql("SELECT content FROM messages WHERE channel_id=1 AND id>" + earlier.body.data.message.id + " ORDER BY id"), "ordered_second"); // 신규 커서 기준 후속 메시지 보존
-        }); // ID와 커밋 순서 검사 종료
+        });
         await context.test("전송 중 멤버십 공유 잠금과 탈퇴 경쟁", async () => // 권한 검사 후 탈퇴의 중간 커밋 포착
         {
             const userLock = await openConnection(); // 외래 키 쓰기 지연 연결
@@ -320,7 +320,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
             expectError(await post("send_message", { channel_id: "1", content: "after_revoke" }, member), 403, "FORBIDDEN"); // 탈퇴 후 신규 전송 거절
             assert.equal(sql("SELECT COUNT(*) FROM messages WHERE content='before_revoke'"), "1"); // 탈퇴 전 전송 보존
             sql("INSERT INTO server_members (server_id,user_id,role) VALUES (1," + member.user.id + ",'owner')"); // 독립 시나리오 권한 복원
-        }); // 멤버십 경쟁 검사 종료
+        });
         async function observeAttempts(attempts, required) // 실제 잠금 대기 트랜잭션 관측
         {
             await waitUntil(() => // 새 트랜잭션 ID의 증가 관측
@@ -349,7 +349,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
             }
             assert.equal((await sending).response.status, 201); // 새 트랜잭션 커밋 성공
             assert.equal(sql("SELECT COUNT(*) FROM messages WHERE content='retry_recovered'"), "1"); // 재시도의 단일 저장
-        }); // 재시도 복구 검사 종료
+        });
         await context.test("잠금 시간 초과의 제한된 재시도와 전체 롤백", async () => // 끝없는 재시도와 잠금 잔류 포착
         {
             const blocker = await openConnection(); // 채널 장기 잠금 연결
@@ -370,7 +370,7 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
                 await blocker.command("COMMIT"); // 채널 잠금 해제
             }
             assert.equal((await post("send_message", { channel_id: "1", content: "after_timeout" }, member)).response.status, 201); // 잠금 실패 이후 정상 복구
-        }); // 시간 초과 검사 종료
+        });
     }
     finally // 테스트 전용 자원 정리
     {
@@ -392,4 +392,4 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 경로 응답
         }
         sql("DROP DATABASE " + database, false); // 확인된 무작위 테스트 DB만 제거
     }
-}); // 전체 메시지 저장 검증 종료
+});

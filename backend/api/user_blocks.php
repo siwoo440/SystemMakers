@@ -31,7 +31,7 @@ $userIds = [$currentUser['id'], $targetUserId]; // 잠금 대상
 usort($userIds, static function (string $leftId, string $rightId): int // 부호 없는 ID 순서
 {
     return strlen($leftId) <=> strlen($rightId) ?: strcmp($leftId, $rightId); // 길이와 사전식 비교
-}); // 잠금 순서 확정
+});
 try // 차단과 전송 경합 직렬화
 {
     $databaseConnection->beginTransaction(); // 트랜잭션 시작

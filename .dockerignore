@@ -4,6 +4,7 @@
 .runtime
 # 개인 환경 변수 제외
 .env
+# 환경별 개인 설정 제외
 .env.*
 # 예시 환경 변수 포함
 !.env.example
@@ -13,12 +14,17 @@
 backend/realtime/vendor
 # 로그와 백업 제외
 **/*.log
+# 압축된 DB 백업 제외
 **/*.sql.gz
+# DB 덤프 제외
 **/*.dump
 # 개발 자료 제외
 docs
+# 테스트 소스 제외
 tests
+# 테스트 결과 제외
 test-results
+# 개발 도구 작업 폴더 제외
 .superpowers
 # 운영 백업 원본 제외
 backups

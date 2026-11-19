@@ -96,4 +96,4 @@ test("10단계 본인 프로필의 조회·변경·보존", async (context) => /
         assert.equal(response.data.user.username, "profile_changed"); // 새 표시 이름 복원
         assert.equal(response.data.user.id, owner.id); // 같은 계정
     });
-}); // 실제 프로필 인수 끝
+});

@@ -44,8 +44,8 @@ function setup(handler, websocketClass = undefined) // 실제 화면 함수와 �
             calls.push(call); // 자동 재전송 여부 기록
             const result = await handler(call); // 상황별 API 응답
             return { ok: result.status < 400, status: result.status, headers: { get: () => null }, json: async () => result.status < 400 ? { success: true, data: result.data } : { success: false, error: { code: result.code, message: result.code } } }; // 실제 JSON 응답 형태
-        } // 네트워크 경계 끝
-    }); // 독립 전역 준비 끝
+        }
+    });
     const boot = source.indexOf('byId("retry-channels").addEventListener'); // 화면 이벤트 등록 경계
     assert.ok(boot > 0); // 실제 화면 초기화 지점 확인
     vm.runInContext(source.slice(0, boot).replace(/^import .*;.*$/gm, ""), context); // 원본 함수와 상태 실행
@@ -73,7 +73,7 @@ test("새 기록이 없는 채널 조회는 대화 목록을 재구성하지 않
     const displayed = harness.evaluate('channels["1"].messages'); // 기존 표시 목록
     await harness.evaluate('channels["1"].feed.activate()'); // 실제 갱신 주기 실행
     assert.equal(harness.evaluate('channels["1"].messages'), displayed); // 기록 변환과 교체 생략
-}); // 유휴 채널 검사 끝
+});
 test("서버 선택은 개인 대화를 닫은 뒤 서버 채널을 불러옴", async (context) => // 개인 대화에서 서버 복귀
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 화면 실행 환경
@@ -81,7 +81,7 @@ test("서버 선택은 개인 대화를 닫은 뒤 서버 채널을 불러옴", 
     harness.evaluate('var transitions = []; directUI = { close: () => transitions.push("close") }; loadChannels = async () => transitions.push("load");'); // 화면 전환 관측
     await harness.evaluate("selectServerConversation()"); // 실제 서버 전환 함수
     assert.equal(harness.evaluate('transitions.join(",")'), "close,load"); // 개인 대화 종료 후 목록 조회
-}); // 서버 화면 복귀 검사 끝
+});
 test("계정 아이콘은 로그인 상태에 맞는 설명과 그림을 표시", (context) => // 아이콘의 접근성과 인증 상태
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 인증 화면 경계
@@ -92,14 +92,14 @@ test("계정 아이콘은 로그인 상태에 맞는 설명과 그림을 표시"
     harness.evaluate('currentUser = null; renderAuthState();'); // 게스트 상태 반영
     assert.equal(harness.evaluate('byId("open-auth")["aria-label"]'), "로그인"); // 로그인 설명
     assert.equal(harness.evaluate('byId("auth-login-icon").hidden'), false); // 로그인 아이콘
-}); // 계정 아이콘 검사 끝
+});
 test("선택한 채널이 없으면 별도 선택 안내를 표시하지 않음", (context) => // 빈 채널 안내 제거
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 로그인 화면 준비
     context.after(harness.stop); // 조회 수명 정리
     harness.evaluate('activeChannel = null; updateHistoryControls();'); // 채널 없는 상태
     assert.equal(harness.evaluate('byId("history-status").textContent'), ""); // 선택 안내 제거
-}); // 빈 채널 안내 검사 끝
+});
 test("채널 구독 승인과 연결 종료가 실제 조회 예약에 반영", async (context) => // 화면과 구독 상태 연결 검사
 {
     let socket; // 생성된 연결 관찰
@@ -125,7 +125,7 @@ test("채널 구독 승인과 연결 종료가 실제 조회 예약에 반영", 
     assert.equal([...harness.timers.values()].some((timer) => timer.delay === 15000), true); // 승인된 안전망 간격
     socket.onclose(); // 실시간 연결 종료
     assert.equal([...harness.timers.values()].some((timer) => timer.delay === 2000), true); // 즉시 기존 간격 복구
-}); // 화면 연결 검사 끝
+});
 test("비밀번호 입력은 문자 길이만 검사하고 긴 한글도 허용", (context) => // 브라우저의 바이트 제한 제거 확인
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 인증 화면 준비
@@ -136,7 +136,7 @@ test("비밀번호 입력은 문자 길이만 검사하고 긴 한글도 허용"
     assert.equal(harness.evaluate('passwordInput.validationMessage'), ""); // 조합 제한 없는 최소 길이
     harness.evaluate('passwordInput.value = "1234567"; validatePassword();'); // 7자 미달 입력
     assert.notEqual(harness.evaluate('passwordInput.validationMessage'), ""); // 최소 길이 오류
-}); // 입력 규칙 검사 끝
+});
 test("채널에서 선택한 파일을 전송 전에 취소", (context) => // 파일 선택 취소 동작
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 로그인된 채널 준비
@@ -148,7 +148,7 @@ test("채널에서 선택한 파일을 전송 전에 취소", (context) => // �
     assert.equal(harness.evaluate('byId("channel-upload").disabled'), true); // 파일 전송 차단
     assert.equal(harness.evaluate('byId("channel-file-status").textContent'), "최대 약 5.24 MB"); // 안내 복구
     assert.equal(harness.calls.length, 0); // 서버 요청 없음
-}); // 채널 파일 취소 검사 끝
+});
 test("파일 본문은 보호 헤더를 유지하며 multipart로 직접 전송", async (context) => // 파일 본문의 JSON 변환과 경계 누락 차단
 {
     const harness = setup(() => ({ status: 200, data: { saved: true } })); // 성공 응답 경계
@@ -158,7 +158,7 @@ test("파일 본문은 보호 헤더를 유지하며 multipart로 직접 전송"
     assert.equal(harness.calls[0].headers["Content-Type"], undefined); // 브라우저 multipart 경계 생성
     assert.equal(harness.calls[0].headers["X-Expected-User-Id"], "1"); // 요청 계정 보호
     assert.equal(harness.calls[0].headers["X-CSRF-Token"], "a".repeat(64)); // 기존 보호 토큰 유지
-}); // multipart 검사 끝
+});
 test("채널 파일 전송은 선택한 채널의 저장 메시지에 첨부 표시", async (context) => // 채널과 파일 연결 누락 차단
 {
     const harness = setup((call) => // 실제 업로드 응답
@@ -168,7 +168,7 @@ test("채널 파일 전송은 선택한 채널의 저장 메시지에 첨부 표
             return { status: 201, data: { message: { id: "2", channel_id: "1", user_id: "1", username: "user_a", content: "파일: 문서.txt", created_at: "2026-10-21T00:00:00Z" }, attachment: { id: "9", message_id: "2", original_name: "문서.txt", file_size: 4 } } }; // 확인된 메시지와 파일
         }
         return { status: 200, data: { attachments: [] } }; // 첨부 없는 기록
-    }); // 업로드 경계 준비 끝
+    });
     context.after(harness.stop); // 조회 수명 종료
     harness.evaluate('byId("channel-file").files = [new File(["data"], "문서.txt")]; updateComposer();'); // 실제 파일 선택
     await harness.evaluate("sendChannelFile()"); // 사용자 파일 전송
@@ -176,7 +176,7 @@ test("채널 파일 전송은 선택한 채널의 저장 메시지에 첨부 표
     assert.equal(upload.body.get("kind"), "channel"); // 채널 대화 유형
     assert.equal(upload.body.get("target_id"), "1"); // 확인한 채널 대상
     assert.equal(harness.evaluate('channels["1"].messages.find((message) => message.id === "2").attachment.original_name'), "문서.txt"); // 저장된 메시지의 파일 정보
-}); // 채널 파일 전송 검사 끝
+});
 test("다른 탭의 계정 변경은 전송 중단과 이전 계정 자료 삭제", async (context) => // 다른 작성자의 초안 저장 방지
 {
     const testHarness = setup((call) => call.url === "./backend/api/csrf.php" ? { status: 200, data: { csrf_token: "b".repeat(64) } } : { status: 403, code: "SESSION_CHANGED" }); // B 세션의 사용자 불일치 응답
@@ -186,7 +186,7 @@ test("다른 탭의 계정 변경은 전송 중단과 이전 계정 자료 삭�
     assert.deepEqual(testHarness.state(), { userId: null, channelIds: [], draft: "" }); // 이전 계정 자료 전체 정리
     await testHarness.send(); // 정리된 화면의 추가 제출 시도
     assert.equal(testHarness.calls.filter((call) => call.url === "./backend/api/send_message.php").length, 1); // 자동 및 빈 화면 재전송 차단
-}); // 계정 변경 검사 끝
+});
 test("CSRF 복구 중 다른 계정 확인 시 기존 초안 재전송 차단", async (context) => // 토큰만 교체하는 계정 혼동 포착
 {
     let stored = 0; // B 계정의 실제 저장 횟수
@@ -208,14 +208,14 @@ test("CSRF 복구 중 다른 계정 확인 시 기존 초안 재전송 차단", 
             return { status: 200, data: { csrf_token: "b".repeat(64) } }; // B 계정 보호 토큰
         }
         return { status: 403, code: "SESSION_CHANGED" }; // A 기대 계정과 B 실제 계정 차이
-    }); // API 경계 준비 끝
+    });
     context.after(testHarness.stop); // 검사 후 조회 종료
     await testHarness.send(); // 최초 보호 토큰 오류와 복구
     await testHarness.send(); // 사용자 수동 재제출 경로
     assert.equal(stored, 0); // B 작성자로 저장된 A 초안 없음
     assert.equal(testHarness.state().userId, null); // 계정 변경 후 로그인 재확인 상태
     assert.equal(testHarness.state().draft, ""); // 다른 계정에 초안 노출 없음
-}); // CSRF 계정 변경 검사 끝
+});
 test("같은 계정의 CSRF 교체는 초안 보존과 수동 재전송", async (context) => // 계정 보호 수정의 정상 복구 차단 포착
 {
     let sends = 0; // 실제 전송 시도 수
@@ -231,7 +231,7 @@ test("같은 계정의 CSRF 교체는 초안 보존과 수동 재전송", async 
         }
         sends += 1; // 실제 전송 시도 관측
         return sends === 1 ? { status: 403, code: "CSRF_INVALID" } : { status: 201, data: { message: { id: "2", channel_id: "1", user_id: "1", username: "user_a", content: call.body.content, created_at: "2026-10-21T00:00:00Z" } } }; // 첫 보호 오류와 수동 재제출 성공
-    }); // 실제 화면 요청 경계 종료
+    });
     context.after(testHarness.stop); // 검사 종료 후 수명 정리
     await testHarness.send(); // 최초 전송과 보호 정보 복구
     assert.equal(sends, 1); // POST 자동 반복 없음
@@ -240,7 +240,7 @@ test("같은 계정의 CSRF 교체는 초안 보존과 수동 재전송", async 
     assert.equal(sends, 2); // 명시적 추가 전송 한 건
     assert.equal(testHarness.state().draft, ""); // 확인된 저장 이후 초안 비움
     assert.equal(testHarness.evaluate('channels["1"].feed.list().length'), 2); // 기존 기록과 새 기록의 중복 없는 표시
-}); // 같은 계정 복구 검사 종료
+});
 test("비활성 채널의 전송 권한 상실은 과거 기록과 늦은 응답 차단", async (context) => // 중단된 폴링에 의존하는 권한 처리 포착
 {
     let rejectSend; // 지연된 접근 거절 응답
@@ -253,7 +253,7 @@ test("비활성 채널의 전송 권한 상실은 과거 기록과 늦은 응답
     assert.equal(testHarness.evaluate('channels["1"].feed.blocked'), true); // 폴링 없는 채널도 접근 차단
     assert.equal(testHarness.evaluate('channels["1"].messages.length'), 0); // 화면의 이전 대화 제거
     assert.equal(testHarness.evaluate('channels["1"].feed.list().length'), 0); // 조회 저장소의 이전 대화 제거
-}); // 비활성 채널 권한 검사 끝
+});
 test("마지막 채널 제거 후 초안·기록·선택 ID와 예약 정리", async (context) => // 실제 화면의 빈 서버 전환
 {
     const testHarness = setup((call) => call.url.includes("list_servers") ? { status: 200, data: { servers: [{ id: "1", name: "서버", owner_id: "1", role: "owner", created_at: "2026-10-21T00:00:00Z" }] } } : { status: 200, data: { channels: [] } }); // 서버는 유지하고 채널만 삭제된 응답
@@ -264,7 +264,7 @@ test("마지막 채널 제거 후 초안·기록·선택 ID와 예약 정리", a
     assert.equal(testHarness.evaluate("serverManager.selected"), "1"); // 빈 서버 선택 유지
     assert.equal(testHarness.evaluate("serverManager.channel"), null); // 삭제된 영구 선택 제거
     assert.equal(testHarness.evaluate("deletedFeed.active"), false); // 이전 폴링 종료
-}); // 빈 서버 화면 검사 종료
+});
 test("삭제 확정 뒤 목록 오류에도 기록·초안·선택 폐기", async (context) => // 후속 통신 실패의 삭제 자료 노출 방지
 {
     const testHarness = setup((call) => call.url.includes("list_servers") ? { status: 200, data: { servers: [{ id: "1", name: "서버", owner_id: "1", role: "owner", created_at: "2026-10-21T00:00:00Z" }] } } : { status: 500, code: "INTERNAL_ERROR" }); // 삭제 후 조회 실패
@@ -276,7 +276,7 @@ test("삭제 확정 뒤 목록 오류에도 기록·초안·선택 폐기", asyn
     assert.equal(testHarness.evaluate("serverManager.channel"), null); // 저장 선택 제거
     assert.equal(testHarness.evaluate("deletedFeed.list().length"), 0); // 기록 저장소 제거
     assert.equal(testHarness.evaluate("deletedFeed.active"), false); // 조회 예약 종료
-}); // 후속 오류 검사 종료
+});
 test("프로필 PATCH는 기대 계정·CSRF·실제 변경 메서드 전달", async (context) => // 공통 요청 확장 회귀
 {
     const testHarness = setup(() => ({ status: 200, data: { user: { id: "1", username: "new_name" } } })); // 실제 성공 응답 경계
@@ -285,7 +285,7 @@ test("프로필 PATCH는 기대 계정·CSRF·실제 변경 메서드 전달", a
     assert.equal(testHarness.calls[0].method, "PATCH"); // POST로 잘못 변경되는 문제 포착
     assert.equal(testHarness.calls[0].headers["X-Expected-User-Id"], "1"); // 본인 의도 계정
     assert.equal(testHarness.calls[0].headers["X-CSRF-Token"], "a".repeat(64)); // 기존 보호 토큰
-}); // PATCH 요청 검사 끝
+});
 test("프로필 반영은 본인 메시지 이름만 갱신·초안·기록·커서 유지", (context) => // 기존 대화 보존
 {
     const testHarness = setup(() => ({ status: 200, data: {} })); // 요청 없는 표시 변경
@@ -301,7 +301,7 @@ test("프로필 반영은 본인 메시지 이름만 갱신·초안·기록·커
     assert.equal(testHarness.evaluate('channels["1"].feed.oldest'), "1"); // 과거 커서 유지
     testHarness.evaluate('applyProfile({id:"2",username:"wrong_user"})'); // 늦은 다른 계정 응답
     assert.equal(testHarness.evaluate('currentUser.username'), "new_name"); // 계정 교체 차단
-}); // 프로필 표시 검사 끝
+});
 test("프로필 CSRF 복구의 늦은 실패는 새 로그인 계정 유지", async (context) => // 중첩 인증 복구 수명 회귀
 {
     let release; // 지연된 계정 확인
@@ -324,7 +324,7 @@ test("프로필 CSRF 복구의 늦은 실패는 새 로그인 계정 유지", as
     await pending; // 중첩 실패 처리 종료
     assert.equal(testHarness.state().userId, "2"); // 새 계정 종료 차단
     assert.equal(testHarness.evaluate("csrfToken"), "c".repeat(64)); // 새 보호 토큰 보존
-}); // 중첩 복구 검사 끝
+});
 test("다른 탭 탈퇴·채널 삭제 확인은 초안까지 폐기", (context) => // 같은 계정 재참여의 이전 초안 복원 차단
 {
     const testHarness = setup(() => ({ status: 200, data: {} })); // 네트워크 없는 접근 종료 경계
@@ -333,7 +333,7 @@ test("다른 탭 탈퇴·채널 삭제 확인은 초안까지 폐기", (context)
     assert.equal(testHarness.state().draft, ""); // 현재 입력의 이전 소속 자료 제거
     assert.equal(testHarness.evaluate('channels["1"].draft'), ""); // 채널 초안 저장소도 제거
     assert.equal(testHarness.evaluate('channels["1"].feed.list().length'), 0); // 과거 대화 제거
-}); // 소속 상실 초안 검사 끝
+});
 test("접근 차단 채널 재조회 성공도 이전 초안 복원 없음", async (context) => // 재참여와 목록 갱신 경계
 {
     const testHarness = setup((call) => call.url.includes("list_servers") ? { status: 200, data: { servers: [{ id:"1",name:"서버",owner_id:"2",role:"member",created_at:"2026-10-22T00:00:00Z" }] } } : call.url.includes("get_channels") ? { status:200,data:{ channels:[{id:"1",server_id:"1",server_name:"서버",name:"일반"}] } } : {status:200,data:{messages:[],pagination:{next_before_id:null,next_after_id:"0",has_more:false}}}); // 같은 서버 재참여 뒤 실제 목록
@@ -342,7 +342,7 @@ test("접근 차단 채널 재조회 성공도 이전 초안 복원 없음", asy
     await testHarness.evaluate("loadChannels()"); // 실제 소속 재확인
     assert.equal(testHarness.state().draft, ""); // 차단된 초안 복구 금지
     assert.equal(testHarness.evaluate('channels["1"].draft'), ""); // 새 채널 상태도 빈 초안
-}); // 재참여 초안 검사 끝
+});
 test("서버 탈퇴·삭제 확정은 목록 실패 전에 모든 소속 채널 폐기", async (context) => // 조회 실패에도 접근 종료 자료 비노출
 {
     const testHarness = setup(() => ({status:500,code:"INTERNAL_ERROR"})); // 후속 서버 목록 실패
@@ -354,7 +354,7 @@ test("서버 탈퇴·삭제 확정은 목록 실패 전에 모든 소속 채널 
     assert.equal(testHarness.evaluate("serverManager.channel"),null); // 종료된 채널 선택 제거
     assert.equal(testHarness.evaluate("endedFeed.list().length"),0); // 참조가 남아도 기록 제거
     assert.equal(testHarness.evaluate("endedFeed.active"),false); // 조회 수명 종료
-}); // 소속 종료 확정 검사 끝
+});
 test("전송 CSRF 복구의 늦은 실패는 새 계정·토큰 보존", async (context) => // 관리 복구 밖의 전송 인증 경계
 {
     let release; // 오래된 계정 확인 응답
@@ -381,7 +381,7 @@ test("전송 CSRF 복구의 늦은 실패는 새 계정·토큰 보존", async (
     await pending; // 실제 화면 처리 종료
     assert.equal(testHarness.state().userId,"2"); // 새 로그인 보존
     assert.equal(testHarness.evaluate("csrfToken"),"c".repeat(64)); // 새 토큰 보존
-}); // 전송 복구 검사 끝
+});
 test("서버 목록이 소속 종료를 확인하면 채널 조회 실패에도 자료 폐기", async (context) => // 창 복귀와 타 탭 탈퇴 경계
 {
     const testHarness=setup((call)=>call.url.includes("list_servers")?{status:200,data:{servers:[]}}:{status:500,code:"INTERNAL_ERROR"}); // 소속은 확인하고 채널만 실패
@@ -391,7 +391,7 @@ test("서버 목록이 소속 종료를 확인하면 채널 조회 실패에도 
     assert.deepEqual(testHarness.state(),{userId:"1",channelIds:[],draft:""}); // 확인된 탈퇴 자료 비노출
     assert.equal(testHarness.evaluate("endedFeed.list().length"),0); // 기록 저장소 폐기
     assert.equal(testHarness.evaluate("serverManager.selected"),null); // 실제 빈 소속
-}); // 소속 조회 성공 경계 검사 끝
+});
 test("서버 소속 403은 비활성 채널 초안도 재참여 전 폐기", async (context) => // 여러 채널 서버의 소속 상실 범위
 {
     const testHarness=setup((call)=>call.url.includes("list_servers")?{status:200,data:{servers:[{id:"1",name:"서버",owner_id:"2",role:"member"}]}}:call.url.includes("get_channels")?{status:200,data:{channels:[{id:"1",server_id:"1",server_name:"서버",name:"일반"},{id:"2",server_id:"1",server_name:"서버",name:"개발"}]}}:{status:200,data:{messages:[],pagination:{next_before_id:null,next_after_id:"0",has_more:false}}}); // 재참여 뒤 같은 소속
@@ -401,4 +401,4 @@ test("서버 소속 403은 비활성 채널 초안도 재참여 전 폐기", asy
     await testHarness.evaluate("loadChannels()"); // 실제 재참여 후 목록 조회
     testHarness.evaluate('selectChannel("2")'); // 이전 비활성 채널 선택
     assert.equal(testHarness.state().draft,""); // 이전 소속의 초안 재복원 없음
-}); // 비활성 초안 범위 검사 끝
+});

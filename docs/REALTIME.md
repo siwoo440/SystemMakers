@@ -12,6 +12,7 @@ PHP 8.3.36과 Ratchet 0.4.4를 이용해 선택한 채널 또는 개인 대화�
 - PHP 실행 파일을 `.runtime/php83/php.exe`, PHP 8.3 확장 설정을 `.runtime/php83.ini`에 둔다. 개인 설정과 의존성 실행 파일은 Git에 포함되지 않는다.
 - `.runtime/php83.ini`의 `extension_dir`는 PHP 8.3의 `ext` 폴더를 가리켜야 하며, `session.save_path`는 두 서버가 함께 사용할 쓰기 가능한 절대 경로여야 한다. 기존 PHP 8.4용 확장 경로를 그대로 사용하지 않는다.
 - `backend/realtime`에서 Composer 의존성을 설치한다. 설치한 `vendor` 폴더는 Git에 포함하지 않는다.
+- `composer.json`의 `require`는 필요한 패키지 목록이며, `cboden/ratchet` 항목은 설치할 수 있는 버전 범위다. `composer.lock`은 실제 설치 버전을 고정한다.
 
 ```powershell
 composer install --working-dir=backend/realtime --no-dev # 실시간 서버 라이브러리 설치

@@ -96,7 +96,7 @@ test("개인 대화의 참여자 권한과 차단 경계", async (context) => //
     assert.equal(environment.sql("SELECT COUNT(*) FROM direct_messages"), "3"); // 실패 저장 롤백
     environment.sql("DROP TRIGGER dm_test_failure"); // 장애 제거
     assert.equal((await bob.request("send_dm.php", { conversation_id: conversationId, content: "정상" })).status, 201); // 실패 후 잠금 해제
-}); // 개인 대화 통합 검사 끝
+});
 
 test("개인 대화 변경의 기존 자료 보존과 재적용 차단", async (context) => // 실제 DDL 상태 검사
 {
@@ -107,7 +107,7 @@ test("개인 대화 변경의 기존 자료 보존과 재적용 차단", async (
     assert.equal(environment.sql("SELECT username FROM users WHERE id=" + alice.id), "migration_alice"); // 기존 계정 보존
     assert.throws(migration); // 재적용 중단
     assert.equal(environment.sql("SELECT COUNT(*) FROM users"), "1"); // 재적용 실패 후 자료 보존
-}); // 보존형 변경 검사 끝
+});
 
 test("개인 대화 변경의 부분 적용 감지", async (context) => // 불완전한 DDL 재실행 차단
 {
@@ -115,4 +115,4 @@ test("개인 대화 변경의 부분 적용 감지", async (context) => // 불�
     environment.sql("CREATE TABLE user_blocks (placeholder INT)"); // 부분 적용 상태 재현
     assert.throws(() => execFileSync(environment.php, ["-c", process.env.PHP_TEST_INI || path.join(environment.root, ".runtime/php.ini"), path.join(environment.root, "scripts/migrate-002.php")], { env: environment.env, encoding: "utf8", windowsHide: true, stdio: "pipe" })); // 부분 상태 거절
     assert.equal(environment.sql("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='direct_conversations'"), "0"); // 추가 DDL 미실행
-}); // 부분 적용 검사 끝
+});

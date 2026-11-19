@@ -17,7 +17,7 @@ test("첨부 정보는 메시지별 최대 50건으로 조회하며 중복 요�
     assert.equal(changes, 0); // 빈 첨부 응답의 화면 교체 생략
     assert.equal(new URL(calls[0], "https://example.test").searchParams.get("message_ids").split(",").length, 50); // 첫 요청 상한
     view.stop(); // 조회 수명 정리
-}); // 묶음 조회 검사 끝
+});
 test("이전 계정의 늦은 첨부 정보는 표시하지 않음", async () => // 다른 계정이나 대화에 파일 노출 차단
 {
     let finish; // 지연 응답 제어
@@ -29,7 +29,7 @@ test("이전 계정의 늦은 첨부 정보는 표시하지 않음", async () =>
     await pending; // 완료 처리 대기
     assert.equal(view.get("2"), null); // 이전 첨부 미반영
     assert.equal(changed, 0); // 이전 화면 갱신 차단
-}); // 첨부 수명 검사 끝
+});
 test("첨부 조회 중 도착한 페이지와 실패한 묶음은 다음 조회에서 복구", async () => // 빈 페이지에서의 첨부 재시도
 {
     const batches = []; // 실제 조회된 메시지 묶음
@@ -50,7 +50,7 @@ test("첨부 조회 중 도착한 페이지와 실패한 묶음은 다음 조회
     await view.load([]); // 새 메시지 없는 다음 갱신
     await view.load([]); // 확인 완료 뒤 유휴 갱신
     assert.deepEqual(batches, ["1", "1,2"]); // 누락과 중복 없는 재조회
-}); // 첨부 재시도 검사 끝
+});
 test("파일 업로드는 대상과 파일을 multipart 본문으로 한 번 전달", async () => // 잘못된 대화와 재전송 차단
 {
     const calls = []; // 실제 업로드 요청
@@ -59,13 +59,13 @@ test("파일 업로드는 대상과 파일을 multipart 본문으로 한 번 전
     {
         calls.push({ path, body }); // 실제 요청 보관
         return { message: { id: "2", conversation_id: "7", user_id: "1", username: "alice", content: "파일: 문서.txt", created_at: "2026-11-11T00:00:00Z" }, attachment: { id: "9", message_id: "2", original_name: "문서.txt", file_size: 4 } }; // 저장된 파일 응답
-    } }); // 업로드 완료
+    } });
     assert.equal(calls.length, 1); // 자동 재전송 없음
     assert.equal(calls[0].body.get("kind"), "direct"); // 대화 유형
     assert.equal(calls[0].body.get("target_id"), "7"); // 대상 식별자
     assert.equal(calls[0].body.get("file").name, "문서.txt"); // 실제 선택 파일
     assert.equal(result.attachment.message_id, "2"); // 저장 메시지와 파일 연결
-}); // 파일 전송 검사 끝
+});
 test("빈 파일과 5 MiB 초과 파일은 업로드 요청 없이 거절", async () => // 제한 밖 파일의 서버 전송 차단
 {
     let requests = 0; // 실제 전송 수
@@ -73,4 +73,4 @@ test("빈 파일과 5 MiB 초과 파일은 업로드 요청 없이 거절", asyn
     await assert.rejects(uploadAttachment({ kind: "channel", targetId: "5", userId: "1", file: new File([], "빈파일.txt"), request })); // 빈 파일 거절
     await assert.rejects(uploadAttachment({ kind: "channel", targetId: "5", userId: "1", file: new File([new Uint8Array(5242881)], "큰파일.bin"), request })); // 상한 초과 거절
     assert.equal(requests, 0); // 실제 업로드 요청 없음
-}); // 업로드 크기 검사 끝
+});

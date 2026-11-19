@@ -35,11 +35,11 @@ export async function openWebsocket(url, cookie, origin) // 실제 TLS와 쿠키
     socket.on('error', (error) => // 연결 오류 관찰
     {
         state.error = error; // 진단 가능한 오류 보관
-    }); // 오류 관찰 끝
+    });
     socket.on('close', () => // 연결 종료 관찰
     {
         state.closed = true; // 종료 상태 기록
-    }); // 종료 관찰 끝
+    });
     socket.on('data', (chunk) => // 서버 프레임 처리
     {
         buffer = Buffer.concat([buffer, chunk]); // 수신 조각 결합
@@ -93,7 +93,7 @@ export async function openWebsocket(url, cookie, origin) // 실제 TLS와 쿠키
                 socket.end(); // 종료 절차 진행
             }
         }
-    }); // 수신 관찰 끝
+    });
     await once(socket, encrypted ? 'secureConnect' : 'connect'); // 실제 연결 준비
     socket.write(`GET ${address.pathname} HTTP/1.1\r\nHost: ${address.host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: 13\r\nOrigin: ${origin}\r\nCookie: ${cookie}\r\n\r\n`); // 브라우저와 같은 요청
     await until(() => state.upgraded || state.error !== null); // 업그레이드 결과 대기

@@ -36,9 +36,9 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             {
                 manager.select(serverEntry.id); // 선택 ID 저장
                 await onSelect(); // 선택한 서버의 채널 표시
-            }); // 전환 연결 끝
+            });
             return serverButton; // 완성한 탐색 요소
-        })); // 서버 버튼 준비 끝
+        }));
         byId("selected-server").textContent = server?.name || "참여 서버 없음"; // 실제 서버 제목
         byId("server-status").textContent = manager.loading ? "서버 확인 중…" : server ? `내 역할: ${server.role === "owner" ? "소유자" : server.role === "admin" ? "관리자" : "일반 회원"}` : ""; // 소속 상태
         if (/^#invite=[a-f0-9]{64}$/.test(globalThis.location?.hash || "")) // 수신한 공유 링크 확인
@@ -210,7 +210,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             }
         }
         render(); // 처리 종료 버튼 상태
-    }); // 폼 제출 연결 끝
+    });
     for (const [elementId, nextOperation] of [["create-server", "create"], ["join-server", "join"], ["invite-server", "invite"], ["leave-server", "leave"], ["delete-server", "delete"]]) // 작업별 진입점
     {
         byId(elementId).addEventListener("click", () => open(nextOperation)); // 고정 작업 화면 연결
@@ -238,7 +238,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             }
         }
         render(); // 최종 버튼 갱신
-    }); // 폐기 연결 끝
+    });
     byId("copy-invite").addEventListener("click", async () => // 사용자의 명시적 코드 복사
     {
         try // 클립보드 권한 경계
@@ -251,7 +251,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             byId("invite-code").select(); // 직접 복사할 원문 선택
             byId("server-error").textContent = "선택한 코드를 직접 복사하세요."; // 대체 조작 안내
         }
-    }); // 복사 연결 끝
+    });
     byId("copy-invite-link").addEventListener("click", async () => // 사용자의 명시적 링크 복사
     {
         try // 클립보드 권한 경계
@@ -264,7 +264,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             byId("invite-link").select(); // 직접 복사할 링크 선택
             byId("server-error").textContent = "선택한 링크를 직접 복사하세요."; // 대체 조작 안내
         }
-    }); // 링크 복사 연결 끝
+    });
     bindBackdropDismiss(managementDialog, () => !manager.busy); // 요청 중 닫기 보호
     managementDialog.addEventListener("cancel", (uiEvent) => // 요청 중 Escape 종료 방지
     {
@@ -272,11 +272,11 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
         {
             uiEvent.preventDefault(); // 늦은 결과 화면 혼동 방지
         }
-    }); // Escape 처리 끝
+    });
     managementDialog.addEventListener("close", () => // 완료·취소 뒤 원문 제거
     {
         clear(); // 코드와 입력 폐기
         render(); // 서버 탐색 다시 허용
-    }); // 닫기 정리 끝
+    });
     return { render, clear }; // 계정 변경 시 연결할 경계
 }

@@ -8,4 +8,4 @@ test("SQL 검사 도구의 복수 결과·이스케이프·오류·개발 DB 차
     assert.throws(() => querySql("33361", "", "SELECT 1; SELECT missing_column;"), (error) => String(error.stderr).includes("ERROR 1054 ")); // 후속 SQL 오류 전달
     assert.throws(() => querySql("33360", "", "SELECT 1;"), (error) => String(error.stderr).includes("전용 검사 DB만 허용")); // 개발 DB 접속 전 차단
     assert.throws(() => querySql("33361", "systemmakers", "SELECT 1;"), (error) => String(error.stderr).includes("전용 검사 DB만 허용")); // 개발 DB 이름 차단
-}); // 검사 등록 끝
+});
