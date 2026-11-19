@@ -14,7 +14,8 @@ test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { ski
         session.request = async (endpoint, body = null, headers = {}) => // 공개 API 요청
         {
             const response = await fetch(`${origin}/Team006/backend/api/${endpoint}`, { method: body === null ? 'GET' : 'POST', headers: { Cookie: session.cookie, ...(session.id ? { 'X-Expected-User-Id': session.id } : {}), ...(body === null ? {} : { 'Content-Type': 'application/json', 'X-CSRF-Token': session.token }), ...headers }, body: body === null ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15000) }); // 실제 TLS와 세션 요청
-            const cookie = response.headers.get('set-cookie'); // 서버 쿠키 교체
+            const sessionCookies = response.headers.getSetCookie().filter((cookie) => cookie.startsWith('systemmakers_session=')); // 개별 세션 쿠키 헤더
+            const cookie = sessionCookies.at(-1); // 브라우저와 같은 마지막 쿠키 적용
             if (cookie) // 새 쿠키 존재 여부
             {
                 assert.match(cookie, /; secure/iu); // 운영 Secure 속성 유지
@@ -38,6 +39,7 @@ test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { ski
         const login = await session.request('login.php', { email: `${username}@example.test`, password }); // 기존 로그인 처리
         assert.equal(login.status, 200); // 로그인 성공 확인
         session.id = login.data.user.id; // 실제 사용자 번호
+        assert.equal((await session.request('get_current_user.php')).data?.user.id, session.id, '로그인 직후 세션 유지'); // 실제 인증 세션 확인
         return session; // 인증된 브라우저 상태
     }
     async function subscribe(session, subscription, allowedOrigin = origin) // 웹 세션으로 WSS 구독

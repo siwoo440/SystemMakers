@@ -8,7 +8,11 @@ permissions: # 읽기 전용 저장소 접근
   contents: read # 소스 체크아웃만 허용
 jobs: # 컨테이너 검사 작업
   docker: # Linux Docker 런타임
-    runs-on: ubuntu-latest # Docker 사용 가능 러너
+    strategy: # NAS의 ARM64와 기존 AMD64 검증
+      fail-fast: false # 다른 CPU 검사도 끝까지 확인
+      matrix: # 네이티브 CPU 실행 환경
+        runner: [ubuntu-latest, ubuntu-24.04-arm] # AMD64와 DH4300 Plus 계열 ARM64
+    runs-on: ${{ matrix.runner }} # 실제 CPU의 Docker 러너
     timeout-minutes: 25 # 무한 실행 방지
     steps: # 검사 순서
       - uses: actions/checkout@v4 # 현재 소스 체크아웃

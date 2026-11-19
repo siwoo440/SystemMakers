@@ -22,6 +22,15 @@
 NAS 관리 화면, MySQL 3306, 웹 내부 80, Ratchet 8090은 별도로 외부 공개하지 않는다. 외부에 노출하는 것은 프록시의 80·443뿐이다.
 
 ---
+### 확인된 모델: UGREEN DH4300 Plus
+
+2026-11-19 사용자가 소유자에게 받은 모델명은 DH4300 Plus다. UGREEN 공식 자료는 Rockchip ARM 8코어·8GB LPDDR4X와 Docker 지원을 명시하며 Docker 안내는 해당 모델에 ARM64 이미지를 요구한다. 실제 설치된 OS·Docker·Compose 버전, 앱 설치와 프로젝트 생성 권한은 아직 확인되지 않았다.
+
+공식 안내의 설치 경로는 App Center의 Docker 앱과 Docker → Project → Create다. 이 구성은 저장소 전체 빌드 문맥을 사용하므로 해당 UI의 build 지원과 Compose 버전을 확인하고, CLI를 사용할 때는 소유자가 허용한 SSH 계정으로 실행한다. amd64 이미지 강제 실행이나 임의의 비공식 앱 설치를 전제로 하지 않는다.
+
+공식 PHP 8.3 Apache Bookworm과 MySQL 8.4 이미지 목록에 arm64v8이 포함돼 있음을 확인했다. 실제 NAS의 UGOS·CPU·볼륨에서 실행된 결과는 아직 없다. GitHub Actions에 네이티브 AMD64·ARM64 검사를 함께 구성하며 이를 실제 NAS 배포 검증과 구분한다.
+
+---
 ## 2. 서비스 구조와 보존 경계
 
 외부 브라우저 → HTTPS/WSS Caddy → Apache/PHP 또는 Ratchet → MySQL.
@@ -156,3 +165,7 @@ GitHub Actions의 NAS Docker 검증도 같은 도구를 실행한다. 이 검사
 - [Caddy 자동 HTTPS](https://caddyserver.com/docs/automatic-https)
 - [Caddy WebSocket 프록시](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy)
 - [MySQL 8.4 논리 백업](https://dev.mysql.com/doc/refman/8.4/en/mysqldump.html)
+- [DH4300 Plus 공식 사양](https://ai.ugreen.com/products/ugreen-nasync-dh4300-plus-nas-storage)
+- [UGREEN Docker·Compose와 ARM64 안내](https://ai.ugreen.com/blogs/knowledge/docker-docker-compose-ugreen-nas)
+- [공식 PHP 이미지 구조 목록](https://github.com/docker-library/official-images/blob/master/library/php)
+- [공식 MySQL 이미지 구조 목록](https://github.com/docker-library/official-images/blob/master/library/mysql)

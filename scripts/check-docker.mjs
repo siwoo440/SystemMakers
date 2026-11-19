@@ -45,6 +45,7 @@ try // 실패 시에도 검사 자원 정리
     compose(['up', '-d', '--wait', '--wait-timeout', '180']); // 실제 DB·웹·Ratchet 시작
     compose(['exec', '-T', 'web', 'apachectl', '-t']); // Apache 운영 진입점 문법
     admin('bootstrap-empty'); // 빈 검사 DB만 명시적으로 준비
+    assert.throws(() => admin('bootstrap-empty', { stdio: 'pipe' }), (error) => /빈 DB만/u.test(String(error.stderr))); // 기존 DB 재초기화 거절
     admin('restrict-app'); // 실제 DML 전용 계정으로 앱 검사
     assert.throws(() => compose(['exec', '-T', 'database', 'sh', '-c', 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u "$MYSQL_USER" "$MYSQL_DATABASE" -e "CREATE TABLE privilege_probe (id INT)"'], { stdio: 'pipe' }), (error) => /ERROR 1142/u.test(String(error.stderr))); // 앱 계정의 실제 DDL 거절
     const rootCertificate = path.join(scratch, 'root.crt'); // 이번 검사 CA 파일
@@ -69,6 +70,8 @@ try // 실패 시에도 검사 자원 정리
     execFileSync(process.execPath, ['--test', 'tests/docker-flow.test.mjs'], { env: testEnvironment, stdio: 'inherit', timeout: 120000 }); // DB 복구 뒤 실제 로그인과 WSS 재확인
     const before = snapshot(); // 재생성 전 기준
     const backup = admin('backup', { stdio: ['pipe', 'pipe', 'pipe'] }); // 실제 논리 백업
+    assert.throws(() => admin('restore-empty', { input: backup, stdio: ['pipe', 'pipe', 'pipe'] }), (error) => /빈 DB만/u.test(String(error.stderr))); // 기존 DB 덮어쓰기 복원 거절
+    assert.equal(snapshot(), before); // 거절 후 원본 데이터 유지
     writeFileSync(path.join(scratch, 'backup.sql'), backup); // Git 제외 백업 보관
     compose(['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '180']); // 볼륨을 유지한 전체 컨테이너 재생성
     assert.equal(snapshot(), before); // 계정·대화·첨부 영속성 확인
