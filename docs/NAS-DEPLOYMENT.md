@@ -50,7 +50,7 @@ docker info --format '{{.Architecture}}' # 실제 엔진 CPU 구조 확인
 
 `.env`를 편집해 APP_DOMAIN을 실제 도메인으로, MYSQL_DATABASE·MYSQL_USER를 명시적인 서비스 이름으로 지정한다. DB 이름·계정은 영문·숫자·밑줄만 사용한다. MYSQL_PASSWORD·MYSQL_ROOT_PASSWORD에는 서로 다른 충분히 긴 임의 비밀번호, AUTH_RATE_LIMIT_KEY에는 32바이트 이상 난수 비밀 값을 설정한다. 특수 문자가 있는 값은 Compose .env 문법에 맞게 작은따옴표로 감싸고 비밀 값을 출력·공유하지 않는다.
 
-PROXY_SUBNET과 CADDY_PROXY_IP가 NAS·공유기·다른 Docker 연결망과 충돌하지 않는지 확인한다. IP를 바꾸면 같은 대역 안의 고정 프록시 주소를 사용한다.
+PROXY_SUBNET과 CADDY_PROXY_IP가 NAS·공유기·다른 Docker 연결망과 충돌하지 않는지 확인한다. PROXY_DYNAMIC_RANGE는 같은 서브넷 안에서 고정 프록시 주소를 제외한 자동 배정 범위다. 세 값을 함께 변경하며 기본값은 각각 172.30.60.0/24·172.30.60.128/25·172.30.60.2다. 고정 주소가 자동 배정 범위에 포함되면 컨테이너 시작 순서에 따라 충돌할 수 있다.
 
 PHP_IMAGE·MYSQL_IMAGE·CADDY_IMAGE 기본값은 PHP 8.3 Apache Bookworm, MySQL 8.4, Caddy 2 계열이다. 계열 태그는 패치 이미지가 바뀔 수 있다. 실제 NAS 배포 전 각 이미지의 CPU 지원과 업데이트를 확인하고, 검증한 tag@sha256 digest로 개인 설정을 고정해 재현성을 확보한다. 다른 CPU 구조의 지원을 이 문서에서 보장하지 않는다.
 

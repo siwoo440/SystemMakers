@@ -37,7 +37,7 @@ services: # 운영 서비스
         condition: service_started # 독립 재시작 허용
     logging: *boundedLogging # 로그 회전 적용
   web: # 운영 PHP와 Apache
-    image: systemmakers-php:local # 웹과 실시간 서버의 공통 이미지
+    image: ${APP_IMAGE:-systemmakers-php:local} # 웹과 실시간 서버의 공통 이미지
     build: # PHP 확장과 잠금 의존성 빌드
       context: . # 저장소 빌드 문맥
       dockerfile: docker/Dockerfile # 운영 이미지 정의
@@ -61,7 +61,7 @@ services: # 운영 서비스
       start_period: 30s # 초기 준비 유예
     logging: *boundedLogging # 로그 회전 적용
   realtime: # 독립 Ratchet 프로세스
-    image: systemmakers-php:local # 웹과 동일한 PHP와 UID
+    image: ${APP_IMAGE:-systemmakers-php:local} # 웹과 동일한 PHP와 UID
     restart: unless-stopped # DB 장애 종료 후 재연결
     user: www-data # 웹과 같은 세션 소유자
     command: [php, /srv/systemmakers/backend/realtime/server.php] # 운영 실시간 서버
@@ -108,6 +108,7 @@ networks: # 서비스 경계
     ipam: # 명시적 주소 관리
       config: # 주소 대역 설정
         - subnet: ${PROXY_SUBNET:-172.30.60.0/24} # 실제 NAS 대역과 충돌 방지
+          ip_range: ${PROXY_DYNAMIC_RANGE:-172.30.60.128/25} # 고정 프록시 주소와 자동 배정 대역 분리
   data_net: # 비공개 DB 연결망
     internal: true # 외부 직접 연결 차단
 volumes: # 운영 영속 데이터

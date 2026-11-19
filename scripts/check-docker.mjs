@@ -20,7 +20,7 @@ async function freePort() // 빈 루프백 포트 선택
 const httpPort = await freePort(); // 검사 HTTP 포트
 const httpsPort = await freePort(); // 검사 HTTPS 포트
 const proxySegment = 20 + Math.floor(Math.random() * 180); // 실행별 검사 연결망 구분
-const environment = { ...process.env, APP_DOMAIN: 'localhost', MYSQL_DATABASE: 'systemmakers_ci', MYSQL_USER: 'systemmakers_ci', MYSQL_PASSWORD: randomBytes(24).toString('hex'), MYSQL_ROOT_PASSWORD: randomBytes(24).toString('hex'), AUTH_RATE_LIMIT_KEY: randomBytes(32).toString('hex'), PROXY_SUBNET: `172.29.${proxySegment}.0/24`, CADDY_PROXY_IP: `172.29.${proxySegment}.2`, TEST_HTTP_PORT: httpPort, TEST_HTTPS_PORT: httpsPort }; // 운영 비밀 값을 사용하지 않는 검사
+const environment = { ...process.env, APP_IMAGE: `${project}-php:local`, APP_DOMAIN: 'localhost', MYSQL_DATABASE: 'systemmakers_ci', MYSQL_USER: 'systemmakers_ci', MYSQL_PASSWORD: randomBytes(24).toString('hex'), MYSQL_ROOT_PASSWORD: randomBytes(24).toString('hex'), AUTH_RATE_LIMIT_KEY: randomBytes(32).toString('hex'), PROXY_SUBNET: `172.29.${proxySegment}.0/24`, PROXY_DYNAMIC_RANGE: `172.29.${proxySegment}.128/25`, CADDY_PROXY_IP: `172.29.${proxySegment}.2`, TEST_HTTP_PORT: httpPort, TEST_HTTPS_PORT: httpsPort }; // 운영 비밀 값과 이미지 이름을 사용하지 않는 검사
 const baseArguments = ['compose', '-f', 'compose.yaml', '-f', 'docker/compose.test.yaml']; // 승인한 운영 구성에 검사 포트 적용
 function compose(args, options = {}, selectedProject = project, selectedEnvironment = environment) // 프로젝트를 제한한 Docker 실행
 {
@@ -73,7 +73,7 @@ try // 실패 시에도 검사 자원 정리
     assert.equal(snapshot(), before); // 계정·대화·첨부 영속성 확인
     compose(['down']); // 원본 검사 볼륨은 유지한 채 네트워크 해제
     restoreProject = `${project}restore`; // 새로운 복원 볼륨 구분
-    restoreEnvironment = { ...environment, PROXY_SUBNET: `172.28.${proxySegment}.0/24`, CADDY_PROXY_IP: `172.28.${proxySegment}.2` }; // 복원 전용 연결망
+    restoreEnvironment = { ...environment, PROXY_SUBNET: `172.28.${proxySegment}.0/24`, PROXY_DYNAMIC_RANGE: `172.28.${proxySegment}.128/25`, CADDY_PROXY_IP: `172.28.${proxySegment}.2` }; // 복원 전용 연결망
     compose(['up', '-d', '--wait', '--wait-timeout', '180'], {}, restoreProject, restoreEnvironment); // 별도 빈 DB 시작
     admin('restore-empty', { input: backup, stdio: ['pipe', 'pipe', 'pipe'] }, restoreProject, restoreEnvironment); // 새 볼륨으로만 복원
     admin('restrict-app', {}, restoreProject, restoreEnvironment); // 복원 후 앱 최소 권한
