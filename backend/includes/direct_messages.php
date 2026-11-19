@@ -1,6 +1,6 @@
 <?php // 개인 대화 저장과 권한 처리
 declare(strict_types=1); // 엄격한 자료형 검사
-require_once __DIR__ . '/messages.php'; // 메시지 내용 검증
+require_once __DIR__ . '/message_history.php'; // 메시지 검증과 공통 페이지 조회
 final class DirectAccessException extends RuntimeException // 개인 대화 접근 오류
 {
 }
@@ -27,7 +27,7 @@ function direct_conversation(array $databaseRow, string $userId): array // 상�
 }
 function direct_message(array $databaseRow): array // 공개 메시지 변환
 {
-    return ['id' => (string) $databaseRow['id'], 'conversation_id' => (string) $databaseRow['conversation_id'], 'user_id' => (string) $databaseRow['user_id'], 'username' => $databaseRow['username'], 'content' => $databaseRow['content'], 'created_at' => (new DateTimeImmutable($databaseRow['created_at'], new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z')]; // 공개 메시지 필드
+    return public_message($databaseRow, 'conversation_id'); // 개인 대화의 공개 메시지
 }
 function create_direct_conversation(PDO $databaseConnection, string $userId, string $otherId): array // 중복 없는 대화 생성
 {
@@ -128,37 +128,15 @@ function store_direct_message(PDO $databaseConnection, string $conversationId, s
         throw $caughtException; // 호출자 오류 전달
     }
 }
-function read_direct_messages(PDO $databaseConnection, string $conversationId, string $userId, int $messageLimit, ?string $beforeId, ?string $afterId): array // 커서 기반 개인 기록
+function read_direct_messages(PDO $databaseConnection, string $conversationId, string $userId, int $messageLimit, ?string $beforeId, ?string $afterId, bool $includeAttachments = false): array // 커서 기반 개인 기록
 {
-    $mode = $beforeId !== null ? 'before' : ($afterId !== null ? 'after' : 'initial'); // 조회 방향
     try // 조회와 권한 확인 원자화
     {
         $databaseConnection->beginTransaction(); // 조회 트랜잭션 시작
         direct_access($databaseConnection, $conversationId, $userId, false); // 참여자 확인
-        $condition = $beforeId !== null ? ' AND m.id < :cursor' : ($afterId !== null ? ' AND m.id > :cursor' : ''); // 배타 커서 조건
-        $order = $mode === 'after' ? 'ASC' : 'DESC'; // 방향별 정렬
-        $query = $databaseConnection->prepare('SELECT m.id, m.conversation_id, m.user_id, u.username, m.content, m.created_at FROM direct_messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = :conversation' . $condition . ' ORDER BY m.id ' . $order . ' LIMIT :count'); // 실제 기록 조회
-        $query->bindValue(':conversation', $conversationId, PDO::PARAM_STR); // 대화 ID 보존
-        if ($mode !== 'initial') // 커서 존재 여부
-        {
-            $query->bindValue(':cursor', $beforeId ?? $afterId, PDO::PARAM_STR); // 메시지 ID 보존
-        }
-        $query->bindValue(':count', $messageLimit + 1, PDO::PARAM_INT); // 다음 페이지 판별
-        $query->execute(); // 기록 조회
-        $rows = $query->fetchAll(); // 실제 기록
-        $hasMore = count($rows) > $messageLimit; // 추가 기록 여부
-        if ($hasMore) // 초과 기록 존재
-        {
-            array_pop($rows); // 판별용 행 제외
-        }
-        if ($mode !== 'after') // 역순 조회 여부
-        {
-            $rows = array_reverse($rows); // 화면용 오름차순
-        }
-        $messages = array_map('direct_message', $rows); // 공개 메시지 변환
-        $pagination = ['mode' => $mode, 'has_more' => $hasMore, 'next_before_id' => $messages === [] ? null : $messages[0]['id'], 'next_after_id' => $messages === [] ? ($afterId ?? '0') : $messages[count($messages) - 1]['id']]; // 다음 조회 커서
+        $page = read_authorized_message_page($databaseConnection, true, $conversationId, $messageLimit, $beforeId, $afterId, $includeAttachments); // 참여 권한을 확인한 개인 기록
         $databaseConnection->commit(); // 조회 잠금 해제
-        return ['messages' => $messages, 'pagination' => $pagination]; // 페이지 반환
+        return $page; // 커밋을 마친 개인 기록
     }
     catch (Throwable $caughtException) // 모든 조회 실패
     {

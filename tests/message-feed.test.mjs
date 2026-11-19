@@ -152,6 +152,17 @@ test("잘못된 채널과 커서 응답의 원자적 거절", async () => // 잘
     assert.equal(testHarness.feed.after, "1"); // 확인되지 않은 커서 사용 없음
     testHarness.feed.pause(); // 작업 종료
 });
+test("다른 메시지의 첨부가 섞이면 페이지와 커서 유지", async () => // 잘못 연결된 다운로드 차단
+{
+    const next = page(["2", "3"], "after"); // 다음 기록 두 건
+    next.messages[1].attachment = { id: "8", message_id: "2", original_name: "다른 파일.txt", file_size: 4 }; // 메시지 ID 불일치
+    const harness = await setup((count) => count === 1 ? page(["1"], "initial") : next); // 기존 기록 뒤 잘못된 응답
+    await harness.feed.activate(); // 최초 페이지 확인
+    await harness.tick(); // 잘못된 첨부 도착
+    assert.deepEqual(harness.feed.list().map((entry) => entry.id), ["1"]); // 기존 목록 유지
+    assert.equal(harness.feed.after, "1"); // 확인된 커서 유지
+    harness.feed.pause(); // 예약 정리
+});
 test("브라우저 기본 타이머의 전역 호출 대상 유지", async () => // Window 타이머의 Illegal invocation 포착
 {
     const { MessageFeed } = await import(pathToFileURL(resolve("frontend/message-feed.mjs"))); // 실제 브라우저 모듈

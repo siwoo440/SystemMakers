@@ -1,5 +1,5 @@
 "use strict"; // 엄격한 자바스크립트 검사
-import { MessageFeed } from "./message-feed.mjs"; // 채널 기록과 자동 갱신 수명 관리
+import { MessageFeed, createMessageList, messageForDisplay } from "./message-feed.mjs"; // 채널 기록과 자동 갱신 수명 관리
 import { ServerManager } from "./server-manager.mjs"; // 실제 서버 소속 상태
 import { mountServerUI } from "./server-ui.mjs"; // 명시적 관리 화면
 import { mountChannelUI } from "./channel-ui.mjs"; // 역할별 채널 관리 화면
@@ -13,6 +13,7 @@ let channels = Object.create(null); // 서버에서 확인한 채널별 화면 �
 const messageInput = byId("message-input"); // 메시지 작성 필드
 const messageScroll = byId("message-scroll"); // 대화 스크롤 영역
 const messages = byId("messages"); // 메시지 목록
+const renderChannelMessages = createMessageList(messages, createMessage); // 채널별 말풍선 재사용
 const authDialog = byId("auth-dialog"); // 인증 대화상자
 const authForm = byId("auth-form"); // 실제 인증 요청 폼
 const passwordInput = byId("auth-password"); // 비밀번호 입력 필드
@@ -103,7 +104,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
 {
     function updateMessageList() // 채널 기록과 첨부를 화면 자료로 변환
     {
-        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, isOwn: messageEntry.user_id === userId, name: messageEntry.user_id === userId ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments?.get(messageEntry.id) })); // 작성자와 파일 정보 연결
+        channel.messages = channelFeed.list().map((message) => messageForDisplay(message, currentUser, channel.attachments)); // 확인된 계정의 채널 말풍선 자료
     }
     const channelFeed = new MessageFeed({ channelId, request: (messageQuery, abortSignal) => requestEndpoint("./backend/api/get_messages.php?" + messageQuery, null, abortSignal), onChange: (feedChange) => // 동일 출처의 취소 가능한 기록 조회
     {
@@ -125,7 +126,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
             const previousScrollTop = messageScroll.scrollTop; // 기존 읽는 위치
             const previousScrollHeight = messageScroll.scrollHeight; // 이전 기록 높이
             const keepBottom = nearBottom(); // 새 메시지 자동 이동 조건
-            messages.replaceChildren(...channel.messages.map(createMessage)); // 중복 없는 실제 기록 표시
+            renderChannelMessages(channel, channel.messages); // 중복 없는 실제 기록 표시
             if (feedChange.kind === "initial" || (feedChange.kind !== "before" && keepBottom)) // 최초 진입 또는 하단에서 신규 수신
             {
                 scrollToBottom(); // 최신 대화 위치 표시
@@ -195,7 +196,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         }
         updateMessageList(); // 확인된 다운로드 링크 반영
         const previousScrollTop = messageScroll.scrollTop; // 기존 읽는 위치
-        messages.replaceChildren(...channel.messages.map(createMessage)); // 다운로드 링크 갱신
+        renderChannelMessages(channel, channel.messages); // 다운로드 링크 갱신
         messageScroll.scrollTop = previousScrollTop; // 읽던 위치 보존
     }, onError: (error) => // 파일 정보 실패 안내
     {
@@ -340,7 +341,7 @@ function renderEmptyConversation() // 선택 가능한 채널 없는 화면
     byId("welcome-description").textContent = currentUser ? channelError || (serverManager.selected ? emptyChannelHint() : "서버 만들기 또는 초대로 참여 버튼으로 시작하세요.") : "계정으로 로그인하면 참여 중인 채널을 확인할 수 있습니다."; // 빈 상태의 실제 다음 조작
     byId("message-label").textContent = "메시지 작성"; // 기본 입력 레이블
     messageInput.placeholder = currentUser ? "참여 중인 채널을 선택하세요" : "로그인 후 메시지를 작성하세요"; // 실제 입력 조건
-    messages.replaceChildren(); // 이전 대화 표시 제거
+    renderChannelMessages(null, []); // 이전 대화 표시 제거
     showNewMessages(); // 새 메시지 안내 초기화
     updateComposer(); // 입력 잠금과 안내 갱신
     updateHistoryControls(); // 빈 화면 기록 조회 상태 초기화
@@ -373,7 +374,7 @@ function selectChannel(channelId) // 실제 소속 채널 전환
     byId("message-label").textContent = `${channel.title} 채널 메시지`; // 채널별 입력 레이블
     messageInput.placeholder = `# ${channel.title}에 메시지 보내기`; // 채널별 입력 안내
     messageInput.value = channel.draft; // 채널별 초안 복원
-    messages.replaceChildren(...channel.messages.map(createMessage)); // 해당 채널의 확인된 저장 메시지
+    renderChannelMessages(channel, channel.messages); // 해당 채널의 확인된 저장 메시지
     renderChannels(); // 실제 버튼 선택 표시 갱신
     updateComposer(); // 선택한 초안 상태 갱신
     messageScroll.scrollTop = channel.scroll === null ? messageScroll.scrollHeight : channel.scroll; // 기존 읽는 위치 복원
@@ -565,7 +566,7 @@ async function sendMessage(uiEvent) // 실제 데이터베이스 메시지 저�
         {
             throw requestError("저장 응답을 확인하지 못했습니다."); // 불완전한 성공 응답 거절
         }
-        channel.feed.add(savedMessage); // 신규 조회 커서를 유지한 전송 결과 중복 제거
+        channel.feed.add({ ...savedMessage, attachment: null }); // 신규 조회 커서를 유지한 전송 결과 중복 제거
         if (channel.draft === messageRequest.content) // 제출 이후 수정하지 않은 초안 여부
         {
             channel.draft = ""; // 확정된 제출 초안만 제거

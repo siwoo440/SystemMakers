@@ -258,8 +258,10 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 | limit | 아니요 | 1~100 사이 정수 문자열; 기본 50; 부호·소수·공백·앞자리 0 불허 |
 | before_id | 아니요 | 이 ID 미만의 이전 메시지; 공통 ID 규칙 |
 | after_id | 아니요 | 이 ID 초과의 신규 메시지; 공통 ID 규칙 또는 초기 커서 `"0"` |
+| include_attachments | 아니요 | `1`이면 메시지마다 `attachment`를 반환한다. 생략하면 기존 메시지 필드를 유지한다. 다른 값은 400이다. |
 
 before_id와 after_id의 동시 사용은 400 `INVALID_QUERY`다. 커서는 범위 기준이며 실제 메시지 존재 여부를 요구하지 않는다. 모든 조회에는 channel_id 필터와 서버 멤버십 검사가 적용된다.
+확장 응답의 `attachment`는 첨부가 없으면 `null`이다. 파일이 있으면 `id`, `message_id`, `original_name`, `file_size`만 담는다. 채널·개인 대화의 초기·이전·신규 페이지에 같은 규칙을 적용한다. 원본 바이트는 `download_attachment.php`에서 현재 참여 권한을 다시 확인한 뒤 전송한다.
 
 | 조회 종류 | 예시 | 선택 순서 | 반환 순서 |
 |---|---|---|---|
@@ -348,7 +350,7 @@ WebSocket 서버가 변경을 알리면 기존 조회를 즉시 요청하고 조
 | require_user(PDO): array | backend/includes/auth.php | 유효한 사용자 반환; 키는 id, username, email, created_at; 비로그인 401, 명시된 기대 계정 불일치 403 SESSION_CHANGED |
 | require_csrf(): void | backend/includes/csrf.php | 세션 토큰과 X-CSRF-Token 비교; 실패 시 공통 403 |
 | store_message(PDO, string, string, string): array | backend/includes/messages.php | 검증된 채널 ID·세션 사용자 ID·원문을 채널·멤버십 잠금과 함께 저장하고 커밋된 공개 메시지 반환 |
-| read_messages(PDO, string, string, int, ?string, ?string): array | backend/includes/message_history.php | 검증된 채널·세션 사용자·개수·이전/신규 커서로 현재 소속과 실제 페이지 조회, 응답 전 전체 잠금 해제 |
+| read_messages(PDO, string, string, int, ?string, ?string, bool = false): array | backend/includes/message_history.php | 검증된 채널·세션 사용자·개수·이전/신규 커서로 현재 소속과 실제 페이지 조회, 응답 전 전체 잠금 해제 |
 | respond_success(array, int): never | backend/includes/response.php | data와 HTTP 상태를 가진 공통 JSON 출력 |
 | respond_error(string, string, int, array): never | backend/includes/response.php | 오류 코드·문구·HTTP 상태·선택적 fields 출력 |
 
@@ -482,7 +484,7 @@ confirm_name은 삭제 미리보기에서 확인한 현재 이름이다. 화면�
 | POST `create_dm.php` | JSON `user_id` | `conversation`: 본인과 대상의 고유 대화, 기존 대화 재사용 |
 | GET `list_dms.php` | 없음 | 본인이 참여한 `conversations` 목록 |
 | POST `send_dm.php` | JSON `conversation_id`, `content` | 저장된 `message` |
-| GET `get_dm_messages.php` | `conversation_id`, 선택 `limit`, `before_id` 또는 `after_id` | `messages`와 `pagination` |
+| GET `get_dm_messages.php` | `conversation_id`, 선택 `limit`, `before_id` 또는 `after_id`, `include_attachments=1` | `messages`와 `pagination` |
 | POST `upload_attachment.php` | multipart `kind` (`channel` 또는 `direct`), `target_id`, `file` | 원자적으로 저장한 `message`, `attachment` |
 | GET `list_attachments.php` | `kind`, `target_id`, `message_ids` (쉼표로 구분한 최대 50개) | 허용된 대화의 첨부 ID·메시지 ID·파일명·바이트 크기 |
 | GET `download_attachment.php` | `id` | 현재 참여 권한을 확인한 원본 바이트; 강제 다운로드 |

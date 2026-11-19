@@ -22,6 +22,11 @@ test("개인 대화의 파일 저장과 다운로드 권한", async (context) =>
     assert.equal(upload.status, 201); // 파일과 메시지 저장 성공
     const saved = (await upload.json()).data; // 저장 결과
     assert.equal(saved.attachment.original_name, "한글.php"); // 한글 파일 이름 보존
+    const historyUrl = "get_dm_messages.php?conversation_id=" + conversationId + "&include_attachments=1"; // 첨부 포함 개인 기록
+    const history = await bob.request(historyUrl); // 참여자의 기록 조회
+    assert.equal(history.status, 200); // 메타데이터 포함 조회 성공
+    assert.deepEqual(history.data.messages[0].attachment, saved.attachment); // 파일 본문 없는 공개 정보
+    assert.equal((await outsider.request(historyUrl)).status, 403); // 개인 대화 제삼자 거절
     const listed = await bob.request("list_attachments.php?kind=direct&target_id=" + conversationId + "&message_ids=" + saved.message.id); // 상대방 메타데이터 조회
     assert.equal(listed.data.attachments[0].id, saved.attachment.id); // 실제 파일 연결
     const download = await fetch(environment.origin + "/Team006/backend/api/download_attachment.php?id=" + saved.attachment.id, { headers: { Cookie: bob.cookie, "X-Expected-User-Id": bob.id } }); // 참여자 다운로드
@@ -65,6 +70,17 @@ test("채널 파일 접근과 업로드 크기 제한", async (context) => // �
     assert.equal(uploaded.status, 201); // 최대 크기 허용
     const saved = (await uploaded.json()).data; // 저장된 첨부 정보
     assert.equal(saved.attachment.file_size, 5242880); // 실제 바이트 기록
+    const historyUrl = "get_messages.php?channel_id=" + channelId + "&include_attachments=1"; // 첨부 포함 채널 기록
+    const history = await owner.request(historyUrl); // 소속 회원의 조회
+    assert.equal(history.status, 200); // 첨부 포함 조회 성공
+    assert.deepEqual(history.data.messages[0].attachment, saved.attachment); // 대용량 바이트를 제외한 파일 정보
+    assert.equal((await outsider.request(historyUrl)).status, 403); // 다른 서버의 첨부 정보 거절
+    assert.equal((await environment.client().request(historyUrl)).status, 401); // 로그인하지 않은 조회 거절
+    await owner.request("send_message.php", { channel_id: channelId, content: "텍스트" }); // 파일 없는 메시지
+    const newer = await owner.request(historyUrl + "&after_id=" + saved.message.id); // 신규 페이지 조회
+    assert.equal(newer.data.messages[0].attachment, null); // 첨부 없는 상태를 명시
+    const older = await owner.request(historyUrl + "&before_id=" + newer.data.messages[0].id); // 과거 페이지 조회
+    assert.deepEqual(older.data.messages[0].attachment, saved.attachment); // 과거 페이지의 파일 연결
     assert.equal((await outsider.request("list_attachments.php?kind=channel&target_id=" + channelId + "&message_ids=" + saved.message.id)).status, 403); // 다른 사용자 목록 조회 차단
     assert.equal((await owner.request("get_messages.php?channel_id=" + channelId)).data.messages[0].id, saved.message.id); // 기존 채널 기록과 연결
     assert.equal(environment.sql("SELECT COUNT(*) FROM message_attachments"), "1"); // 잘못된 요청의 부분 저장 없음

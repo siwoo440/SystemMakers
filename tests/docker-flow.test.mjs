@@ -106,6 +106,11 @@ test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { ski
     const uploaded = await upload(5242880); // 정확히 5 MiB 첨부
     assert.equal(uploaded.status, 201); // 컨테이너 전체 한도 확인
     const attachment = (await uploaded.json()).data.attachment; // 실제 첨부 번호
+    const historyPath = "get_messages.php?channel_id=" + channelId + "&include_attachments=1"; // 파일 정보를 포함한 HTTPS 기록
+    const history = await member.request(historyPath); // 현재 소속 회원의 조회
+    assert.equal(history.status, 200); // 공유 세션의 조회 권한 유지
+    assert.deepEqual(history.data.messages.find((message) => message.id === attachment.message_id)?.attachment, attachment); // 업로드와 동일한 파일 정보
+    assert.equal((await outsider.request(historyPath)).status, 403); // 소속 없는 계정의 통합 조회 거절
     const downloadPath = `${origin}/Team006/backend/api/download_attachment.php?id=${attachment.id}`; // 권한 확인 다운로드 주소
     assert.equal((await fetch(downloadPath, { headers: { Cookie: outsider.cookie } })).status, 403); // 외부 사용자 첨부 접근 차단
     const downloaded = await fetch(downloadPath, { headers: { Cookie: member.cookie } }); // 소속 사용자 다운로드

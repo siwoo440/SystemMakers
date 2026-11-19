@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict'; // 결과 검증
 import { randomBytes } from 'node:crypto'; // 마스킹 난수
+import { existsSync } from 'node:fs'; // 검사 전용 세션 파일의 폐기 확인
 import { execFileSync, spawn } from 'node:child_process'; // 실제 서버와 변경 실행
 import { connect, createServer } from 'node:net'; // 실제 WebSocket 연결
 import path from 'node:path'; // 실행 경로
 import test from 'node:test'; // 검사 도구
 import { fixture } from './helpers/management-fixture.mjs'; // 독립 인증과 DB
+function checkTickQueries(environment, sessionDirectory, cookie, subscription) // 실제 구독의 알림과 조회 횟수 확인
+{
+    const script = path.join(environment.root, 'tests/helpers/relay-query-count.php'); // 중계기 단일 주기 검사
+    const args = ['-c', process.env.PHP_TEST_INI || path.join(environment.root, '.runtime/php.ini'), '-d', 'session.save_path=' + sessionDirectory, script]; // 웹과 같은 세션 경로
+    const output = execFileSync(environment.php, args, { env: environment.env, input: JSON.stringify({ cookie, subscription }), encoding: 'utf8', windowsHide: true }); // 실제 세션·DB 사용
+    assert.deepEqual(JSON.parse(output), { events: ['subscribed', 'message.created'], selects: 1 }); // 권한과 최신 기록을 한 번에 확인
+}
 async function freePort() // 빈 로컬 포트 선택
 {
     const probe = createServer(); // 임시 TCP 서버
@@ -139,6 +147,7 @@ test('실제 멤버만 새 메시지 알림을 받고 로그아웃 이후 연결
     assert.equal((await owner.request('send_message.php', { channel_id: channel.id, content: '첫 알림' })).status, 201); // 실제 메시지 저장
     await until(() => ownSocket.messages.length === 1 && memberSocket.messages.length === 1); // 두 멤버 알림 대기
     assert.deepEqual(memberSocket.messages, [{ type: 'message.created' }]); // 민감정보 없는 알림
+    checkTickQueries(environment, sessionDirectory, member.cookie, subscription); // 채널 구독의 실제 SELECT 수
     assert.equal((await member.request('leave_server.php', { server_id: server.id })).status, 200); // 실제 멤버십 폐기
     await until(() => memberSocket.isClosed()); // 연결 중 멤버십 폐기 반영
     assert.equal((await member.request('join_server.php', { code: invite })).status, 201); // 멤버십 복구
@@ -152,6 +161,16 @@ test('실제 멤버만 새 메시지 알림을 받고 로그아웃 이후 연결
     assert.equal((await owner.request('send_message.php', { channel_id: channel.id, content: '둘째 알림' })).status, 201); // 다음 메시지 저장
     await until(() => ownSocket.messages.length === 2); // 유지된 연결 알림
     assert.equal(memberSocket.messages.length, 1); // 폐기된 연결 알림 차단
+    assert.equal((await outsider.request('join_server.php', { code: invite })).status, 201); // 별도 검사 계정의 정상 참여
+    const removedSocket = await websocket(port, outsider.cookie, 'http://127.0.0.6:8088'); // 해당 계정의 새 연결
+    context.after(() => removedSocket.close()); // 검사 소켓 정리
+    removedSocket.send(subscription); // 현재 소속으로 구독
+    await until(() => removedSocket.messages.some((message) => message.type === 'subscribed')); // 정상 승인 확인
+    const sessionFile = path.join(sessionDirectory, 'sess_' + outsider.cookie.split('=')[1]); // 격리된 계정의 세션 파일
+    assert.equal(existsSync(sessionFile), true); // 폐기 전 세션 존재
+    environment.sql('DELETE FROM users WHERE id=' + outsider.id); // 임시 DB의 구독 계정 삭제
+    await until(() => removedSocket.isClosed()); // 계정 삭제 후 구독 종료
+    assert.equal(existsSync(sessionFile), false); // 기존 인증 세션 ID도 즉시 폐기
 });
 
 test('개인 대화 참여자만 본문 없는 알림을 받고 세션 종료 시 연결 폐기', async (context) => // 개인 대화 실시간 권한 검사
@@ -182,6 +201,7 @@ test('개인 대화 참여자만 본문 없는 알림을 받고 세션 종료 �
     assert.equal((await alice.request('send_dm.php', { conversation_id: conversationId, content: '비공개 본문' })).status, 201); // 실제 개인 메시지
     await until(() => aliceSocket.messages.length === 1 && bobSocket.messages.length === 1); // 두 참여자 알림
     assert.deepEqual(bobSocket.messages, [{ type: 'message.created' }]); // 본문 없는 신호
+    checkTickQueries(environment, sessionDirectory, bob.cookie, subscription); // 개인 구독의 실제 SELECT 수
     const futureSocket = await websocket(port, alice.cookie, 'http://127.0.0.6:8088'); // 미래 커서 연결
     context.after(() => futureSocket.close()); // 추가 연결 종료
     futureSocket.send({ type: 'subscribe_direct', conversation_id: conversationId, after_id: '18446744073709551615' }); // 최신보다 큰 커서

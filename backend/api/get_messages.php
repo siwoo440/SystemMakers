@@ -5,10 +5,11 @@ require_once __DIR__ . '/../includes/message_history.php'; // 권한과 커서 �
 require_method(['GET']); // 메서드 우선 검사
 $databaseConnection = db(); // 실제 DB 연결
 $currentUser = require_user($databaseConnection); // 조회 입력보다 먼저 인증 검사
-require_query_fields(['channel_id', 'limit', 'before_id', 'after_id']); // 중복과 미허용 쿼리 차단
+require_query_fields(['channel_id', 'limit', 'before_id', 'after_id', 'include_attachments']); // 중복과 미허용 쿼리 차단
 $channelId = validate_id($_GET['channel_id'] ?? null, 'channel_id', false, true); // 채널 문자열 ID 검사
+$includeAttachments = isset($_GET['include_attachments']); // 첨부 정보 포함 선택
 $messageLimit = $_GET['limit'] ?? '50'; // 기본 50개 조회
-if (!is_string($messageLimit) || !preg_match('/\A(?:[1-9][0-9]?|100)\z/D', $messageLimit) || (isset($_GET['before_id']) && isset($_GET['after_id']))) // 조회 개수와 방향 충돌 검사
+if (($includeAttachments && $_GET['include_attachments'] !== '1') || !is_string($messageLimit) || !preg_match('/\A(?:[1-9][0-9]?|100)\z/D', $messageLimit) || (isset($_GET['before_id']) && isset($_GET['after_id']))) // 조회 개수와 방향 충돌 검사
 {
     respond_error('INVALID_QUERY', '조회 조건을 확인하세요.', 400); // 잘못된 조회 거절
 }
@@ -17,7 +18,7 @@ $afterMessageId = isset($_GET['after_id']) ? validate_id($_GET['after_id'], 'aft
 close_session(); // DB 조회 전 세션 잠금 해제
 try // 권한 실패의 롤백 이후 응답
 {
-    $messagePage = read_messages($databaseConnection, $channelId, $currentUser['id'], (int) $messageLimit, $beforeMessageId, $afterMessageId); // 실제 권한과 페이지 조회
+    $messagePage = read_messages($databaseConnection, $channelId, $currentUser['id'], (int) $messageLimit, $beforeMessageId, $afterMessageId, $includeAttachments); // 실제 권한과 페이지 조회
 }
 catch (MessageAccessException $caughtException) // 잠금이 해제된 접근 오류
 {

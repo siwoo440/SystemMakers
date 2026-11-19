@@ -8,7 +8,7 @@ function clear_authentication(): void // 만료된 인증 상태 폐기
         throw new RuntimeException('Session unavailable.'); // 세션 교체 실패 처리
     }
 }
-function current_user(PDO $databaseConnection, bool $refresh = false): ?array // 선택적인 실제 사용자 조회
+function authenticated_session_user_id(): ?string // 세션 ID와 로그인·유휴 수명 확인
 {
     start_secure_session(); // 서버 세션 읽기
     $hasAuthentication = array_key_exists('user_id', $_SESSION) || array_key_exists('authenticated_at', $_SESSION) || array_key_exists('last_activity_at', $_SESSION); // 인증 정보 존재 여부
@@ -25,6 +25,15 @@ function current_user(PDO $databaseConnection, bool $refresh = false): ?array //
         clear_authentication(); // 만료 또는 손상 인증 폐기
         return null; // 인증 이력 없는 게스트 전환
     }
+    return $authenticatedUserId; // 수명이 유효한 세션의 사용자 ID
+}
+function current_user(PDO $databaseConnection, bool $refresh = false): ?array // 세션과 실제 계정 확인
+{
+    $authenticatedUserId = authenticated_session_user_id(); // 공통 세션 만료 검사
+    if ($authenticatedUserId === null) // 게스트 또는 만료된 인증
+    {
+        return null; // 계정 조회 생략
+    }
     $userQuery = $databaseConnection->prepare('SELECT id, username, email, created_at FROM users WHERE id = :id LIMIT 1'); // 비밀 열 제외 사용자 조회
     $userQuery->bindValue(':id', $authenticatedUserId, PDO::PARAM_STR); // 문자열 ID 매개변수
     $userQuery->execute(); // 실제 계정 조회
@@ -38,7 +47,7 @@ function current_user(PDO $databaseConnection, bool $refresh = false): ?array //
     $authenticatedUser['created_at'] = (new DateTimeImmutable($authenticatedUser['created_at'], new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'); // UTC 응답 시각
     if ($refresh) // 보호된 인증 요청 여부
     {
-        $_SESSION['last_activity_at'] = $currentTime; // 인증 성공 시에만 활동 갱신
+        $_SESSION['last_activity_at'] = time(); // 인증 성공 시에만 활동 갱신
     }
     return $authenticatedUser; // 공개 본인 계정 정보
 }

@@ -1,5 +1,5 @@
 const validId = (value) => typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value) && (value.length < 20 || value <= "18446744073709551615"); // 정밀한 문자열 식별자
-function validAttachment(attachment) // 공개 첨부 정보 검사
+export function validAttachment(attachment) // 공개 첨부 정보 검사
 {
     return attachment && validId(attachment.id) && validId(attachment.message_id) && typeof attachment.original_name === "string" && attachment.original_name.length > 0 && Number.isInteger(attachment.file_size) && attachment.file_size > 0 && attachment.file_size <= 5242880; // 안전한 이름과 크기
 }
@@ -19,7 +19,7 @@ export function createAttachmentView({ kind, targetId, userId, getUser, request,
         }
         for (const message of messages) // 이번 페이지의 기록
         {
-            if (validId(message.id) && !checked.has(message.id)) // 확인하지 않은 메시지
+            if (!Object.hasOwn(message, "attachment") && validId(message.id) && !checked.has(message.id)) // 확인하지 않은 메시지
             {
                 queued.add(message.id); // 중복 없는 조회 대기열
             }

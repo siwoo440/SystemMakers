@@ -22,10 +22,6 @@ function attachment_access(PDO $databaseConnection, string $kind, string $target
         throw new MessageAccessException('FORBIDDEN', 403); // 외부 접근 차단
     }
 }
-function attachment_public(array $row): array // 첨부 공개 필드
-{
-    return ['id' => (string) $row['id'], 'message_id' => (string) $row['message_id'], 'original_name' => $row['original_name'], 'file_size' => (int) $row['file_size']]; // 파일 내용 제외
-}
 function attachment_failure(Throwable $caughtException): never // 트랜잭션 종료 후 권한 오류
 {
     if ($caughtException instanceof MessageAccessException || $caughtException instanceof DirectAccessException) // 권한 오류 여부

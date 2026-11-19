@@ -2,7 +2,7 @@ import assert from "node:assert/strict"; // 동작 결과 검사
 import test from "node:test"; // 기본 회귀 검사 도구
 import { readFileSync } from "node:fs"; // 실제 화면 코드 읽기
 import vm from "node:vm"; // 독립 브라우저 실행 영역
-import { MessageFeed } from "../frontend/message-feed.mjs"; // 실제 메시지 상태 관리
+import { MessageFeed, createMessageList, messageForDisplay } from "../frontend/message-feed.mjs"; // 실제 메시지 상태 관리
 import { ServerManager } from "../frontend/server-manager.mjs"; // 실제 서버 소속 상태
 import { createAttachmentView, uploadAttachment } from "../frontend/attachments-ui.mjs"; // 실제 파일 화면 경계
 import { createRealtimeClient, realtimeUrlForLocation } from "../frontend/realtime.mjs"; // 실제 알림 연결과 주소 검사
@@ -10,7 +10,7 @@ const source = readFileSync(new URL("../frontend/app.js", import.meta.url), "utf
 const noChange = () => undefined; // 상태 변화 없는 브라우저 경계
 function element() // 브라우저 요소의 외부 경계
 {
-    return { value: "", disabled: false, hidden: false, textContent: "", dataset: {}, scrollTop: 0, scrollHeight: 0, clientHeight: 0, classList: { toggle: noChange, add: noChange, remove: noChange }, setAttribute: noChange, removeAttribute: noChange, setCustomValidity: noChange, addEventListener: noChange, replaceChildren: noChange, append: noChange, reset: noChange, focus: noChange, close: noChange, showModal: noChange }; // 화면 입출력 최소 대체
+    return { value: "", disabled: false, hidden: false, textContent: "", dataset: {}, scrollTop: 0, scrollHeight: 0, clientHeight: 0, classList: { toggle: noChange, add: noChange, remove: noChange }, setAttribute: noChange, removeAttribute: noChange, setCustomValidity: noChange, addEventListener: noChange, replaceChildren: noChange, insertBefore: noChange, replaceChild: noChange, removeChild: noChange, append: noChange, reset: noChange, focus: noChange, close: noChange, showModal: noChange }; // 화면 입출력 최소 대체
 }
 function setup(handler, websocketClass = undefined) // 실제 화면 함수와 가상 네트워크 연결
 {
@@ -28,7 +28,7 @@ function setup(handler, websocketClass = undefined) // 실제 화면 함수와 �
         }
     }
     const context = vm.createContext({ // 독립 화면 전역 준비
-        MessageFeed: BrowserFeed, ServerManager, createAttachmentView, uploadAttachment, createRealtimeClient, realtimeUrlForLocation, AbortController, URLSearchParams, FormData, File, Date, console, // 실제 상태 모듈과 표준 도구
+        MessageFeed: BrowserFeed, createMessageList, messageForDisplay, ServerManager, createAttachmentView, uploadAttachment, createRealtimeClient, realtimeUrlForLocation, AbortController, URLSearchParams, FormData, File, Date, console, // 실제 상태 모듈과 표준 도구
         window: { matchMedia: () => ({ matches: false }), setTimeout: setTimer, clearTimeout: clearTimer, WebSocket: websocketClass, location: { protocol: "http:", hostname: "127.0.0.6" } }, // 화면 크기와 연결 경계
         document: { getElementById: (id) => // 식별자별 동일 요소 반환
         {
@@ -65,6 +65,30 @@ function setup(handler, websocketClass = undefined) // 실제 화면 함수와 �
     const send = () => evaluate("sendMessage({ preventDefault: () => undefined })"); // 실제 폼 제출 경로
     return { calls, timers, evaluate, state, send, stop: () => evaluate("pauseMessageFeeds()") }; // 검사 경계 반환
 }
+test("텍스트 50개 뒤 새 메시지 한 개는 요소 8개만 생성", (context) => // 전체 말풍선 재생성 회귀 검사
+{
+    const harness = setup(() => ({ status: 200, data: { attachments: [] } })); // 채널 화면 준비
+    context.after(harness.stop); // 검사 후 조회 정리
+    const addMessage = (id) => harness.evaluate('channels["1"].feed.add({ ...channels["1"].feed.items.get("1"), id: "' + id + '" })'); // 실제 저장 응답 반영
+    for (let id = 2; id <= 50; id++) // 기존 기록 50개 준비
+    {
+        addMessage(id); // 표시된 기록 추가
+    }
+    harness.evaluate('var generated = 0; const originalElement = document.createElement; document.createElement = (...args) => (++generated, originalElement(...args));'); // 생성한 화면 요소 집계
+    addMessage(51); // 신규 기록 한 개 도착
+    assert.equal(harness.evaluate("generated"), 8); // 새 말풍선 요소만 생성
+    addMessage(51); // 같은 저장 기록 재수신
+    assert.equal(harness.evaluate("generated"), 8); // 중복 수신 시 요소 재사용
+});
+test("파일 없는 채널 기록은 HTTP 요청 한 번으로 표시", async (context) => // 첨부 목록의 중복 조회 방지
+{
+    const harness = setup(() => ({ status: 200, data: { messages: [{ id: "2", channel_id: "1", user_id: "1", username: "user_a", content: "새 기록", created_at: "2026-10-21T00:00:00Z", attachment: null }], pagination: { mode: "initial", has_more: false, next_before_id: "2", next_after_id: "2" } } })); // 첨부 여부가 포함된 기록
+    context.after(harness.stop); // 검사 후 조회 종료
+    await harness.evaluate('channels["1"].feed.activate()'); // 실제 화면 조회
+    assert.equal(harness.calls.length, 1); // 메시지 요청만 사용
+    assert.equal(new URL(harness.calls[0].url, "http://localhost").searchParams.get("include_attachments"), "1"); // 파일 정보 동시 요청
+    assert.equal(harness.evaluate('channels["1"].messages.at(-1).text'), "새 기록"); // 텍스트 표시
+});
 test("새 기록이 없는 채널 조회는 대화 목록을 재구성하지 않음", async (context) => // 유휴 채널의 화면 작업 수 검사
 {
     const harness = setup(() => ({ status: 200, data: { messages: [], pagination: { mode: "after", has_more: false, next_before_id: null, next_after_id: "1" } } })); // 빈 신규 페이지

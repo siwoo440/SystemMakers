@@ -12,11 +12,11 @@ function validate_message_content(mixed $inputValue): string // 원문 메시지
     }
     return $content; // 공백과 개행을 유지한 원문
 }
-function public_message(array $databaseRow): array // 비밀 없는 메시지 응답 변환
+function public_message(array $databaseRow, string $targetColumn = 'channel_id'): array // 비밀 없는 메시지 응답 변환
 {
     return [ // 공개 필드만 반환
         'id' => (string) $databaseRow['id'], // 메시지 식별자 문자열
-        'channel_id' => (string) $databaseRow['channel_id'], // 채널 식별자 문자열
+        $targetColumn => (string) $databaseRow[$targetColumn], // 채널 또는 개인 대화 식별자
         'user_id' => (string) $databaseRow['user_id'], // 작성자 식별자 문자열
         'username' => $databaseRow['username'], // 현재 고유 사용자명
         'content' => $databaseRow['content'], // HTML 변환 없는 원문

@@ -89,6 +89,8 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
             assert.equal(older.messages.at(-1).id, "150"); // 배타적 이전 커서
             assert.deepEqual(older.pagination, { mode: "before", has_more: false, next_before_id: "2", next_after_id: "150" }); // 이전 결과 방향
             assert.deepEqual(Object.keys(latest.messages[0]).sort(), ["channel_id", "content", "created_at", "id", "user_id", "username"]); // 이메일과 비밀 필드 비노출
+            const legacyPage = await page("?channel_id=1&include_attachments=1&limit=1"); // 첨부 테이블 도입 전 DB
+            assert.equal(legacyPage.messages[0].attachment, null); // 기존 대화 보존
         });
         await context.test("100개 초과 신규 적체의 누락과 중복 없는 페이지", async () => // 전체 최댓값 커서 오류 포착
         {
@@ -113,7 +115,7 @@ require '${base}/router.php'; // 실제 공개 라우터 실행
         {
             assert.equal((await request("", false, "POST")).status, 405); // 메서드 우선
             assert.equal((await request("?invalid=1", false)).status, 401); // 입력보다 인증 우선
-            for (const query of ["", "?channel_id=01", "?channel_id=1&limit=0", "?channel_id=1&limit=101", "?channel_id=1&limit=01", "?channel_id=1&limit=1.0", "?channel_id=1&before_id=0", "?channel_id=1&after_id=18446744073709551616", "?channel_id=1&before_id=2&after_id=0", "?channel_id=1&channel_id=2", "?channel_id[]=1", "?channel_id=1&user_id=2"]) // 잘못된 조회 값 목록
+            for (const query of ["", "?channel_id=01", "?channel_id=1&limit=0", "?channel_id=1&limit=101", "?channel_id=1&limit=01", "?channel_id=1&limit=1.0", "?channel_id=1&before_id=0", "?channel_id=1&after_id=18446744073709551616", "?channel_id=1&before_id=2&after_id=0", "?channel_id=1&channel_id=2", "?channel_id[]=1", "?channel_id=1&user_id=2", "?channel_id=1&include_attachments=2"]) // 잘못된 조회 값 목록
             {
                 const result = await request(query); // 실제 조회 거절 확인
                 assert.equal(result.status, 400, query); // 잘못된 조건 거절

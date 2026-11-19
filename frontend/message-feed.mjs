@@ -1,3 +1,4 @@
+import { validAttachment } from "./attachments-ui.mjs"; // 기록에 포함된 첨부 정보 검증
 function validId(identifierValue, allowZero = false) // 정밀도를 유지하는 문자열 ID 검사
 {
     return typeof identifierValue === "string" && ((allowZero && identifierValue === "0") || (/^[1-9][0-9]{0,19}$/.test(identifierValue) && (identifierValue.length < 20 || identifierValue <= "18446744073709551615"))); // 부호 없는 64비트 범위
@@ -8,7 +9,73 @@ function compareId(leftId, rightId) // Number 변환 없는 ID 비교
 }
 function validMessage(messageEntry, channelId) // 공개 메시지 계약 검사
 {
+    if (messageEntry && Object.hasOwn(messageEntry, "attachment") && messageEntry.attachment !== null && (!validAttachment(messageEntry.attachment) || messageEntry.attachment.message_id !== messageEntry.id)) // 다른 메시지 또는 잘못된 파일 정보
+    {
+        return false; // 페이지 전체 반영 거절
+    }
     return messageEntry && validId(messageEntry.id) && messageEntry.channel_id === channelId && validId(messageEntry.user_id) && typeof messageEntry.username === "string" && messageEntry.username.length > 0 && typeof messageEntry.content === "string" && typeof messageEntry.created_at === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(messageEntry.created_at) && !Number.isNaN(Date.parse(messageEntry.created_at)); // 안전한 표시 필드와 실제 날짜
+}
+export function messageForDisplay(message, viewer, attachments) // 채널과 개인 대화의 공통 말풍선 자료
+{
+    const isOwn = message.user_id === viewer.id; // 현재 사용자의 글 여부
+    return { // 말풍선에 표시할 값
+        id: message.id, // 재사용할 메시지 ID
+        isOwn, // 본인 말풍선 방향
+        name: isOwn ? viewer.username : message.username, // 현재 작성자 이름
+        timestamp: message.created_at, // 저장 시각
+        text: message.content, // 원문 텍스트
+        attachment: Object.hasOwn(message, "attachment") ? message.attachment : attachments?.get(message.id) // 기록의 파일 정보 또는 이전 응답의 캐시
+    };
+}
+export function createMessageList(container, createBubble) // 대화별 말풍선 재사용
+{
+    let owner = null; // 현재 화면의 대화
+    const rendered = new Map(); // 메시지 ID별 표시 값과 요소
+    return function renderMessages(conversation, records) // ID 오름차순 목록 반영
+    {
+        if (owner !== conversation || !records.length) // 대화 전환 또는 접근 종료
+        {
+            container.replaceChildren(); // 이전 대화 내용 제거
+            rendered.clear(); // 이전 요소 참조 해제
+            owner = conversation; // 새 대화 경계
+        }
+        let anchor = null; // 다음 메시지의 화면 위치
+        for (let index = records.length - 1; index >= 0; index--) // 뒤쪽 고정 위치부터 반영
+        {
+            const message = records[index]; // 현재 표시 자료
+            const previous = rendered.get(message.id); // 이전 말풍선 상태
+            const old = previous?.message; // 이전 표시 값
+            let node = previous?.node; // 재사용할 화면 요소
+            const sameContent = old && old.isOwn === message.isOwn && old.name === message.name && old.timestamp === message.timestamp && old.text === message.text; // 글과 작성자 표시 일치
+            const sameAttachment = old?.attachment?.id === message.attachment?.id && old?.attachment?.original_name === message.attachment?.original_name && old?.attachment?.file_size === message.attachment?.file_size; // 다운로드 링크와 안내 일치
+            if (!sameContent || !sameAttachment) // 새 말풍선 또는 표시 변경
+            {
+                node = createBubble(message); // 추가 또는 변경된 말풍선 생성
+                if (previous) // 기존 메시지 변경
+                {
+                    container.replaceChild(node, previous.node); // 해당 말풍선만 교체
+                }
+                else // 새 메시지 추가
+                {
+                    container.insertBefore(node, anchor); // 과거·신규 기록 순서 보존
+                }
+                rendered.set(message.id, { message, node }); // 변경된 말풍선만 보관
+            }
+            anchor = node; // 앞 메시지의 삽입 기준
+        }
+        if (rendered.size > records.length) // 일부 기록이 빠진 목록
+        {
+            const visibleIds = new Set(records.map((message) => message.id)); // 남아 있는 메시지 ID
+            for (const [id, entry] of rendered) // 제거할 말풍선 확인
+            {
+                if (!visibleIds.has(id)) // 현재 대화에서 사라진 메시지
+                {
+                    container.removeChild(entry.node); // 화면에서 제거
+                    rendered.delete(id); // 이전 요소 참조 해제
+                }
+            }
+        }
+    };
 }
 export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
 {
@@ -169,7 +236,7 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
             do // 신규 적체 페이지 순차 소진
             {
                 const messageCursor = fetchMode === "before" ? this.oldest : this.after; // 방향별 독립 커서
-                const messageQuery = new URLSearchParams({ channel_id: this.channelId, limit: "50" }); // 고정 페이지 크기
+                const messageQuery = new URLSearchParams({ channel_id: this.channelId, limit: "50", include_attachments: "1" }); // 고정 페이지 크기
                 if (fetchMode !== "initial") // 방향 커서 존재 여부
                 {
                     messageQuery.set(fetchMode === "before" ? "before_id" : "after_id", messageCursor); // 배타적 조회 범위

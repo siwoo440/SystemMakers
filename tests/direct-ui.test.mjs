@@ -8,6 +8,9 @@ function element() // 최소 화면 요소
     item.addEventListener = (name, action) => events.set(name, action); // 동작 연결
     item.fire = (name, event = { preventDefault: () => undefined }) => events.get(name)?.(event); // 사용자 동작 실행
     item.replaceChildren = (...children) => item.children = children; // 안전한 목록 교체
+    item.insertBefore = (node, anchor) => item.children.splice(anchor === null ? item.children.length : item.children.indexOf(anchor), 0, node); // 지정 위치에 말풍선 삽입
+    item.replaceChild = (node, old) => item.children.splice(item.children.indexOf(old), 1, node); // 기존 말풍선 교체
+    item.removeChild = (node) => item.children.splice(item.children.indexOf(node), 1); // 사라진 말풍선 정리
     return item; // 화면 요소 반환
 }
 function setup(request, timers = { set: () => 1, clear: () => undefined }) // 실제 화면과 테스트 경계
@@ -186,7 +189,9 @@ test("개인 대화 자동 갱신은 마지막 조회 이후 메시지만 추가
     }, { set: (callback) => nextTimer = callback, clear: () => undefined }); // 가상 갱신 예약
     await harness.ui.refresh(); // 대화 목록 확인
     await harness.byId("direct-list").children[0].fire("click"); // 대화 선택과 최초 조회
+    const firstBubble = harness.byId("direct-messages").children[0]; // 새 기록 도착 전 말풍선
     await nextTimer(); // 예약된 신규 기록 확인
+    assert.equal(harness.byId("direct-messages").children[0], firstBubble); // 이전 말풍선 객체 유지
     assert.ok(paths.some((path) => path.includes("after_id=1"))); // 실제 조회 커서 사용
     assert.deepEqual(harness.byId("direct-messages").children.map((message) => message.text), ["첫 메시지", "답장"]); // 본인 기록과 답장 표시
     assert.deepEqual(harness.byId("direct-messages").children.map((message) => message.isOwn), [true, false]); // 본인과 상대 메시지 구분
@@ -271,4 +276,54 @@ test("복원한 개인 메시지의 첨부는 별도 권한 조회 뒤 표시", 
     await new Promise((resolve) => setImmediate(resolve)); // 비동기 파일 조회 완료
     assert.equal(harness.byId("direct-messages").children[0].attachment.original_name, "공유.txt"); // 상대방 파일 표시
     harness.ui.clear(); // 조회 수명 종료
+});
+test("개인 기록의 첨부는 추가 요청 없이 표시", async () => // 개인 기록과 파일 정보 통합
+{
+    const paths = []; // 화면의 실제 요청 목록
+    const attachment = { id: "9", message_id: "7", original_name: "공유.txt", file_size: 3 }; // 공개 첨부 정보
+    const harness = setup(async (path) => // 실제 화면 요청의 응답
+    {
+        paths.push(path); // 요청 횟수 기록
+        if (path.includes("list_dms")) // 대화 목록 조회
+        {
+            return { conversations: [{ id: "10", other_user: { id: "2", username: "bob" } }] }; // 참여 중인 대화
+        }
+        return { messages: [{ id: "7", conversation_id: "10", user_id: "2", username: "bob", content: "파일", created_at: "2026-11-11T00:00:00Z", attachment }], pagination: { mode: "initial", has_more: false, next_before_id: "7", next_after_id: "7" } }; // 권한 확인된 페이지
+    });
+    harness.ui.render(); // 로그인 화면의 최초 목록 조회
+    await new Promise((resolve) => setImmediate(resolve)); // 최초 목록 표시 완료
+    paths.length = 0; // 기록 열기 시점부터 집계
+    await harness.byId("direct-list").children[0].fire("click"); // 대화 선택
+    assert.equal(paths.length, 1); // 추가 첨부 조회 없음
+    assert.equal(new URL(paths[0], "http://localhost").searchParams.get("include_attachments"), "1"); // 메타데이터 동시 요청
+    assert.deepEqual(harness.byId("direct-messages").children[0].attachment, attachment); // 다운로드 링크 자료
+    harness.ui.clear(); // 화면 정리
+});
+test("이전 개인 기록을 앞에 붙여도 읽던 말풍선과 위치 유지", async () => // 과거 페이지 삽입과 스크롤 회귀
+{
+    const harness = setup(async (path) => // 대화 선택과 이전 페이지 요청
+    {
+        if (path.includes("list_dms")) // 참여 중인 대화 확인
+        {
+            return { conversations: [{ id: "10", other_user: { id: "2", username: "bob" } }] }; // 대화 한 개
+        }
+        const older = path.includes("before_id=15"); // 이전 기록 조회 여부
+        const ids = older ? ["1", "9"] : ["15"]; // 화면에 추가할 순서
+        const messages = ids.map((id) => ({ id, conversation_id: "10", user_id: "2", username: "bob", content: id, created_at: "2026-11-11T00:00:00Z", attachment: null })); // 첨부 없는 기록
+        return { messages, pagination: { mode: older ? "before" : "initial", has_more: !older, next_before_id: ids[0], next_after_id: ids.at(-1) } }; // 실제 ID 기준 페이지
+    });
+    harness.ui.render(); // 로그인한 대화 화면 준비
+    await new Promise((resolve) => setImmediate(resolve)); // 대화 목록 도착
+    const list = harness.byId("direct-messages"); // 기록 목록
+    const scroll = harness.byId("direct-scroll"); // 스크롤 영역
+    Object.defineProperty(scroll, "scrollHeight", { get: () => list.children.length * 30 }); // 말풍선당 높이 30인 화면
+    await harness.byId("direct-list").children[0].fire("click"); // 최신 페이지 열기
+    const reading = list.children[0]; // 읽던 말풍선 보관
+    scroll.scrollTop = 5; // 말풍선 안의 읽던 위치
+    await harness.byId("direct-older").fire("click"); // 이전 두 건 추가
+    assert.deepEqual(list.children.map((node) => node.text), ["1", "9", "15"]); // 숫자 ID 오름차순
+    assert.equal(list.children[2], reading); // 기존 요소 유지
+    assert.equal(scroll.scrollTop, 65); // 추가 높이만큼 읽던 위치 보정
+    harness.ui.clear(); // 계정 화면 정리
+    assert.equal(list.children.length, 0); // 권한 종료 후 화면 정리
 });

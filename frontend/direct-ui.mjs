@@ -1,4 +1,4 @@
-import { MessageFeed } from "./message-feed.mjs"; // 검증된 기록과 조회 수명
+import { MessageFeed, createMessageList, messageForDisplay } from "./message-feed.mjs"; // 검증된 기록과 조회 수명
 import { createAttachmentView, uploadAttachment } from "./attachments-ui.mjs"; // 첨부 정보와 명시적 업로드
 const validId = (value) => typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value) && (value.length < 20 || value <= "18446744073709551615"); // 문자열 식별자 검사
 const validUser = (user) => user && validId(user.id) && typeof user.username === "string" && user.username.length > 0; // 공개 사용자 검사
@@ -21,6 +21,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
     const feeds = new Map(); // 대화별 조회 상태
     const attachmentViews = new Map(); // 대화별 첨부 조회 상태
     const drafts = new Map(); // 대화별 미전송 원문
+    const renderBubbles = createMessageList(byId("direct-messages"), createMessage); // 개인 대화별 말풍선 재사용
     function renderList() // 실제 대화 목록 표시
     {
         byId("direct-list").replaceChildren(...conversations.map((conversation) => // 상대방별 선택 버튼
@@ -133,7 +134,8 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         let feed = feeds.get(conversation.id); // 기존 대화 기록
         function renderMessages() // 선택 대화의 작성자와 파일 표시
         {
-            byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ isOwn: message.user_id === userId, name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 확인된 기록으로 목록 교체
+            const attachments = attachmentViews.get(conversation.id); // 현재 대화의 기존 첨부 정보
+            renderBubbles(feed, feed.list().map((message) => messageForDisplay(message, getUser(), attachments))); // 변경된 말풍선만 반영
         }
         if (!feed) // 최초 선택
         {
@@ -244,7 +246,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 이전 파일 상태 제거
         byId("direct-search-input").value = ""; // 검색어 제거
         byId("direct-search-results").replaceChildren(); // 검색 결과 제거
-        byId("direct-messages").replaceChildren(); // 기록 화면 제거
+        renderBubbles(null, []); // 계정 종료 후 말풍선과 참조 정리
         byId("direct-title").textContent = "개인 대화"; // 상대방 이름 제거
         byId("direct-status").textContent = "로그인 후 개인 대화를 이용하세요."; // 게스트 안내
         byId("direct-conversation").hidden = true; // 개인 화면 숨김
@@ -445,7 +447,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
             {
                 throw new Error("저장 결과를 확인하지 못했습니다."); // 불확실한 저장 안내
             }
-            feeds.get(conversationId)?.add({ ...message, channel_id: message.conversation_id }); // 검증된 저장 결과 병합
+            feeds.get(conversationId)?.add({ ...message, channel_id: message.conversation_id, attachment: null }); // 검증된 저장 결과 병합
             if (selected?.id === conversationId && byId("direct-input").value === content) // 제출 후 수정 없는 현재 초안
             {
                 byId("direct-input").value = ""; // 확인한 초안 제거
