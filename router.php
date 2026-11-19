@@ -124,10 +124,25 @@ if (!in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) // �
     exit; // 요청 처리 종료
 }
 [$assetName, $assetMimeType] = $staticFiles[$requestPath]; // 검증된 파일과 형식
+$assetPath = $assetName === 'index.html' ? __DIR__ . '/index.html' : __DIR__ . '/frontend/' . $assetName; // 공개 목록의 실제 파일
+$assetContent = file_get_contents($assetPath); // 전송할 파일 내용 읽기
+if ($assetContent === false) // 배포 파일 누락 또는 읽기 실패
+{
+    http_response_code(503); // 배포 자원 오류 상태
+    exit; // 실패 응답의 캐시 식별표 발급 방지
+}
+$entityTag = '"' . hash('sha256', $assetContent) . '"'; // 파일 내용에 따른 버전 식별표
 header('Content-Type: ' . $assetMimeType); // 자원 형식 지정
-header('Cache-Control: no-store'); // 개발 중 이전 파일 캐시 차단
+header('Cache-Control: private, no-cache'); // 브라우저의 저장과 사용 전 재확인
+header('ETag: W/' . $entityTag); // 압축 여부와 무관한 파일 식별표
+$cacheCondition = trim($_SERVER['HTTP_IF_NONE_MATCH'] ?? ''); // 브라우저가 보관한 버전
+$cachedTags = array_map('trim', explode(',', $cacheCondition)); // 여러 식별표의 공백 정리
+if ($cacheCondition === '*' || in_array($entityTag, $cachedTags, true) || in_array('W/' . $entityTag, $cachedTags, true)) // 같은 파일 보관 여부
+{
+    http_response_code(304); // 브라우저의 기존 파일 사용
+    exit; // 같은 본문 재전송 생략
+}
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') // 본문 전송 여부
 {
-    $assetPath = $assetName === 'index.html' ? __DIR__ . '/index.html' : __DIR__ . '/frontend/' . $assetName; // 진입 파일과 화면 자원 위치 구분
-    readfile($assetPath); // 허용한 화면 파일 전송
+    echo $assetContent; // 식별표와 일치하는 최신 본문 전송
 }

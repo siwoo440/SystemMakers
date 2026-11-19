@@ -131,6 +131,10 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         byId("direct-input").value = drafts.get(conversation.id) || ""; // 상대방별 초안 복원
         byId("direct-status").textContent = "대화를 불러오는 중입니다."; // 최초 조회 안내
         let feed = feeds.get(conversation.id); // 기존 대화 기록
+        function renderMessages() // 선택 대화의 작성자와 파일 표시
+        {
+            byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ isOwn: message.user_id === userId, name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 확인된 기록으로 목록 교체
+        }
         if (!feed) // 최초 선택
         {
             feed = new MessageFeed({ channelId: conversation.id, setTimer, clearTimer, request: async (query, signal) => // 검증된 기록 조회 재사용
@@ -145,17 +149,20 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 {
                     return; // 이전 화면 갱신 차단
                 }
-                const scroll = byId("direct-scroll"); // 개인 기록 스크롤
-                const previousTop = scroll.scrollTop; // 현재 읽는 위치
-                const previousHeight = scroll.scrollHeight; // 이전 기록 높이
-                const nearBottom = previousHeight - previousTop - scroll.clientHeight <= 80; // 최신 기록을 읽는 상태
-                byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ isOwn: message.user_id === userId, name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 작성자 구분과 안전한 파일 표시
-                scroll.scrollTop = change.kind === "before" ? previousTop + scroll.scrollHeight - previousHeight : change.kind === "initial" || (change.kind === "after" && nearBottom) || change.kind === "send" ? scroll.scrollHeight : previousTop; // 이전 위치와 최신 기록 이동
+                if (change.recordsChanged) // 표시 기록 변경 여부
+                {
+                    const scroll = byId("direct-scroll"); // 개인 기록 스크롤
+                    const previousTop = scroll.scrollTop; // 현재 읽는 위치
+                    const previousHeight = scroll.scrollHeight; // 이전 기록 높이
+                    const nearBottom = previousHeight - previousTop - scroll.clientHeight <= 80; // 최신 기록을 읽는 상태
+                    renderMessages(); // 변경된 개인 대화 표시
+                    scroll.scrollTop = change.kind === "before" ? previousTop + scroll.scrollHeight - previousHeight : change.kind === "initial" || (change.kind === "after" && nearBottom) || change.kind === "send" ? scroll.scrollHeight : previousTop; // 기록 추가 뒤 읽는 위치 복원
+                }
                 byId("direct-status").textContent = feed.error ? "대화를 불러오지 못했습니다. 다시 확인하는 중입니다." : feed.loaded ? "대화 자동 갱신 중" : "대화를 불러오는 중입니다."; // 실제 조회 상태
                 render(); // 입력과 과거 버튼 갱신
-                if (feed.active && !feed.blocked) // 현재 대화의 확인된 기록
+                if (change.messages && feed.active && !feed.blocked) // 현재 대화의 확인된 페이지
                 {
-                    attachmentViews.get(conversation.id)?.load(feed.list()); // 메시지별 첨부 정보 조회
+                    attachmentViews.get(conversation.id)?.load(change.messages); // 새 페이지와 미완료 첨부 확인
                 }
             }, onError: (error) => report(error, requestVersion, userId) }); // 인증 오류 연결
             feeds.set(conversation.id, feed); // 같은 계정의 기록 보관
@@ -165,7 +172,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 {
                     return; // 이전 파일 결과 무시
                 }
-                byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ isOwn: message.user_id === userId, name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 작성자 구분과 다운로드 링크 표시
+                renderMessages(); // 확인된 다운로드 링크 표시
             }, onError: (error) => // 실제 첨부 조회 실패
             {
                 if (version !== requestVersion || getUser()?.id !== userId || !active || selected?.id !== conversation.id) // 이전 대화의 실패
@@ -186,7 +193,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 }
             } })); // 개인 첨부 조회 연결 끝
         }
-        byId("direct-messages").replaceChildren(...feed.list().map((message) => createMessage({ isOwn: message.user_id === userId, name: message.user_id === userId ? getUser().username : message.username, timestamp: message.created_at, text: message.content, attachment: attachmentViews.get(conversation.id)?.get(message.id) }))); // 작성자 구분과 기존 대화 표시
+        renderMessages(); // 선택한 대화의 기존 기록 복원
         renderList(); // 선택 상태 갱신
         render(); // 현재 입력 상태
         const loading = feed.activate(); // 최초 조회와 이후 자동 갱신
@@ -486,5 +493,9 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
             realtime = startRealtime(selected.id, feed, getUser().id); // 알림 구독 복구
         }
     }
-    return { render, refresh, clear, close, suspend, resume, startConversation, isActive: () => active, isBusy: () => Boolean(sending) }; // 계정과 채널 연결 경계
+    function renameUser(userId, username) // 열린 개인 대화의 본인 이름 반영
+    {
+        feeds.get(selected?.id)?.renameUser(userId, username); // 현재 기록의 작성자 갱신
+    }
+    return { render, refresh, clear, close, suspend, resume, startConversation, renameUser, isActive: () => active, isBusy: () => Boolean(sending) }; // 계정과 채널 연결 경계
 }

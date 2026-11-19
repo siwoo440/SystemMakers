@@ -101,19 +101,26 @@ function updateHistoryControls() // 기록 조회 버튼과 갱신 상태 표시
 }
 function createChannelFeed(channelId, channel, userId) // 실제 소속 채널의 조회 연결
 {
+    function updateMessageList() // 채널 기록과 첨부를 화면 자료로 변환
+    {
+        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, isOwn: messageEntry.user_id === userId, name: messageEntry.user_id === userId ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments?.get(messageEntry.id) })); // 작성자와 파일 정보 연결
+    }
     const channelFeed = new MessageFeed({ channelId, request: (messageQuery, abortSignal) => requestEndpoint("./backend/api/get_messages.php?" + messageQuery, null, abortSignal), onChange: (feedChange) => // 동일 출처의 취소 가능한 기록 조회
     {
         if (currentUser?.id !== userId || channels[channelId] !== channel) // 이전 계정과 교체된 채널 응답
         {
             return; // 현재 화면 변경 차단
         }
-        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, isOwn: messageEntry.user_id === currentUser?.id, name: messageEntry.user_id === currentUser?.id ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments?.get(messageEntry.id) })); // 작성자 구분과 확인한 파일 표시
+        if (feedChange.recordsChanged) // 본문 또는 작성자 변경 여부
+        {
+            updateMessageList(); // 비활성 채널을 포함한 표시 자료 갱신
+        }
         if (activeChannel !== channelId) // 현재 표시하지 않는 채널
         {
             channel.unread += feedChange.added; // 원래 채널의 새 메시지 수 유지
             return; // 다른 채널 화면 변경 차단
         }
-        if (!["loading", "state"].includes(feedChange.kind)) // 실제 기록이 바뀐 경우
+        if (feedChange.recordsChanged) // 실제 기록이 바뀐 경우
         {
             const previousScrollTop = messageScroll.scrollTop; // 기존 읽는 위치
             const previousScrollHeight = messageScroll.scrollHeight; // 이전 기록 높이
@@ -136,9 +143,9 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         }
         updateHistoryControls(); // 조회 진행과 오류 안내
         updateComposer(); // 권한 변경에 따른 전송 상태
-        if (channelFeed.active && !channelFeed.blocked && !directUI?.isActive()) // 현재 채널의 확인된 기록
+        if (feedChange.messages && channelFeed.active && !channelFeed.blocked && !directUI?.isActive()) // 현재 채널의 확인된 페이지
         {
-            channel.attachments?.load(channelFeed.list()); // 표시된 메시지의 파일 정보 조회
+            channel.attachments?.load(feedChange.messages); // 새 페이지와 미완료 첨부 확인
         }
     }, onError: (operationError) => // 실제 조회 오류의 인증과 권한 처리
     {
@@ -186,7 +193,7 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         {
             return; // 늦은 첨부 결과 무시
         }
-        channel.messages = channelFeed.list().map((messageEntry) => ({ id: messageEntry.id, isOwn: messageEntry.user_id === userId, name: messageEntry.user_id === userId ? currentUser.username : messageEntry.username, timestamp: messageEntry.created_at, text: messageEntry.content, attachment: channel.attachments.get(messageEntry.id) })); // 작성자 구분과 안전한 파일 정보
+        updateMessageList(); // 확인된 다운로드 링크 반영
         const previousScrollTop = messageScroll.scrollTop; // 기존 읽는 위치
         messages.replaceChildren(...channel.messages.map(createMessage)); // 다운로드 링크 갱신
         messageScroll.scrollTop = previousScrollTop; // 읽던 위치 보존
@@ -855,6 +862,7 @@ function applyProfile(user) // 같은 계정의 확인된 프로필 반영
     }
     currentUser = user; // 계정 번호를 유지한 본인 정보
     Object.values(channels).forEach((channel) => channel.feed?.renameUser(user.id, user.username)); // 초안·대화·커서를 유지한 이름 갱신
+    directUI?.renameUser(user.id, user.username); // 열린 개인 대화의 작성자 갱신
     renderAuthState(); // 현재 사용자명과 이니셜 갱신
 }
 function validUser(user) // 실제 사용자 응답 기본 검사

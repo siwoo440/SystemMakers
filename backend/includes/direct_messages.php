@@ -64,7 +64,8 @@ function create_direct_conversation(PDO $databaseConnection, string $userId, str
 }
 function direct_access(PDO $databaseConnection, string $conversationId, string $userId, bool $forWrite): array // 참여자와 전송 권한 확인
 {
-    $lookup = $databaseConnection->prepare('SELECT user_a_id, user_b_id FROM direct_conversations WHERE id = :id'); // 잠금 순서 결정을 위한 참여자 조회
+    $pairSql = 'SELECT user_a_id, user_b_id FROM direct_conversations WHERE id = :id'; // 대화의 참여자 조회문
+    $lookup = $databaseConnection->prepare($forWrite ? $pairSql : $pairSql . ' FOR SHARE'); // 읽기 권한과 공유 잠금을 한 번에 확인
     $lookup->execute(['id' => $conversationId]); // 대상 대화 조회
     $pair = $lookup->fetch(); // 현재 참여자 쌍
     if ($pair === false) // 대화 존재 여부
@@ -75,11 +76,12 @@ function direct_access(PDO $databaseConnection, string $conversationId, string $
     {
         throw new DirectAccessException('FORBIDDEN', 403); // 제3자 접근 차단
     }
-    if ($forWrite) // 전송 시 차단 변경 직렬화
+    if (!$forWrite) // 공유 잠금으로 확인한 읽기 요청
     {
-        lock_direct_users($databaseConnection, (string) $pair['user_a_id'], (string) $pair['user_b_id']); // 사용자 순차 배타 잠금
+        return $pair; // 현재 참여자 반환
     }
-    $locked = $databaseConnection->prepare('SELECT user_a_id, user_b_id FROM direct_conversations WHERE id = :id ' . ($forWrite ? 'FOR UPDATE' : 'FOR SHARE')); // 대화 관계 잠금
+    lock_direct_users($databaseConnection, (string) $pair['user_a_id'], (string) $pair['user_b_id']); // 차단 변경과 같은 순서의 사용자 잠금
+    $locked = $databaseConnection->prepare($pairSql . ' FOR UPDATE'); // 전송할 대화의 배타 잠금
     $locked->execute(['id' => $conversationId]); // 현재 대화 잠금
     $pair = $locked->fetch(); // 잠금 후 실제 관계
     if ($pair === false) // 대화 삭제 경합
@@ -90,14 +92,11 @@ function direct_access(PDO $databaseConnection, string $conversationId, string $
     {
         throw new DirectAccessException('FORBIDDEN', 403); // 제3자 접근 차단
     }
-    if ($forWrite) // 전송에만 차단 적용
+    $blockQuery = $databaseConnection->prepare('SELECT blocker_id FROM user_blocks WHERE (blocker_id = :first AND blocked_id = :second) OR (blocker_id = :second2 AND blocked_id = :first2) LIMIT 1 FOR UPDATE'); // 양방향 차단 확인
+    $blockQuery->execute(['first' => $pair['user_a_id'], 'second' => $pair['user_b_id'], 'second2' => $pair['user_b_id'], 'first2' => $pair['user_a_id']]); // 참여자 쌍 바인딩
+    if ($blockQuery->fetchColumn() !== false) // 어느 쪽이든 차단 상태
     {
-        $blockQuery = $databaseConnection->prepare('SELECT blocker_id FROM user_blocks WHERE (blocker_id = :first AND blocked_id = :second) OR (blocker_id = :second2 AND blocked_id = :first2) LIMIT 1 FOR UPDATE'); // 양방향 차단 확인
-        $blockQuery->execute(['first' => $pair['user_a_id'], 'second' => $pair['user_b_id'], 'second2' => $pair['user_b_id'], 'first2' => $pair['user_a_id']]); // 참여자 쌍 바인딩
-        if ($blockQuery->fetchColumn() !== false) // 어느 쪽이든 차단 상태
-        {
-            throw new DirectAccessException('FORBIDDEN', 403); // 상세 사유 없는 전송 거절
-        }
+        throw new DirectAccessException('FORBIDDEN', 403); // 상세 사유 없는 전송 거절
     }
     return $pair; // 권한 확인된 참여자
 }

@@ -4,15 +4,17 @@ import { createAttachmentView, uploadAttachment } from "../frontend/attachments-
 test("첨부 정보는 메시지별 최대 50건으로 조회하며 중복 요청을 피함", async () => // 제한 초과와 반복 조회 차단
 {
     const calls = []; // 실제 메타데이터 요청
+    let changes = 0; // 첨부 링크 갱신 횟수
     const view = createAttachmentView({ kind: "direct", targetId: "7", userId: "1", getUser: () => ({ id: "1" }), request: async (path) => // 권한 검사 요청 경계
     {
         calls.push(path); // 요청 주소 기록
         return { attachments: [] }; // 첨부 없는 메시지
-    }, onChange: () => undefined, onError: () => undefined }); // 화면 경계 연결
+    }, onChange: () => changes++, onError: () => undefined }); // 화면 경계 연결
     const messages = Array.from({ length: 51 }, (_, index) => ({ id: String(index + 1) })); // 두 묶음이 필요한 기록
     await view.load(messages); // 모든 표시 기록 확인
     await view.load(messages); // 동일 기록 재확인
     assert.equal(calls.length, 2); // 최대 50건 분할과 중복 방지
+    assert.equal(changes, 0); // 빈 첨부 응답의 화면 교체 생략
     assert.equal(new URL(calls[0], "https://example.test").searchParams.get("message_ids").split(",").length, 50); // 첫 요청 상한
     view.stop(); // 조회 수명 정리
 }); // 묶음 조회 검사 끝
@@ -28,6 +30,27 @@ test("이전 계정의 늦은 첨부 정보는 표시하지 않음", async () =>
     assert.equal(view.get("2"), null); // 이전 첨부 미반영
     assert.equal(changed, 0); // 이전 화면 갱신 차단
 }); // 첨부 수명 검사 끝
+test("첨부 조회 중 도착한 페이지와 실패한 묶음은 다음 조회에서 복구", async () => // 빈 페이지에서의 첨부 재시도
+{
+    const batches = []; // 실제 조회된 메시지 묶음
+    let rejectFirst; // 첫 응답의 실패 제어
+    const view = createAttachmentView({ kind: "channel", targetId: "7", userId: "1", getUser: () => ({ id: "1" }), request: async (path) => // 파일 정보 요청 관측
+    {
+        batches.push(new URL(path, "https://example.test").searchParams.get("message_ids")); // 대상 메시지 기록
+        if (batches.length === 1) // 첫 요청 지연
+        {
+            return new Promise((resolve, reject) => rejectFirst = reject); // 통신 오류 대기
+        }
+        return { attachments: [] }; // 재시도 성공
+    }, onChange: () => undefined, onError: () => undefined }); // 조회 경계 준비
+    const first = view.load([{ id: "1" }]); // 첫 페이지 확인
+    const second = view.load([{ id: "2" }]); // 조회 중 새 페이지 도착
+    rejectFirst(new Error("offline")); // 첫 묶음 실패
+    await Promise.all([first, second]); // 요청 종료 확인
+    await view.load([]); // 새 메시지 없는 다음 갱신
+    await view.load([]); // 확인 완료 뒤 유휴 갱신
+    assert.deepEqual(batches, ["1", "1,2"]); // 누락과 중복 없는 재조회
+}); // 첨부 재시도 검사 끝
 test("파일 업로드는 대상과 파일을 multipart 본문으로 한 번 전달", async () => // 잘못된 대화와 재전송 차단
 {
     const calls = []; // 실제 업로드 요청

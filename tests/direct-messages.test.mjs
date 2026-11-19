@@ -42,6 +42,18 @@ test("개인 대화의 참여자 권한과 차단 경계", async (context) => //
     const concurrent = await concurrentResponse.json(); // 둘째 생성 응답
     assert.equal(created.status, 201); // 생성 성공
     const conversationId = created.data.conversation.id; // 생성 대화 ID
+    const readProbe = `require 'backend/config/database.php'; // 실제 DB 연결 설정
+        require 'backend/includes/direct_messages.php'; // 개인 대화 권한 검사
+        $connection = db(); // 검사 전용 연결
+        $counterSql = "SHOW SESSION STATUS LIKE 'Com_select'"; // 현재 연결의 조회 횟수
+        $connection->beginTransaction(); // 읽기 잠금 범위 시작
+        $before = (int) $connection->query($counterSql)->fetchColumn(1); // 검사 전 조회 횟수
+        direct_access($connection, $argv[1], $argv[2], false); // 참여자와 공유 잠금 확인
+        echo (int) $connection->query($counterSql)->fetchColumn(1) - $before; // 실제 사용한 조회 횟수
+        $connection->rollBack(); // 검사 잠금 해제
+    `; // 실행할 읽기 경로
+    const readCount = execFileSync(environment.php, ["-c", process.env.PHP_TEST_INI || path.join(environment.root, ".runtime/php.ini"), "-r", readProbe, conversationId, bob.id], { env: environment.env, cwd: environment.root, encoding: "utf8" }); // 격리 DB의 실행 횟수 측정
+    assert.equal(readCount, "1"); // 개인 대화 읽기 권한 조회 한 번
     assert.equal(concurrentResponse.status, 201); // 경합 요청 성공
     assert.equal(concurrent.data.conversation.id, conversationId); // 경합 결과 동일 대화
     const reused = await bob.request("create_dm.php", { user_id: alice.id }); // 역방향 생성 요청

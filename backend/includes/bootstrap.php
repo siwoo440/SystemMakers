@@ -31,4 +31,3 @@ require_once __DIR__ . '/session.php'; // 보안 세션 함수
 require_once __DIR__ . '/request.php'; // HTTP 입력 검증
 require_once __DIR__ . '/csrf.php'; // CSRF 토큰 함수
 require_once __DIR__ . '/auth.php'; // 실제 사용자 인증
-require_once __DIR__ . '/permissions.php'; // 채널 소속 권한

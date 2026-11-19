@@ -174,6 +174,14 @@ test("개인 대화 자동 갱신은 마지막 조회 이후 메시지만 추가
         {
             return { messages: [{ id: "2", conversation_id: "10", user_id: "2", username: "bob", content: "답장", created_at: "2026-11-11T00:00:01Z" }], pagination: { mode: "after", has_more: false, next_before_id: "2", next_after_id: "2" } }; // 신규 메시지
         }
+        if (path.includes("after_id=2")) // 신규 기록 없는 조회
+        {
+            return { messages: [], pagination: { mode: "after", has_more: false, next_before_id: null, next_after_id: "2" } }; // 마지막 커서 유지
+        }
+        if (path.includes("list_attachments")) // 파일 정보 확인
+        {
+            return { attachments: [] }; // 파일 없는 대화
+        }
         return { messages: [{ id: "1", conversation_id: "10", user_id: "1", username: "alice", content: "첫 메시지", created_at: "2026-11-11T00:00:00Z" }], pagination: { mode: "initial", has_more: false, next_before_id: "1", next_after_id: "1" } }; // 최초 기록
     }, { set: (callback) => nextTimer = callback, clear: () => undefined }); // 가상 갱신 예약
     await harness.ui.refresh(); // 대화 목록 확인
@@ -182,6 +190,12 @@ test("개인 대화 자동 갱신은 마지막 조회 이후 메시지만 추가
     assert.ok(paths.some((path) => path.includes("after_id=1"))); // 실제 조회 커서 사용
     assert.deepEqual(harness.byId("direct-messages").children.map((message) => message.text), ["첫 메시지", "답장"]); // 본인 기록과 답장 표시
     assert.deepEqual(harness.byId("direct-messages").children.map((message) => message.isOwn), [true, false]); // 본인과 상대 메시지 구분
+    const displayed = harness.byId("direct-messages").children; // 현재 대화 노드 목록
+    await nextTimer(); // 새 메시지 없는 다음 조회
+    assert.equal(harness.byId("direct-messages").children, displayed); // 기존 노드와 읽는 위치 유지
+    harness.setUser({ id: "1", username: "alice2" }); // 확인된 본인 이름 변경
+    harness.ui.renameUser("1", "alice2"); // 개인 대화에 프로필 반영
+    assert.equal(harness.byId("direct-messages").children[0].name, "alice2"); // 다음 메시지 전에 이름 갱신
     harness.ui.clear(); // 예약 수명 종료
 }); // 자동 갱신 검사 끝
 test("개인 파일 전송은 저장 메시지에 확인된 다운로드 정보를 표시", async () => // 전송한 파일의 메시지 연결 누락 차단

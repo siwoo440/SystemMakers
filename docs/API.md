@@ -345,17 +345,16 @@ WebSocket 서버가 변경을 알리면 기존 조회를 즉시 요청하고 조
 | db(): PDO | backend/config/database.php | utf8mb4·UTC·예외 모드·실제 prepared statement를 사용하는 연결 |
 | require_user(PDO): array | backend/includes/auth.php | 유효한 사용자 반환; 키는 id, username, email, created_at; 비로그인 401, 명시된 기대 계정 불일치 403 SESSION_CHANGED |
 | require_csrf(): void | backend/includes/csrf.php | 세션 토큰과 X-CSRF-Token 비교; 실패 시 공통 403 |
-| require_channel_member(PDO, string, string): array | backend/includes/permissions.php | 채널 ID·인증 사용자 ID로 권한 검사; id와 server_id를 문자열로 반환; 404·403 구분 |
 | store_message(PDO, string, string, string): array | backend/includes/messages.php | 검증된 채널 ID·세션 사용자 ID·원문을 채널·멤버십 잠금과 함께 저장하고 커밋된 공개 메시지 반환 |
 | read_messages(PDO, string, string, int, ?string, ?string): array | backend/includes/message_history.php | 검증된 채널·세션 사용자·개수·이전/신규 커서로 현재 소속과 실제 페이지 조회, 응답 전 전체 잠금 해제 |
 | respond_success(array, int): never | backend/includes/response.php | data와 HTTP 상태를 가진 공통 JSON 출력 |
 | respond_error(string, string, int, array): never | backend/includes/response.php | 오류 코드·문구·HTTP 상태·선택적 fields 출력 |
 
-require_channel_member의 전체 시그니처는 `require_channel_member(PDO $databaseConnection, string $channelId, string $userId): array`다. `$userId`는 반드시 require_user가 반환한 값이며 요청 본문의 값을 전달하지 않는다.
+채널 기록 조회와 저장에 전달하는 `$userId`는 `require_user`가 세션에서 확인한 값이다. 존재하지 않는 채널에는 404, 소속이 없는 채널에는 403을 반환한다.
 
 PHP의 사용자 정의 변수·매개변수는 lowerCamelCase를 사용한다. HTTP JSON·쿼리의 `channel_id`·`user_id`와 DB 열 이름은 기존 계약을 유지한다. PHP 함수를 외부 코드에서 이름 지정 인수로 직접 호출했다면 변경된 매개변수 이름으로 수정해야 한다. 위치 순서로 전달하는 기존 호출과 HTTP API 계약은 유지한다. 자세한 기준은 [변수명 안내](VARIABLE-NAMING.md)를 따른다.
 
-단순 require_channel_member 조회는 트랜잭션 안의 저장 권한 검사를 대체하지 않는다. 메시지 저장은 store_message의 채널 FOR UPDATE·멤버십 FOR SHARE·INSERT·COMMIT 순서를 따른다. 외부 입력 검증은 호출 전에 수행하며, 권한 오류는 롤백 후 공통 JSON으로 변환한다.
+메시지 저장은 store_message의 채널 FOR UPDATE·멤버십 FOR SHARE·INSERT·COMMIT 순서를 따른다. 외부 입력 검증은 호출 전에 수행하며, 권한 오류는 롤백 후 공통 JSON으로 변환한다.
 
 세션을 시작·갱신하고 필요한 인증·CSRF 정보를 읽은 뒤 session_write_close로 잠금을 해제한다. 해제 이후 같은 요청에서 세션을 추가 수정하지 않도록 공통 처리 순서를 구성한다. [PHP 세션 잠금 문서](https://www.php.net/manual/en/function.session-write-close.php)
 

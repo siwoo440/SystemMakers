@@ -5,17 +5,18 @@
 - [NAS Docker 배포](NAS-DEPLOYMENT.md): 장비·공유기 확인, HTTPS·WSS, DB 보존·복원과 접속 링크 출력.
 - [API 명세](API.md): 요청·응답, 인증·권한과 메시지 조회 규칙.
 - [DB 구조](DATABASE.md): 테이블·관계·잠금·삭제와 변경 파일.
-- [개발 방향](DEVELOPMENT-DIRECTION.md): 현재 상태와 팀원별 남은 작업.
+- [남은 작업과 완료 기준](DEVELOPMENT-DIRECTION.md)에서 NAS 실배포, 외부 접속, 실제 기기·운영 검증을 관리한다.
 - [변수명 작성과 호환성](VARIABLE-NAMING.md): lowerCamelCase와 외부 계약 구분.
-- [현재 화면 기획서와 수정 파일](UI-DIRECTION.md) · [실제 화면 16장](../README.md#화면-살펴보기) · [초기 시안 제작 기록](UI-PROMPTS.md).
+- [현재 화면 기획서와 수정 파일](UI-DIRECTION.md) · [실제 화면 16장](../README.md#화면-살펴보기).
 - [한국어 커밋 메시지](COMMIT-MESSAGES.md).
 
 ---
 ## 단계별 기록
 
-아래 결과는 각 단계에서 검사한 당시의 기록이다. 최신 남은 검증 범위는 11단계 결과와 개발 방향을 확인한다.
+아래 결과는 각 단계에서 검사한 당시의 기록이다.
 
 - [초기 스키마 검증](SCHEMA-VERIFICATION.md)
+- [개인 대화·첨부·프로필 기능 확장 검증](PHASE-1-6-VERIFICATION.md)
 - [2단계 공통 처리](PHASE-2-VERIFICATION.md)
 - [3단계 회원 인증](PHASE-3-VERIFICATION.md)
 - [4단계 메시지 저장](PHASE-4-VERIFICATION.md)

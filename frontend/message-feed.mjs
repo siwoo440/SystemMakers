@@ -80,7 +80,7 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
                 this.items.set(messageId, { ...messageEntry, username }); // 대화 ID·본문·시각 보존
             }
         }
-        this.onChange({ kind: "profile", added: 0 }); // 조회 커서와 예약을 유지한 표시 갱신
+        this.onChange({ kind: "profile", added: 0, recordsChanged: true }); // 작성자 이름 표시 갱신
     }
     add(messageEntry) // 확인한 전송 성공 응답 병합
     {
@@ -94,7 +94,7 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
         }
         const addedMessageCount = this.items.has(messageEntry.id) ? 0 : 1; // 중복된 전송 응답 구분
         this.items.set(messageEntry.id, messageEntry); // 전송 결과 보관
-        this.onChange({ kind: "send", added: addedMessageCount }); // 조회 커서를 변경하지 않는 화면 갱신
+        this.onChange({ kind: "send", added: addedMessageCount, recordsChanged: true, messages: [messageEntry] }); // 전송 기록과 첨부 조회 대상
     }
     pause() // 채널 이동과 계정 종료의 요청 정리
     {
@@ -117,7 +117,7 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
         this.oldest = null; // 과거 기록 커서 제거
         this.after = "0"; // 신규 기록 커서 제거
         this.error = operationError; // 실제 거절 사유 보관
-        this.onChange({ kind: "error", added: 0 }); // 비활성 채널도 기록 정리 반영
+        this.onChange({ kind: "error", added: 0, recordsChanged: true }); // 접근이 끝난 기록의 화면 정리
         this.onError(operationError); // 인증 복구 또는 권한 안내
     }
     activate() // 선택한 채널의 조회 시작 또는 재개
@@ -199,7 +199,7 @@ export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
                 this.loaded = true; // 최초 기록 확인 완료
                 this.error = null; // 이전 조회 오류 제거
                 this.failures = 0; // 정상 연결 대기 간격 복구
-                this.onChange({ kind: fetchMode, added: addedMessageCount }); // 검증된 기록과 상태 표시
+                this.onChange({ kind: fetchMode, added: addedMessageCount, recordsChanged: fetchMode === "initial" || responseData.messages.length > 0, messages: responseData.messages }); // 표시 변경 여부와 이번 페이지의 첨부 조회 대상
                 hasMoreMessages = fetchMode === "after" && responseData.pagination.has_more; // 신규 적체만 연속 조회
             }
             while (hasMoreMessages && requestVersion === this.version && this.active); // 같은 채널 수명에서 순차 진행

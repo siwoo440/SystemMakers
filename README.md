@@ -16,10 +16,12 @@ SystemMakers는 서버·채널과 1:1 개인 대화에서 메시지와 파일을
 
 - **메시지 확인**: 실시간 연결 중에는 알림을 즉시 처리하고 HTTP 안전망은 15초 간격으로 확인합니다. 연결이 끊기면 2초 간격 조회로 복구합니다.
 
+새 메시지가 없는 동안에는 채널과 개인 대화의 말풍선과 읽던 위치를 유지합니다. 페이지를 다시 열 때 브라우저는 공개 HTML·CSS·JavaScript의 버전을 확인하고, 같은 파일은 저장한 사본을 사용합니다.
+
 - **화면 디자인**: `#262B3F` 배경과 광택을 더한 보라색 버튼·말풍선을 사용합니다. 본인 메시지는 오른쪽, 상대방 메시지는 왼쪽에 표시합니다.
 
-- **접속 주소**: [http://127.0.0.6:8088/Team006/index.html](http://127.0.0.6:8088/Team006/index.html)
-- **주소 구분**: 웹 브라우저는 위 `127.0.0.6` 주소를 사용합니다. MySQL의 `127.0.0.1`은 별도 DB 연결 주소입니다.
+- **같은 Wi-Fi에서 접속** — 서버 PC의 PowerShell에서 `./scripts/show-lan-url.ps1`을 실행해 표시되는 웹 주소를 엽니다. Wi-Fi가 바뀌면 이 주소도 바뀔 수 있습니다.
+- **로컬 기본 주소** — `start-dev.ps1`을 기본 설정으로 실행한 PC에서 접속합니다. [로컬 채팅 열기](http://127.0.0.6:8088/Team006/index.html)
 - **화면 자료** — 2026년 11월 19일 Chrome에서 예시 계정으로 촬영했습니다. 데스크톱 화면 15장과 390 × 844 크기의 모바일 배치 1장을 담았습니다.
 - [화면 이미지 16장 내려받기](docs/assets/ui/systemmakers-ui-screenshots.zip?raw=true) · [화면별 설계와 수정 파일 보기](docs/UI-DIRECTION.md)
 
@@ -186,7 +188,7 @@ SystemMakers는 서버·채널과 1:1 개인 대화에서 메시지와 파일을
   <br>관련 코드·문서: [삭제 미리보기](backend/api/get_deletion_preview.php) · [채널 삭제](backend/api/delete_channel.php)
 
 - **역할별 접근**: 일반 회원은 소속 채널에서 대화하고, 소유자와 관리자는 채널을 관리합니다.
-  <br>관련 코드·문서: [접근 권한](backend/includes/permissions.php) · [역할 규칙](docs/PHASE-7-RULES.md)
+  <br>관련 코드·문서: [채널 관리](backend/includes/channel_management.php) · [역할 규칙](docs/PHASE-7-RULES.md)
 
 
 서버·채널 관리 버튼은 벡터 아이콘으로 표시합니다. 마우스를 올리거나 키보드로 선택하면 기능 이름이 나타납니다.
@@ -250,7 +252,7 @@ SystemMakers는 서버·채널과 1:1 개인 대화에서 메시지와 파일을
   <br>관련 코드·문서: [사용자 차단](backend/api/user_blocks.php)
 
 - **접근 권한 확인**: 서버 소속과 관리 권한을 확인해 권한 없는 조회·전송·관리를 차단합니다.
-  <br>관련 코드·문서: [권한 확인](backend/includes/permissions.php) · [관리 요청](backend/includes/management_endpoint.php)
+  <br>관련 코드·문서: [대화 조회 권한](backend/includes/message_history.php) · [관리 요청](backend/includes/management_endpoint.php)
 
 - **계정과 요청 보호**: 세션과 CSRF 토큰을 확인하고 다른 탭에서 계정이 바뀌었을 때 잘못된 계정으로 요청하는 일을 방지합니다.
   <br>관련 코드·문서: [세션](backend/includes/session.php) · [CSRF](backend/includes/csrf.php) · [API 명세](docs/API.md)
@@ -325,7 +327,7 @@ PHP 8.3, MySQL 8.4, Node.js, Composer와 개인 DB 설정이 필요합니다. PH
 
 ## 문서
 
-- [실시간 연결](docs/REALTIME.md) · [API 명세](docs/API.md) · [DB 구조](docs/DATABASE.md) · [개발 방향](docs/DEVELOPMENT-DIRECTION.md)
+- [남은 작업과 완료 기준](docs/DEVELOPMENT-DIRECTION.md) · [실시간 연결](docs/REALTIME.md) · [API 명세](docs/API.md) · [DB 구조](docs/DATABASE.md)
 - [NAS Docker 배포와 접속 링크 출력](docs/NAS-DEPLOYMENT.md)
 - [12단계 AMD64·ARM64 컨테이너 검증 결과](docs/PHASE-12-VERIFICATION.md)
 - [변수명 작성과 호환성](docs/VARIABLE-NAMING.md) · [로컬 실행과 검사](docs/LOCAL-SETUP.md)

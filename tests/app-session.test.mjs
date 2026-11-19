@@ -65,6 +65,15 @@ function setup(handler, websocketClass = undefined) // 실제 화면 함수와 �
     const send = () => evaluate("sendMessage({ preventDefault: () => undefined })"); // 실제 폼 제출 경로
     return { calls, timers, evaluate, state, send, stop: () => evaluate("pauseMessageFeeds()") }; // 검사 경계 반환
 }
+test("새 기록이 없는 채널 조회는 대화 목록을 재구성하지 않음", async (context) => // 유휴 채널의 화면 작업 수 검사
+{
+    const harness = setup(() => ({ status: 200, data: { messages: [], pagination: { mode: "after", has_more: false, next_before_id: null, next_after_id: "1" } } })); // 빈 신규 페이지
+    context.after(harness.stop); // 조회 예약 정리
+    harness.evaluate('channels["1"].feed.loaded = true; channels["1"].feed.after = "1";'); // 기존 기록 조회 완료
+    const displayed = harness.evaluate('channels["1"].messages'); // 기존 표시 목록
+    await harness.evaluate('channels["1"].feed.activate()'); // 실제 갱신 주기 실행
+    assert.equal(harness.evaluate('channels["1"].messages'), displayed); // 기록 변환과 교체 생략
+}); // 유휴 채널 검사 끝
 test("서버 선택은 개인 대화를 닫은 뒤 서버 채널을 불러옴", async (context) => // 개인 대화에서 서버 복귀
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 화면 실행 환경

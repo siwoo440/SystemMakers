@@ -9,22 +9,24 @@ export function createAttachmentView({ kind, targetId, userId, getUser, request,
     let pending = null; // 중복 조회 차단
     let controller = null; // 요청 취소 도구
     const checked = new Set(); // 확인한 메시지 ID
+    const queued = new Set(); // 파일 조회를 기다리는 메시지 ID
     const attachments = new Map(); // 메시지별 첨부 정보
     async function load(messages) // 표시한 메시지의 첨부 조회
     {
-        const invocationVersion = version; // 조회를 요청한 대화 수명
-        if (pending) // 현재 조회 진행 여부
+        if (getUser()?.id !== userId) // 계정 전환 여부
         {
-            await pending; // 앞선 조회 종료 대기
+            return; // 다른 계정의 파일 조회 차단
         }
-        if (invocationVersion !== version || getUser()?.id !== userId) // 종료된 대화 또는 계정 여부
+        for (const message of messages) // 이번 페이지의 기록
         {
-            return; // 다른 계정 조회 차단
+            if (validId(message.id) && !checked.has(message.id)) // 확인하지 않은 메시지
+            {
+                queued.add(message.id); // 중복 없는 조회 대기열
+            }
         }
-        const ids = [...new Set(messages.map((message) => message.id))].filter((id) => validId(id) && !checked.has(id)); // 아직 확인하지 않은 메시지
-        if (!ids.length) // 추가 조회 대상 없음
+        if (pending || !queued.size) // 기존 조회 또는 빈 대기열
         {
-            return; // 불필요한 요청 중단
+            return pending; // 진행 중인 조회 공유
         }
         const requestVersion = version; // 현재 대화 수명
         const requestController = new AbortController(); // 이번 요청 취소 도구
@@ -33,9 +35,17 @@ export function createAttachmentView({ kind, targetId, userId, getUser, request,
         {
             try // 권한을 포함한 첨부 조회
             {
-                for (let offset = 0; offset < ids.length; offset += 50) // 서버 조회 상한
+                while (queued.size && requestVersion === version && getUser()?.id === userId) // 현재 계정의 미완료 기록
                 {
-                    const batch = ids.slice(offset, offset + 50); // 현재 메시지 묶음
+                    const batch = []; // 현재 조회 묶음
+                    for (const messageId of queued) // 오래된 요청부터 선택
+                    {
+                        batch.push(messageId); // 묶음에 메시지 추가
+                        if (batch.length === 50) // 서버의 조회 상한
+                        {
+                            break; // 다음 묶음으로 나머지 이월
+                        }
+                    }
                     const query = new URLSearchParams({ kind, target_id: targetId, message_ids: batch.join(",") }); // 공개 조회 조건
                     const response = await request("./backend/api/list_attachments.php?" + query, null, requestController.signal); // 현재 계정 권한 확인
                     if (requestVersion !== version || getUser()?.id !== userId) // 다른 계정 또는 대화 수명
@@ -48,7 +58,11 @@ export function createAttachmentView({ kind, targetId, userId, getUser, request,
                     }
                     response.attachments.forEach((attachment) => attachments.set(attachment.message_id, attachment)); // 확인된 파일 정보 보관
                     batch.forEach((id) => checked.add(id)); // 첨부 없는 기록도 확인 완료
-                    onChange(); // 현재 화면의 링크 갱신
+                    batch.forEach((id) => queued.delete(id)); // 성공한 묶음만 대기열에서 제거
+                    if (response.attachments.length) // 표시할 파일 존재 여부
+                    {
+                        onChange(); // 현재 화면의 링크 갱신
+                    }
                 }
             }
             catch (error) // 통신 또는 권한 실패
@@ -81,6 +95,7 @@ export function createAttachmentView({ kind, targetId, userId, getUser, request,
         }
         attachments.set(attachment.message_id, attachment); // 해당 메시지에 파일 연결
         checked.add(attachment.message_id); // 같은 정보 중복 조회 방지
+        queued.delete(attachment.message_id); // 대기 중인 업로드 결과 정리
     }
     return { load, stop, add, get: (messageId) => attachments.get(messageId) || null }; // 조회와 표시 경계
 }

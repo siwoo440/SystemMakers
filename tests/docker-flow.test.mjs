@@ -54,6 +54,11 @@ test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { ski
     }
     const page = await fetch(`${origin}/Team006/index.html`); // 실제 운영 진입점
     assert.equal(page.status, 200); // Apache 라우팅 성공
+    const pageTag = page.headers.get('etag'); // 프록시가 전달한 화면 식별표
+    assert.ok(pageTag); // 화면 버전 확인
+    const unchangedPage = await fetch(`${origin}/Team006/index.html`, { headers: { 'If-None-Match': pageTag } }); // 같은 화면 재요청
+    assert.equal(unchangedPage.status, 304); // 프록시 경유 캐시 재검증
+    assert.equal(await unchangedPage.text(), ''); // 중복 본문 전송 방지
     assert.ok(page.headers.get('content-security-policy').includes(origin.replace(/^https:/u, 'wss:'))); // 명시적 운영 WSS 허용
     for (const hidden of ['.git/config', '.runtime/web-env.json', 'backend/config/database.php', 'backend/sql/schema.sql', 'docker/php.ini', 'tests/docker-flow.test.mjs', '%2e%2e/backend/config/database.php']) // 비공개 경로 목록
     {

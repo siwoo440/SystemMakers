@@ -91,6 +91,26 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
                 assert.ok((await asset.text()).length > 0); // 실제 자원 본문 확인과 정리
             }
         }); // 홈 검사 종료
+        await context.test("같은 화면 파일의 재요청은 본문 없이 응답", async () => // 조건부 다운로드 검사
+        {
+            const url = origin + "/Team006/frontend/app.css"; // 공개 스타일 파일
+            const first = await fetch(url); // 최초 다운로드
+            const tag = first.headers.get("etag"); // 파일 내용 식별표
+            assert.ok(tag); // 식별표 발급 확인
+            const original = await first.text(); // 처음 받은 본문
+            for (const method of ["GET", "HEAD"]) // 읽기 메서드 검사
+            {
+                const cached = await fetch(url, { method, headers: { "If-None-Match": '"old,tag", W/' + tag.replace(/^W\//, "") } }); // 약한 비교와 태그 목록
+                assert.equal(cached.status, 304); // 이전 파일 재사용
+                assert.equal(await cached.text(), ""); // 본문 재전송 생략
+            }
+            const stale = await fetch(url, { headers: { "If-None-Match": '"outdated"' } }); // 다른 버전의 식별표
+            assert.equal(stale.status, 200); // 최신 파일 응답
+            assert.equal(await stale.text(), original); // 최신 본문 확인
+            const api = await fetch(origin + "/api/csrf.php", { headers: { "If-None-Match": "*" } }); // 개인 응답의 캐시 분리
+            assert.equal(api.headers.get("cache-control"), "no-store"); // 인증 정보 보관 차단
+            assert.equal(api.status, 200); // 실제 토큰 발급 유지
+        }); // 정적 파일 재검증 끝
         await context.test("실제 CSRF와 비로그인 응답", async () => // API 연결 검사
         {
             const token = await fetch(origin + "/api/csrf.php"); // CSRF 발급 요청

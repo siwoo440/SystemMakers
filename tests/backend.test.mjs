@@ -78,10 +78,6 @@ if ($fixtureRequestRoute === '/secure-cookie') // 운영 쿠키 보안 확인
     putenv('SESSION_COOKIE_SECURE=0'); // 잘못된 해제 설정 조건
     require '${basePhp}/backend/api/csrf.php'; // 실제 토큰 API 실행
 }
-if ($fixtureRequestRoute === '/member') // 실제 채널 권한 검사
-{
-    respond_success(require_channel_member(db(), $_GET['channel'] ?? '1', $_GET['user'] ?? '1')); // DB 소속 판정
-}
 if ($fixtureRequestRoute === '/db') // 실제 PDO 연결 확인
 {
     $fixtureDatabaseConnection = db(); // 실제 DB 연결
@@ -106,7 +102,7 @@ if ($fixtureRequestRoute === '/warning') // 내부 경고 시나리오
 {
     trigger_error('sensitive warning secret', E_USER_WARNING); // 경고 유도
 }
-$fixtureApiRoutes = ['/api/csrf.php' => 'csrf.php', '/api/get_current_user.php' => 'get_current_user.php', '/api/health.php' => 'health.php']; // 공개 API 목록
+$fixtureApiRoutes = ['/api/csrf.php' => 'csrf.php', '/api/get_current_user.php' => 'get_current_user.php', '/api/health.php' => 'health.php', '/api/get_messages.php' => 'get_messages.php']; // 검사할 실제 API 목록
 if (isset($fixtureApiRoutes[$fixtureRequestRoute])) // 허용 API 확인
 {
     require '${basePhp}/backend/api/' . $fixtureApiRoutes[$fixtureRequestRoute]; // 실제 엔드포인트 실행
@@ -278,9 +274,13 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
         }
         await context.test("채널 존재와 멤버십 404·403 구분", async () => // 존재와 권한 혼동 포착
         {
-            assert.deepEqual((await request("/member?channel=1&user=1")).body.data, { id: "1", server_id: "1" }); // 실제 소속 허용
-            assert.equal((await request("/member?channel=999&user=1")).response.status, 404); // 없는 채널 구분
-            assert.equal((await request("/member?channel=1&user=2")).response.status, 403); // 다른 사용자 소속 차단
+            const member = await request("/fixture-auth?id=1"); // 실제 소속 회원 세션
+            const outsider = await request("/fixture-auth?id=2"); // 미소속 회원 세션
+            const memberOptions = { headers: { Cookie: member.response.headers.get("set-cookie").split(";")[0] } }; // 소속 회원 쿠키
+            const outsiderOptions = { headers: { Cookie: outsider.response.headers.get("set-cookie").split(";")[0] } }; // 미소속 회원 쿠키
+            assert.deepEqual((await request("/api/get_messages.php?channel_id=1", memberOptions)).body.data.messages, []); // 소속 채널 기록 조회 허용
+            assert.equal((await request("/api/get_messages.php?channel_id=999", memberOptions)).response.status, 404); // 없는 채널 구분
+            assert.equal((await request("/api/get_messages.php?channel_id=1", outsiderOptions)).response.status, 403); // 미소속 채널 거절
         }); // 소속 검사 종료
         await context.test("내부 예외와 DB 실패 원인 비노출", async () => // 민감 오류 유출 포착
         {

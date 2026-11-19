@@ -39,8 +39,3 @@
 - 기본 배경은 `#262B3F`이며 선택한 요소와 본인 말풍선에는 광택이 있는 보라색을 쓴다.
 - 아이콘 버튼은 로그인·로그아웃, 초대, 검색처럼 용도별 모양을 갖는다. 아이콘을 바꿀 때 키보드 초점과 접근성 이름도 유지한다.
 - 레이아웃과 버튼 모양은 [index.html](../index.html)과 [app.css](../frontend/app.css)에서 수정한다. 자바스크립트가 요소를 찾는 `id`와 입력 레이블의 `for` 연결을 보존한다.
-
----
-## 초기 시안 기록
-
-2026년 10월의 [채팅 디자인 시안](assets/ui/chat-desktop-v1.png)과 [인증 디자인 시안](assets/ui/auth-desktop-v1.png)의 제작 과정은 [이미지 생성 기록](UI-PROMPTS.md)에 있다. 당시 구현 화면은 [인증 검증](PHASE-3-VERIFICATION.md)과 [메시지 저장 검증](PHASE-4-VERIFICATION.md)에 남겨 두었다.

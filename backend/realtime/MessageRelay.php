@@ -15,6 +15,8 @@ function realtime_compare_ids(string $left, string $right): int // 정수 변환
 final class MessageRelay implements MessageComponentInterface // 연결별 최소 알림 중계
 {
     private SplObjectStorage $connections; // 인증 연결 저장소
+    private ?PDOStatement $channelQuery = null; // 재사용할 채널 권한 조회문
+    private ?PDOStatement $directQuery = null; // 재사용할 개인 대화 권한 조회문
     public function __construct(private PDO $databaseConnection, private string $allowedOrigin) // 연결 설정
     {
         $this->connections = new SplObjectStorage(); // 독립 연결 상태 준비
@@ -42,14 +44,14 @@ final class MessageRelay implements MessageComponentInterface // 연결별 최�
     }
     private function latestForMember(string $channelId, string $userId): ?string // 현재 소속과 채널 최신 커서
     {
-        $query = $this->databaseConnection->prepare('SELECT COALESCE((SELECT id FROM messages WHERE channel_id = c.id ORDER BY id DESC LIMIT 1), 0) AS latest_id FROM channels c INNER JOIN server_members sm ON sm.server_id = c.server_id AND sm.user_id = :user_id WHERE c.id = :channel_id LIMIT 1'); // 채널과 현재 멤버십의 한 번에 조회
+        $query = $this->channelQuery ??= $this->databaseConnection->prepare('SELECT COALESCE((SELECT id FROM messages WHERE channel_id = c.id ORDER BY id DESC LIMIT 1), 0) AS latest_id FROM channels c INNER JOIN server_members sm ON sm.server_id = c.server_id AND sm.user_id = :user_id WHERE c.id = :channel_id LIMIT 1'); // 첫 채널 구독에서 조회문 준비
         $query->execute(['user_id' => $userId, 'channel_id' => $channelId]); // 인증된 사용자와 채널 결합
         $latest = $query->fetchColumn(); // 최신 ID 또는 접근 불가
         return $latest === false ? null : (string) $latest; // 접근 불가와 빈 채널 구분
     }
     private function latestForDirectMember(string $conversationId, string $userId): ?string // 참여 관계와 개인 대화 최신 커서
     {
-        $query = $this->databaseConnection->prepare('SELECT COALESCE((SELECT id FROM direct_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1), 0) AS latest_id FROM direct_conversations c WHERE c.id = :conversation_id AND (c.user_a_id = :user_a OR c.user_b_id = :user_b) LIMIT 1'); // 대화 참여자와 최신 메시지 확인
+        $query = $this->directQuery ??= $this->databaseConnection->prepare('SELECT COALESCE((SELECT id FROM direct_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1), 0) AS latest_id FROM direct_conversations c WHERE c.id = :conversation_id AND (c.user_a_id = :user_a OR c.user_b_id = :user_b) LIMIT 1'); // 첫 개인 구독에서 조회문 준비
         $query->execute(['conversation_id' => $conversationId, 'user_a' => $userId, 'user_b' => $userId]); // 인증된 참여자 연결
         $latest = $query->fetchColumn(); // 최신 ID 또는 접근 불가
         return $latest === false ? null : (string) $latest; // 접근 불가와 빈 대화 구분
