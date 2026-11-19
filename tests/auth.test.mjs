@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"; // 인증 결과 검증
 import { execFileSync, spawn } from "node:child_process"; // 실제 PHP와 MySQL 실행
 import { randomBytes } from "node:crypto"; // 독립 DB 이름 생성
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"; // 비공개 검증 파일 관리
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"; // 비공개 검증 파일 관리
 import net from "node:net"; // 임의 포트 확인
 import path from "node:path"; // 운영체제 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
@@ -65,6 +65,10 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 미구현 API 실패
     try // 실패 시에도 정리 보장
     {
         sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 실제 스키마 적용
+        for (const migration of readdirSync(path.join(projectRoot, "backend/sql/migrations")).sort()) // 전체 서비스 준비 상태 구성
+        {
+            sql(readFileSync(path.join(projectRoot, "backend/sql/migrations", migration), "utf8")); // 독립 인증 DB에 변경 적용
+        }
         for (let index = 0; index < 4; index++) // 병렬 요청용 독립 PHP 프로세스
         {
             const httpPort = await vacantPort(); // 서버별 전용 포트

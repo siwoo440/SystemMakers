@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'; // 실제 복원 결과 검사
 import { execFileSync } from 'node:child_process'; // Docker와 별도 Node 실행
 import { randomBytes } from 'node:crypto'; // 격리된 검사 비밀 값
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'; // 검사 CA와 백업 보관
+import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs'; // 검사 CA와 실제 백업 읽기
 import { createServer } from 'node:net'; // 빈 검사 포트 확인
 import path from 'node:path'; // 검사 파일 위치
 import { until } from '../tests/helpers/websocket.mjs'; // 제한된 상태 대기
@@ -42,11 +42,14 @@ try // 실패 시에도 검사 자원 정리
     compose(['config', '-q']); // Compose 문법과 누락 설정 검사
     compose(['build']); // 실제 PHP 이미지 빌드와 런타임 기능 확인
     compose(['run', '--rm', '--no-deps', 'proxy', 'caddy', 'validate', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile']); // 실제 Caddy 설정 문법
-    compose(['up', '-d', '--wait', '--wait-timeout', '180']); // 실제 DB·웹·Ratchet 시작
-    compose(['exec', '-T', 'web', 'apachectl', '-t']); // Apache 운영 진입점 문법
+    compose(['up', '-d', '--wait', '--wait-timeout', '180', 'database']); // 초기화 전 DB 접속 대기
+    const emptyHealth = compose(['run', '--rm', '--no-deps', '-T', 'web', 'php', '-r', '$_SERVER["REQUEST_METHOD"]="GET"; require "backend/api/health.php";'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }); // 포트 개방 전 빈 DB 준비 검사
+    assert.equal(JSON.parse(emptyHealth).error?.code, 'SERVICE_UNAVAILABLE'); // 빈 볼륨의 준비 승인 차단
     admin('bootstrap-empty'); // 빈 검사 DB만 명시적으로 준비
     assert.throws(() => admin('bootstrap-empty', { stdio: 'pipe' }), (error) => /빈 DB만/u.test(String(error.stderr))); // 기존 DB 재초기화 거절
     admin('restrict-app'); // 실제 DML 전용 계정으로 앱 검사
+    compose(['up', '-d', '--wait', '--wait-timeout', '180']); // 스키마 확인 후 웹과 실시간 서버 시작
+    compose(['exec', '-T', 'web', 'apachectl', '-t']); // 웹 서버 설정 확인
     assert.throws(() => compose(['exec', '-T', 'database', 'sh', '-c', 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u "$MYSQL_USER" "$MYSQL_DATABASE" -e "CREATE TABLE privilege_probe (id INT)"'], { stdio: 'pipe' }), (error) => /ERROR 1142/u.test(String(error.stderr))); // 앱 계정의 실제 DDL 거절
     const rootCertificate = path.join(scratch, 'root.crt'); // 이번 검사 CA 파일
     await until(() => // CA 발급 완료 대기
@@ -69,18 +72,19 @@ try // 실패 시에도 검사 자원 정리
     await new Promise((resolve) => setTimeout(resolve, 12000)); // DB 감시와 프로세스 재시작 유예
     execFileSync(process.execPath, ['--test', 'tests/docker-flow.test.mjs'], { env: testEnvironment, stdio: 'inherit', timeout: 120000 }); // DB 복구 뒤 실제 로그인과 WSS 재확인
     const before = snapshot(); // 재생성 전 기준
-    const backup = admin('backup', { stdio: ['pipe', 'pipe', 'pipe'] }); // 실제 논리 백업
+    const backupPath = execFileSync('sh', ['scripts/backup.sh', scratch], { env: { ...environment, COMPOSE_PROJECT_NAME: project, COMPOSE_FILE: ['compose.yaml', 'docker/compose.test.yaml'].join(path.delimiter) }, encoding: 'utf8' }).trim(); // 운영 절차로 검사 볼륨 백업
+    const backup = readFileSync(backupPath); // 완료된 덤프만 복원 검사에 사용
     assert.throws(() => admin('restore-empty', { input: backup, stdio: ['pipe', 'pipe', 'pipe'] }), (error) => /빈 DB만/u.test(String(error.stderr))); // 기존 DB 덮어쓰기 복원 거절
     assert.equal(snapshot(), before); // 거절 후 원본 데이터 유지
-    writeFileSync(path.join(scratch, 'backup.sql'), backup); // Git 제외 백업 보관
     compose(['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '180']); // 볼륨을 유지한 전체 컨테이너 재생성
     assert.equal(snapshot(), before); // 계정·대화·첨부 영속성 확인
     compose(['down']); // 원본 검사 볼륨은 유지한 채 네트워크 해제
     restoreProject = `${project}restore`; // 새로운 복원 볼륨 구분
     restoreEnvironment = { ...environment, PROXY_SUBNET: `172.28.${proxySegment}.0/24`, PROXY_DYNAMIC_RANGE: `172.28.${proxySegment}.128/25`, CADDY_PROXY_IP: `172.28.${proxySegment}.2` }; // 복원 전용 연결망
-    compose(['up', '-d', '--wait', '--wait-timeout', '180'], {}, restoreProject, restoreEnvironment); // 별도 빈 DB 시작
+    compose(['up', '-d', '--wait', '--wait-timeout', '180', 'database'], {}, restoreProject, restoreEnvironment); // 별도 빈 DB 접속 대기
     admin('restore-empty', { input: backup, stdio: ['pipe', 'pipe', 'pipe'] }, restoreProject, restoreEnvironment); // 새 볼륨으로만 복원
     admin('restrict-app', {}, restoreProject, restoreEnvironment); // 복원 후 앱 최소 권한
+    compose(['up', '-d', '--wait', '--wait-timeout', '180'], {}, restoreProject, restoreEnvironment); // 복원된 스키마로 서비스 준비 확인
     assert.equal(snapshot(restoreProject, restoreEnvironment), before); // 원본과 복원 데이터 비교
     console.log('컨테이너 HTTPS·WSS·권한·세션·DB 장애 복구·영속성·백업 복원 검사 통과'); // 확인한 결과만 보고
 }

@@ -184,11 +184,11 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 일반 게스트의 401은 로그인 전 CSRF와 세션을 보존한다. 만료·손상·삭제 계정의 인증 상태는 폐기하고 세션 ID를 갱신한다. 따라서 화면은 csrf.php 조회 후 get_current_user.php를 호출해도 정상 게스트의 토큰을 계속 사용할 수 있다.
 
 ---
-### 4.6 DB 연결 상태
+### 4.6 서비스 DB 준비 상태
 
 `GET ./backend/api/health.php` · 입력 없음 · 정상 200
 
-실제 PDO 연결로 SELECT 1을 실행한 뒤 success=true, data.status=ok를 반환한다. 실패는 공통 500 INTERNAL_ERROR이며 DB 호스트·계정·스키마·서버 버전은 반환하지 않는다. 회원·메시지 기능 전체의 준비 완료를 의미하지 않는다.
+현재 앱 계정이 기본 및 001~005 마이그레이션의 테이블 14개를 모두 조회할 수 있으면 `200`과 `data.status=ok`를 반환한다. 빈 DB나 필수 테이블 누락은 `503 SERVICE_UNAVAILABLE`, DB 연결 오류는 `500 INTERNAL_ERROR`로 응답한다. 응답에는 DB 이름이나 테이블 목록을 포함하지 않는다.
 
 ---
 ## 5. 메시지 API

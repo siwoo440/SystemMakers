@@ -29,6 +29,38 @@ function setup(request) // 실제 화면과 서버 경계
     const ui = mountFriendsUI({ byId, request, getUser: () => user, isReady: () => Boolean(user), onOpen: (friend) => opened.push(friend), onError: async (error) => error.message }); // 실제 화면 연결
     return { byId, ui, opened, setUser: (next) => user = next }; // 검사 제어
 }
+test("친구 수락 후 늦은 이전 조회가 요청을 되살리지 않음", async () => // 변경과 주기 조회의 응답 순서 검사
+{
+    const friend = { id: "2", username: "bob" }; // 수락할 사용자
+    const previous = { friends: [], incoming: [friend], outgoing: [] }; // 수락 전 목록
+    let reads = 0; // 완료 시점별 조회 횟수
+    let finishPrevious; // 변경 전 조회의 응답 전달
+    const harness = setup(async (path, body) => // 실제 화면의 목록과 변경 요청 분기
+    {
+        if (body) // 관계 변경 요청
+        {
+            assert.equal(body.action, "accept"); // 친구 수락 동작 확인
+            return {}; // 서버의 변경 성공
+        }
+        reads++; // 목록 조회 횟수 집계
+        if (reads === 2) // 변경과 겹친 조회
+        {
+            return new Promise((resolve) => finishPrevious = resolve); // 이전 목록의 늦은 응답
+        }
+        return reads === 1 ? previous : { friends: [friend], incoming: [], outgoing: [] }; // 변경 전후의 서버 상태
+    });
+    harness.ui.render(); // 초기 받은 요청 표시
+    await new Promise((resolve) => setImmediate(resolve)); // 초기 목록 반영 대기
+    const polling = harness.ui.refresh(); // 수락 전 자동 조회 시작
+    const accepting = harness.byId("friend-incoming").children[0].children[1].fire("click"); // 표시된 친구 요청 수락
+    await new Promise((resolve) => setImmediate(resolve)); // 수락 처리와 후속 조회 기회
+    finishPrevious(previous); // 수락 뒤 이전 결과 도착
+    await Promise.all([polling, accepting]); // 관련 목록 갱신 완료
+    assert.equal(reads, 3); // 수락 후 최신 목록 한 번 조회
+    assert.equal(harness.byId("friend-list").children.length, 1); // 수락된 친구 표시 유지
+    assert.equal(harness.byId("friend-incoming").children.length, 0); // 처리한 요청 제거
+    harness.ui.clear(); // 검사 수명 정리
+});
 test("친구가 없어도 별도 빈 목록 안내 문구는 표시하지 않음", async () => // 요청된 빈 상태 안내 제거
 {
     const harness = setup(async () => ({ friends: [], incoming: [], outgoing: [] })); // 실제 빈 목록 응답

@@ -7,6 +7,17 @@ on: # 실행 조건
 permissions: # 읽기 전용 저장소 접근
   contents: read # 소스 체크아웃만 허용
 jobs: # 컨테이너 검사 작업
+  frontend: # 화면과 세션의 빠른 회귀 검사
+    runs-on: ubuntu-latest # DB가 필요 없는 검사 환경
+    steps: # 소스와 검사 도구 준비
+      - uses: actions/checkout@v4 # 현재 커밋 확인
+      - uses: actions/setup-node@v4 # 화면 검사 런타임 준비
+        with: # 실행 버전 설정
+          node-version: "22" # Docker 검사와 같은 버전
+      - name: 화면·세션 회귀 검사 # 입력·권한·목록 갱신 확인
+        run: node --test tests/*-ui.test.mjs tests/app-session.test.mjs tests/dialog-dismiss.test.mjs tests/message-feed.test.mjs tests/realtime.test.mjs tests/server-manager.test.mjs # DB 독립 검사
+      - name: 백업 실패 시 기존 사본 보존 검사 # 정상 사본과 부분 덤프 구분
+        run: sh tests/backup.sh # 격리된 파일로 실패와 연속 성공 검사
   docker: # Linux Docker 런타임
     strategy: # NAS의 ARM64와 기존 AMD64 검증
       fail-fast: false # 다른 CPU 검사도 끝까지 확인

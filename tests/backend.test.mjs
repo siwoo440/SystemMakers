@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"; // 결과 검증 도구
 import { execFileSync, spawn } from "node:child_process"; // 실제 PHP와 MySQL 실행
 import { randomBytes } from "node:crypto"; // 격리 이름 생성
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"; // 검증 전용 파일 관리
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"; // 검증 전용 파일 관리
 import net from "node:net"; // 빈 로컬 포트 확인
 import path from "node:path"; // 운영체제 경로 처리
 import { fileURLToPath } from "node:url"; // 프로젝트 경로 변환
@@ -115,8 +115,6 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
     let stderr = ""; // 실패 진단 기록
     try // 실패 시에도 정리 보장
     {
-        sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 실제 스키마 적용
-        sql("INSERT INTO users (id,username,email,password_hash) VALUES (1,'member','member@example.com','unused'),(2,'outsider','outsider@example.com','unused'); INSERT INTO servers (id,name,owner_id) VALUES (1,'test',1); INSERT INTO server_members (server_id,user_id,role) VALUES (1,1,'owner'); INSERT INTO channels (id,server_id,name) VALUES (1,1,'general');"); // 실제 계정과 소속 준비
         const httpPort = await vacantPort(); // 검증 전용 HTTP 포트
         const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "development", SESSION_COOKIE_SECURE: "0" }; // 격리 연결 환경
         server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "session.save_path=" + path.join(testDirectory, "sessions"), "-S", "127.0.0.1:" + httpPort, "-t", testDirectory, path.join(testDirectory, "router.php")], { cwd: projectRoot, env: serverEnvironment, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] }); // 숨김 PHP 서버 시작
@@ -148,6 +146,18 @@ respond_error('NOT_FOUND', '경로 없음', 404); // 그 외 요청 거절
             }
         }
         assert.ok(ready, stderr); // 서버 시작 실패 진단
+        await context.test("빈 DB와 일부 테이블만 있는 DB의 준비 판정", async () => // 잘못된 운영 볼륨 감지
+        {
+            assert.equal((await request("/api/health.php")).response.status, 503); // 빈 DB의 웹 준비 보류
+            sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 기본 테이블만 준비
+            assert.equal((await request("/api/health.php")).response.status, 503); // 마이그레이션 누락 감지
+            for (const migration of readdirSync(path.join(projectRoot, "backend/sql/migrations")).sort()) // 릴리스 변경 순서
+            {
+                sql(readFileSync(path.join(projectRoot, "backend/sql/migrations", migration), "utf8")); // 검사 DB에 변경 적용
+            }
+            assert.equal((await request("/api/health.php")).response.status, 200); // 전체 테이블 준비 확인
+        });
+        sql("INSERT INTO users (id,username,email,password_hash) VALUES (1,'member','member@example.com','unused'),(2,'outsider','outsider@example.com','unused'); INSERT INTO servers (id,name,owner_id) VALUES (1,'test',1); INSERT INTO server_members (server_id,user_id,role) VALUES (1,1,'owner'); INSERT INTO channels (id,server_id,name) VALUES (1,1,'general');"); // 실제 계정과 소속 준비
         const first = await request("/api/csrf.php"); // 첫 세션 토큰
         const cookie = first.response.headers.get("set-cookie").split(";")[0]; // 세션 쿠키 보관
         const token = first.body.data.csrf_token; // 첫 CSRF 토큰

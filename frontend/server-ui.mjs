@@ -8,6 +8,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
     let managementTarget = null; // 열 때 확인한 서버
     let deletionPreviewReady = false; // 삭제 대상 최신 조회 여부
     let dialogVersion = 0; // 닫힌 화면의 늦은 결과 차단
+    let serverListState = {}; // 마지막으로 표시한 서버 목록·선택·잠금
     function clear() // 원문 코드와 이전 입력 정리
     {
         dialogVersion++; // 기존 비동기 화면 무효화
@@ -21,24 +22,28 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
     {
         const server = manager.servers.find((serverEntry) => serverEntry.id === manager.selected); // 확인한 현재 소속
         const managementBusy = manager.busy || manager.loading || !isReady(); // 처리 중 전체 관리 잠금
-        const serverList = byId("server-list"); // 실제 서버 탐색
-        serverList.replaceChildren(...manager.servers.map((serverEntry) => // 빈 서버도 탐색 가능
+        const disabled = Boolean(managementBusy || managementDialog.open); // 서버 탐색 잠금
+        if (serverListState.servers !== manager.servers || serverListState.selected !== manager.selected || serverListState.disabled !== disabled) // 탐색 상태 변경 여부
         {
-            const serverButton = document.createElement("button"); // 키보드 접근 버튼
-            serverButton.type = "button"; // 기본 제출 방지
-            serverButton.className = "server-choice"; // 서버 선택 스타일
-            serverButton.textContent = Array.from(serverEntry.name).slice(0, 2).join(""); // 짧은 공간 이름
-            serverButton.title = serverEntry.name; // 전체 이름 안내
-            serverButton.setAttribute("aria-label", serverEntry.name + " 서버 선택"); // 의미 있는 탐색 이름
-            serverButton.setAttribute("aria-pressed", String(serverEntry.id === manager.selected)); // 현재 서버 상태
-            serverButton.disabled = managementBusy || managementDialog.open; // 진행 작업의 대상 변경 차단
-            serverButton.addEventListener("click", async () => // 확인한 서버 전환
+            serverListState = { servers: manager.servers, selected: manager.selected, disabled }; // 마지막 탐색 상태 보관
+            byId("server-list").replaceChildren(...manager.servers.map((serverEntry) => // 빈 서버도 탐색 가능
             {
-                manager.select(serverEntry.id); // 선택 ID 저장
-                await onSelect(); // 선택한 서버의 채널 표시
-            });
-            return serverButton; // 완성한 탐색 요소
-        }));
+                const serverButton = document.createElement("button"); // 키보드 접근 버튼
+                serverButton.type = "button"; // 기본 제출 방지
+                serverButton.className = "server-choice"; // 서버 선택 스타일
+                serverButton.textContent = Array.from(serverEntry.name).slice(0, 2).join(""); // 짧은 공간 이름
+                serverButton.title = serverEntry.name; // 전체 이름 안내
+                serverButton.setAttribute("aria-label", serverEntry.name + " 서버 선택"); // 의미 있는 탐색 이름
+                serverButton.setAttribute("aria-pressed", String(serverEntry.id === manager.selected)); // 현재 서버 상태
+                serverButton.disabled = disabled; // 진행 작업의 대상 변경 차단
+                serverButton.addEventListener("click", async () => // 확인한 서버 전환
+                {
+                    manager.select(serverEntry.id); // 선택 ID 저장
+                    await onSelect(); // 선택한 서버의 채널 표시
+                });
+                return serverButton; // 완성한 탐색 요소
+            }));
+        }
         byId("selected-server").textContent = server?.name || "참여 서버 없음"; // 실제 서버 제목
         byId("server-status").textContent = manager.loading ? "서버 확인 중…" : server ? `내 역할: ${server.role === "owner" ? "소유자" : server.role === "admin" ? "관리자" : "일반 회원"}` : ""; // 소속 상태
         if (/^#invite=[a-f0-9]{64}$/.test(globalThis.location?.hash || "")) // 수신한 공유 링크 확인

@@ -56,7 +56,7 @@ export async function fixture(context) // 독립 공개 API 검사 환경
     {
         try // 실제 준비 상태 확인
         {
-            if ((await client().request("health.php")).status === 200) // DB 연결 성공
+            if ((await client().request("csrf.php")).status === 200) // 단계별 스키마 검사용 HTTP 시작 확인
             {
                 break; // 준비 종료
             }

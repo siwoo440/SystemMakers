@@ -65,6 +65,25 @@ function setup(handler, websocketClass = undefined) // 실제 화면 함수와 �
     const send = () => evaluate("sendMessage({ preventDefault: () => undefined })"); // 실제 폼 제출 경로
     return { calls, timers, evaluate, state, send, stop: () => evaluate("pauseMessageFeeds()") }; // 검사 경계 반환
 }
+test("초안 입력 열 번 동안 서버 목록의 렌더 횟수 0회", (context) => // 입력 중 관리 화면 갱신 회귀
+{
+    const harness = setup(() => ({ status: 200, data: {} })); // 로그인한 채널 화면
+    context.after(harness.stop); // 메시지 조회 정리
+    harness.evaluate("let renders = 0; serverUI = { render: () => renders++ };"); // 서버 목록 갱신 횟수
+    harness.evaluate("let typeDraft; messageInput.addEventListener = (name, handler) => typeDraft = handler;"); // 입력 동작 연결
+    const start = source.indexOf('messageInput.addEventListener("input"'); // 실제 입력 핸들러 시작
+    const end = source.indexOf('byId("message-form").addEventListener("submit"'); // 다음 이벤트의 시작
+    harness.evaluate(source.slice(start, end)); // 실제 입력 이벤트 등록
+    for (let index = 0; index < 10; index++) // 연속 입력 열 번
+    {
+        harness.evaluate('messageInput.value += "가"; typeDraft();'); // 한 글자 입력 반영
+    }
+    assert.equal(harness.evaluate("renders"), 0); // 서버 목록 갱신 제외
+    assert.equal(harness.evaluate('channels["1"].draft'), harness.state().draft); // 채널별 초안 유지
+    assert.equal(harness.evaluate('byId("send-button").disabled'), false); // 정상 초안의 전송 허용
+    harness.evaluate('messageInput.value = " "; typeDraft();'); // 공백 초안 입력
+    assert.equal(harness.evaluate('byId("send-button").disabled'), true); // 공백 전송 차단
+});
 test("텍스트 50개 뒤 새 메시지 한 개는 요소 8개만 생성", (context) => // 전체 말풍선 재생성 회귀 검사
 {
     const harness = setup(() => ({ status: 200, data: { attachments: [] } })); // 채널 화면 준비
@@ -264,6 +283,29 @@ test("같은 계정의 CSRF 교체는 초안 보존과 수동 재전송", async 
     assert.equal(sends, 2); // 명시적 추가 전송 한 건
     assert.equal(testHarness.state().draft, ""); // 확인된 저장 이후 초안 비움
     assert.equal(testHarness.evaluate('channels["1"].feed.list().length'), 2); // 기존 기록과 새 기록의 중복 없는 표시
+});
+test("이전 채널 삭제 응답 뒤에도 현재 채널에서 초안 전송 가능", async (context) => // 채널 이동 중 늦은 오류 격리
+{
+    let finishSend; // 이전 채널의 응답 전달
+    const harness = setup((call) => // 전송과 조회 응답 구분
+    {
+        if (call.url.includes("send_message")) // 이전 채널 전송
+        {
+            return new Promise((resolve) => finishSend = resolve); // 삭제 판정까지 응답 보류
+        }
+        return { status: 200, data: { messages: [], pagination: { mode: "initial", next_before_id: null, next_after_id: "0", has_more: false } } }; // 현재 채널의 정상 조회
+    });
+    context.after(harness.stop); // 조회 예약 정리
+    harness.evaluate('channels["1"].serverId = "11";'); // 같은 서버의 이전 채널
+    harness.evaluate('channels["2"] = { serverId: "11", title: "공지", messages: [], draft: "새 초안", unread: 0 };'); // 정상 채널과 독립 초안
+    harness.evaluate('channels["2"].feed = createChannelFeed("2", channels["2"], "1");'); // 정상 채널의 조회 연결
+    const pending = harness.send(); // 이전 채널 전송 시작
+    harness.evaluate('selectChannel("2")'); // 응답 전 정상 채널 선택
+    finishSend({ status: 404, code: "CHANNEL_NOT_FOUND" }); // 이전 채널 삭제 확정
+    await pending; // 전송 잠금 해제
+    assert.equal(harness.evaluate('byId("send-button").disabled'), false); // 현재 채널의 전송 가능 상태
+    assert.equal(harness.evaluate('byId("channel-title").textContent'), "공지"); // 현재 대화 제목 유지
+    assert.deepEqual(harness.state(), { userId: "1", channelIds: ["2"], draft: "새 초안" }); // 삭제된 채널만 정리
 });
 test("비활성 채널의 전송 권한 상실은 과거 기록과 늦은 응답 차단", async (context) => // 중단된 폴링에 의존하는 권한 처리 포착
 {

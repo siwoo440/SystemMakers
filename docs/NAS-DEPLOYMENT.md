@@ -68,7 +68,7 @@ PHP_IMAGE·MYSQL_IMAGE·CADDY_IMAGE 기본값은 PHP 8.3 Apache Bookworm, MySQL 
 ```sh
 docker compose config -q # 비밀 값 출력 없는 설정 검사
 docker compose build # PHP 확장·Argon2id·64비트와 잠금 의존성 확인
-docker compose up -d database # 새 영속 DB와 앱 계정 준비
+docker compose up -d --wait database # DB 접속 가능 상태까지 대기
 ```
 
 빈 볼륨의 MySQL 서비스 DB·계정 생성은 공식 이미지의 최초 준비 과정이다. 애플리케이션 테이블·seed·마이그레이션은 시작 시 자동 적용하지 않는다. 기존 볼륨에서는 환경 변수 변경만으로 DB 비밀번호가 변경되지 않는다. 운영 비밀번호 변경은 별도 DB 계정 변경과 앱 설정을 함께 조정한다.
@@ -98,10 +98,12 @@ docker compose exec -T database sh /opt/systemmakers/database.sh bootstrap-empty
 
 ```sh
 docker compose exec -T database sh /opt/systemmakers/database.sh restrict-app # 앱 계정의 조회·추가·수정·삭제만 허용
-docker compose up -d web realtime proxy # 검증한 DB로 운영 서비스 시작
+docker compose up -d --wait web realtime proxy # 스키마 준비 후 서비스 시작과 상태 확인
 docker compose ps # DB·웹·Ratchet 상태 확인
 docker compose exec -T web php scripts/show-public-url.php # 설정한 웹 링크와 WSS 진단 주소 출력
 ```
+
+DB 컨테이너의 정상 상태는 MySQL 접속 가능을 뜻한다. 웹 상태 검사 `/Team006/backend/api/health.php`는 앱 계정이 기본 테이블과 001~005의 테이블 14개를 모두 볼 수 있을 때 200을 반환한다. 빈 볼륨이나 일부만 복원된 스키마에는 503을 반환한다. 이 경우 Compose 프로젝트 이름·볼륨·권한·복원 단계를 먼저 확인한다. 행 수와 첨부 해시는 원본과 따로 비교한다.
 
 이관 시 기존 Windows 로그인 세션은 복사하지 않고 다시 로그인한다. 계정·대화 데이터는 보존하며 NAS 안의 웹·Ratchet 인증 상태는 공통 세션 볼륨으로 공유한다.
 
@@ -126,17 +128,15 @@ docker compose exec -T web php scripts/show-public-url.php # 설정한 웹 링�
 ---
 ## 6. 백업·복원과 롤백
 
-다음 백업 명령은 Linux 셸의 바이트 보존 리다이렉션 기준이다. PowerShell의 구버전 텍스트 리다이렉션으로 SQL 인코딩을 변경하지 않는다.
+NAS의 Linux 셸에서 Compose 프로젝트 루트로 이동해 아래 명령을 실행한다. 백업과 최종 SQL 파일은 같은 로컬 파일시스템에 둔다. 보관 폴더는 하드 링크를 지원해야 한다.
 
 ```sh
-mkdir -p backups # Git 제외 백업 위치 준비
-chmod 700 backups # 백업 디렉터리 접근 제한
-umask 077 # 신규 백업의 소유자 전용 권한
-docker compose exec -T database sh /opt/systemmakers/database.sh backup > backups/systemmakers.sql # 논리 백업 생성
-sha256sum backups/systemmakers.sql # 전송과 보관용 무결성 기록
+backupFile=$(sh scripts/backup.sh) && sha256sum "$backupFile" # 성공한 백업의 경로와 해시 확인
 ```
 
-실패한 백업 파일을 정상 사본으로 교체하지 않는다. 운영에서는 날짜별 새 파일로 성공 결과와 해시를 확인하고 암호화해 NAS 외부에도 보관한다. 일별·주별 보관과 복원 목표는 실제 허용 손실·중단 시간, 저장 위치를 확정한 뒤 NAS 스케줄러에 구성한다. 이 저장소가 자동 백업 스케줄을 설치하지는 않는다.
+기본 폴더는 `backups/`다. 다른 위치는 `sh scripts/backup.sh /볼륨/전용백업폴더`처럼 지정한다. 백업 도구는 소유자 전용 임시 파일에 덤프를 쓰고, 성공한 비어 있지 않은 파일만 UTC 시각과 고유 번호가 붙은 SQL 파일로 공개한다. 연결 실패·디스크 쓰기 실패·이름 충돌이 발생하면 이전 사본을 보존하고 실패로 종료한다.
+
+백업 해시와 사본을 NAS 외부에도 암호화해 보관한다. 일별·주별 보관 주기는 허용 가능한 데이터 손실 시간과 복원 시간을 정한 뒤 NAS 스케줄러에 설정한다.
 
 백업 복원은 운영과 **다른 Compose 프로젝트·볼륨**에 restore-empty로 실행해 원본과 비교한다. 백업 생성만으로 복원 성공을 주장하지 않는다. 서비스는 최소 DML 권한 계정, 백업·복원·마이그레이션은 관리자 계정을 사용한다.
 
@@ -145,7 +145,7 @@ sha256sum backups/systemmakers.sql # 전송과 보관용 무결성 기록
 전환 실패 시 신규 쓰기를 멈추고 원본을 보존한 상태로 복귀한다. 전환 이후 신규 메시지가 있다면 추가 백업과 차이 조정 없이 오래된 DB로 되돌리지 않는다. 코드 이미지 롤백 전 스키마 호환성을 확인한다.
 
 ---
-## 7. 자동 컨테이너 검증
+## 7. 자동 회귀 검사와 컨테이너 검증
 
 Docker·Compose 2.24.4 이상과 Node.js 22 이상이 있는 검사 머신에서 다음 명령을 실행한다.
 
@@ -155,7 +155,7 @@ SYSTEMMAKERS_DOCKER_TEST=1 node scripts/check-docker.mjs # 격리된 TLS·권한
 
 검사는 무작위 smtest 프로젝트·검사 비밀 값·루프백 포트를 생성한다. Caddy 내부 CA를 별도 Node 프로세스에서만 신뢰하며 TLS 검증을 끄지 않는다. HTTPS·WSS, 공유 세션·CSRF·권한·첨부, DB 장애 후 재연결, 컨테이너 재생성, 별도 볼륨 백업 복원을 검사한다. 검사 프로젝트만 정리하며 운영 systemmakers 볼륨은 삭제하지 않는다. 결과와 CA·검사 백업은 Git 제외 `.runtime`에 남는다.
 
-GitHub Actions의 NAS Docker 검증도 같은 도구를 실행한다. 이 검사는 Linux 러너의 컨테이너 검증이며 실제 NAS CPU·공인 DNS·인증서·다른 네트워크의 외부 접속 검증을 대신하지 않는다.
+GitHub Actions는 `main` 푸시와 PR에서 화면·세션 회귀 및 백업 실패 검사를 독립 작업으로 실행한다. Docker 작업은 AMD64·ARM64에서 각각 빈 DB의 준비 보류, 초기화 이후 HTTPS·WSS, 실제 백업 명령과 별도 볼륨 복원까지 검사한다. 실제 NAS의 공인 DNS·인증서·이동통신망 접속은 5절의 현장 절차로 확인한다.
 
 ---
 ## 검색 참고

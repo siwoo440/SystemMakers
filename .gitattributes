@@ -1,0 +1,2 @@
+# NAS와 Windows Git 셸의 동일한 줄바꿈
+*.sh text eol=lf

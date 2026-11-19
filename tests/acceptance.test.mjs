@@ -67,7 +67,7 @@ test("공개 웹 API의 가입부터 로그아웃까지 전체 인수 흐름", a
         {
             try // 실제 DB 연결 상태 요청
             {
-                if ((await owner.request("health.php")).status === 200) // 실제 준비 완료
+                if ((await owner.request("csrf.php")).status === 200) // 단계별 스키마 검사용 HTTP 시작 확인
                 {
                     break; // 다음 흐름 진행
                 }

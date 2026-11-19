@@ -6,7 +6,7 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
     let version = 0; // 계정 수명 번호
     let searchVersion = 0; // 검색 결과 순서
     let requestBusy = false; // 중복 변경 차단
-    let listBusy = false; // 중복 조회 차단
+    let listController = null; // 현재 친구 목록 조회
     let timer = null; // 후속 조회 예약
     let searchController = null; // 이전 검색 취소 도구
     function clear() // 로그아웃과 계정 변경
@@ -15,7 +15,8 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
         searchVersion++; // 이전 검색 무효화
         identity = null; // 이전 계정 제거
         requestBusy = false; // 이전 변경 잠금 제거
-        listBusy = false; // 이전 조회 잠금 제거
+        listController?.abort(); // 이전 계정의 목록 조회 취소
+        listController = null; // 조회 참조 정리
         window.clearTimeout(timer); // 이전 갱신 예약 취소
         searchController?.abort(); // 이전 검색 취소
         byId("friend-search-input").value = ""; // 이전 검색어 제거
@@ -101,17 +102,18 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
     async function refresh() // 서버의 친구와 요청 확인
     {
         const userId = getUser()?.id; // 조회 계정
-        if (!userId || identity !== userId || listBusy || !isReady()) // 계정과 중복 조회 검사
+        if (!userId || identity !== userId || listController || !isReady()) // 계정과 중복 조회 검사
         {
             schedule(); // 일시적 잠금 이후 재확인
             return; // 현재 조회 중단
         }
         const requestVersion = version; // 현재 계정 수명
-        listBusy = true; // 중복 조회 방지
+        const controller = new AbortController(); // 이번 목록 조회의 수명
+        listController = controller; // 동시 조회 방지
         try // 인증된 친구 목록 요청
         {
-            const data = await request("./backend/api/friends.php"); // 실제 친구 관계 조회
-            if (requestVersion !== version || getUser()?.id !== userId) // 이전 계정 응답
+            const data = await request("./backend/api/friends.php", null, controller.signal); // 취소 가능한 친구 목록 조회
+            if (controller.signal.aborted || requestVersion !== version || getUser()?.id !== userId) // 이전 목록과 계정의 응답 확인
             {
                 return; // 이전 사용자 목록 무시
             }
@@ -129,13 +131,16 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
         }
         catch (error) // 실제 조회 실패
         {
-            await report(error, requestVersion, userId); // 현재 계정 오류 안내
+            if (!controller.signal.aborted) // 최신 조회의 실패만 안내
+            {
+                await report(error, requestVersion, userId); // 현재 계정 오류 안내
+            }
         }
         finally // 현재 조회 종료
         {
-            if (requestVersion === version) // 여전히 같은 계정
+            if (listController === controller) // 현재 조회만 잠금 해제
             {
-                listBusy = false; // 조회 잠금 해제
+                listController = null; // 완료한 조회 정리
                 schedule(); // 다음 요청 확인 예약
             }
         }
@@ -159,6 +164,8 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
             }
             byId("friend-search-results").replaceChildren(); // 이전 검색 결과 제거
             byId("friend-status").textContent = action === "request" ? "친구 요청을 보냈습니다." : "친구 관계를 변경했습니다."; // 변경 안내
+            listController?.abort(); // 관계 변경 전 목록 폐기
+            listController = null; // 최신 목록의 즉시 조회 허용
             await refresh(); // 실제 관계 재조회
         }
         catch (error) // 변경 실패

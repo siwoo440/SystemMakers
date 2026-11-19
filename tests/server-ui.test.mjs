@@ -37,6 +37,17 @@ function setup(request, name = "검증 서버", onDeparted = () => undefined, on
     ui = mountServerUI({ manager, byId, onDeparted, onReload, onSelect, onError: async (error) => error.message, isReady: () => true }); // 실제 작업 핸들러
     return { byId, ui, manager }; // 관측할 DOM 경계
 }
+test("서버 목록은 같은 상태에서 버튼을 재생성하지 않고 선택 잠금을 반영", () => // 관리 화면의 변경 범위 확인
+{
+    const harness = setup(async () => ({})); // 참여 서버 준비
+    harness.ui.render(); // 최초 서버 버튼 생성
+    const first = harness.byId("server-list").children[0]; // 화면에 표시한 버튼
+    harness.ui.render(); // 동일 상태의 주기 갱신
+    assert.equal(harness.byId("server-list").children[0], first); // 같은 버튼 유지
+    harness.manager.busy = true; // 서버 작업 진행 중
+    harness.ui.render(); // 선택 가능 상태 갱신
+    assert.equal(harness.byId("server-list").children[0].disabled, true); // 작업 중 서버 변경 차단
+});
 test("참여 서버가 없으면 요청된 안내 문구를 표시하지 않음", () => // 빈 서버 안내 제거
 {
     const harness = setup(async () => ({})); // 실제 서버 화면

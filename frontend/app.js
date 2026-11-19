@@ -160,12 +160,14 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
         }
         else if ([403, 404].includes(operationError.status)) // 현재 채널 소속 또는 존재 상실
         {
+            if (operationError.status === 404) // 조회 또는 전송한 채널 삭제
+            {
+                discardDeletedChannel(channelId); // 해당 채널의 기록과 선택만 정리
+                return; // 다른 채널의 작성 상태 보존
+            }
             if (operationError.status === 403 && operationError.code === "FORBIDDEN" && channel.serverId) // 현재 계약의 서버 소속 상실
             {
                 discardDepartedServer(channel.serverId); // 비활성 채널의 초안·대화도 함께 폐기
-                channelError = "서버에 접근할 수 없습니다. 참여 상태와 목록을 다시 확인하세요."; // 소속 종료 안내
-                renderChannels(); // 실제 목록 재확인 제공
-                renderEmptyConversation(); // 종료된 서버 기록 표시 제거
                 return; // 채널 하나만 정리하는 경로 사용 중단
             }
             channel.draft = ""; // 권한 없는 채널의 이전 초안 폐기
@@ -179,11 +181,10 @@ function createChannelFeed(channelId, channel, userId) // 실제 소속 채널�
             {
                 messageInput.value = ""; // 이전 소속의 입력 원문 폐기
                 showNewMessages(); // 이전 기록 이동 버튼 정리
+                channelUI?.clear(); // 현재 채널의 관리 입력 정리
             }
-            channelUI?.clear(); // 미확인 채널 관리 입력 폐기
             channel.feedback = "채널에 접근할 수 없습니다. 채널 목록을 다시 확인하세요."; // 실제 접근 오류 안내
             channel.error = true; // 접근 실패 표시
-            channelError = channel.feedback; // 소속 목록 재확인 제공
             renderChannels(); // 재확인 버튼 표시
             updateComposer(); // 권한 없는 전송 차단
         }
@@ -278,24 +279,15 @@ function createMessage(message) // HTML 실행 없는 저장 메시지 생성
     messageArticle.append(authorAvatar, messageContent); // 메시지 요소 조립
     return messageArticle; // 완성한 메시지 반환
 }
-function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
+function updateDraftControls() // 초안 입력과 전송 조건만 갱신
 {
     const channel = channels[activeChannel]; // 선택한 실제 채널
     const characterCount = Array.from(messageInput.value).length; // 원문 코드 포인트 수
     const hasText = /[^\p{White_Space}\uFEFF]/u.test(messageInput.value); // 공백 외 글자 여부
     const containsNull = messageInput.value.includes("\u0000"); // 저장 불가능한 빈 문자
-    const composerAvailable = Boolean(currentUser && channel && !channel.feed?.blocked && csrfToken && !authBusy && !authInitializing && !channelLoading && !channelError); // 실제 전송 준비 상태
-    messageInput.disabled = !composerAvailable; // 게스트와 미확인 채널 입력 차단
     byId("message-count").textContent = `${characterCount.toLocaleString("ko-KR")} / 2,000`; // 원문 길이 표시
     byId("message-count").classList.toggle("over-limit", characterCount > 2000); // 초과 길이 표시
-    byId("send-button").disabled = !composerAvailable || Boolean(sendRequest) || !hasText || characterCount > 2000 || containsNull; // 중복 제출과 잘못된 입력 차단
-    byId("channel-file").disabled = !composerAvailable || Boolean(sendRequest) || Boolean(directUI?.isBusy()); // 권한 없는 파일 선택 차단
-    byId("channel-upload").disabled = byId("channel-file").disabled || !byId("channel-file").files?.length; // 파일 미선택과 중복 전송 차단
-    byId("channel-file-clear").disabled = byId("channel-upload").disabled; // 선택과 전송 상태에 따른 취소 제한
-    byId("channel-file-clear").hidden = !byId("channel-file").files?.length; // 파일 선택 시에만 취소 표시
-    byId("open-auth").disabled = authBusy || authInitializing || Boolean(sendRequest) || Boolean(directUI?.isBusy()); // 저장 결과 확인 전 계정 변경 차단
-    byId("send-button").textContent = sendRequest ? "저장 중…" : "전송 ↗"; // 실제 저장 요청 상태
-    byId("message-form").setAttribute("aria-busy", String(Boolean(sendRequest))); // 보조 기기 요청 상태
+    byId("send-button").disabled = messageInput.disabled || Boolean(sendRequest) || !hasText || characterCount > 2000 || containsNull; // 중복 제출과 잘못된 입력 차단
     messageInput.setAttribute("aria-invalid", String(characterCount > 2000 || containsNull)); // 입력 오류 접근성 상태
     if (channel) // 실제 채널 선택 여부
     {
@@ -304,6 +296,20 @@ function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
     const feedback = containsNull ? "지원하지 않는 빈 문자를 제거하세요." : characterCount > 2000 ? "메시지는 2,000자까지 입력할 수 있습니다." : !currentUser ? "로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다." : channelLoading ? "참여 중인 채널을 확인하는 중입니다." : channelError ? channelError : !channel ? serverManager.selected ? emptyChannelHint() : "" : !csrfToken ? "화면 보호 정보를 확인하지 못했습니다. 다시 로그인하세요." : channel.feedback || "대화는 DB에 저장되며 새 메시지를 자동으로 확인합니다."; // 확인된 기능 범위와 오류 안내
     byId("composer-feedback").textContent = feedback; // 안전한 상태 문구 출력
     byId("composer-feedback").classList.toggle("error", characterCount > 2000 || containsNull || Boolean(channel?.error) || Boolean(channelError)); // 실패 상태 색상
+}
+function updateComposer() // 인증과 초안에 따른 입력 상태 갱신
+{
+    const channel = channels[activeChannel]; // 선택한 실제 채널
+    const composerAvailable = Boolean(currentUser && channel && !channel.feed?.blocked && csrfToken && !authBusy && !authInitializing && !channelLoading && !channelError); // 실제 전송 준비 상태
+    messageInput.disabled = !composerAvailable; // 게스트와 미확인 채널 입력 차단
+    byId("channel-file").disabled = !composerAvailable || Boolean(sendRequest) || Boolean(directUI?.isBusy()); // 권한 없는 파일 선택 차단
+    byId("channel-upload").disabled = byId("channel-file").disabled || !byId("channel-file").files?.length; // 파일 미선택과 중복 전송 차단
+    byId("channel-file-clear").disabled = byId("channel-upload").disabled; // 선택과 전송 상태에 따른 취소 제한
+    byId("channel-file-clear").hidden = !byId("channel-file").files?.length; // 파일 선택 시에만 취소 표시
+    byId("open-auth").disabled = authBusy || authInitializing || Boolean(sendRequest) || Boolean(directUI?.isBusy()); // 저장 결과 확인 전 계정 변경 차단
+    byId("send-button").textContent = sendRequest ? "저장 중…" : "전송 ↗"; // 실제 저장 요청 상태
+    byId("message-form").setAttribute("aria-busy", String(Boolean(sendRequest))); // 보조 기기 요청 상태
+    updateDraftControls(); // 최신 입력과 전송 가능 상태 반영
     renderManagementUI(); // 전송 중 서버·채널 관리 잠금
 }
 function emptyChannelHint() // 빈 서버의 역할별 다음 조작
@@ -328,9 +334,10 @@ function renderChannels() // 실제 소속 채널 목록 생성
         return channelButton; // 완성한 탐색 버튼
     });
     channelList.replaceChildren(...channelButtons); // 이전 계정 목록 제거 후 교체
-    byId("channel-status").hidden = channelButtons.length > 0 && !channelLoading && !channelError; // 비어 있거나 실패한 목록 안내
-    byId("channel-status").textContent = !currentUser ? "로그인 후 참여 채널이 표시됩니다." : channelLoading ? "채널을 확인하는 중입니다." : channelError || (serverManager.selected ? emptyChannelHint() : ""); // 빈 서버와 미소속 구분
-    byId("retry-channels").hidden = !currentUser || !channelError; // 조회 실패 시 재시도 제공
+    const listNotice = channelError || (channels[activeChannel]?.feed.blocked ? channels[activeChannel].feedback : ""); // 목록 오류 또는 현재 채널의 권한 안내
+    byId("channel-status").hidden = channelButtons.length > 0 && !channelLoading && !listNotice; // 확인할 목록 상태 표시
+    byId("channel-status").textContent = !currentUser ? "로그인 후 참여 채널이 표시됩니다." : channelLoading ? "채널을 확인하는 중입니다." : listNotice || (serverManager.selected ? emptyChannelHint() : ""); // 현재 선택의 목록 안내
+    byId("retry-channels").hidden = !currentUser || !listNotice; // 영향을 받은 화면의 재조회 제공
     byId("retry-channels").disabled = channelLoading || authBusy; // 중복 조회 차단
 }
 function renderEmptyConversation() // 선택 가능한 채널 없는 화면
@@ -425,7 +432,12 @@ function discardDepartedServer(serverId) // 탈퇴·서버 삭제 확정 자료�
 }
 function discardDeletedChannel(channelId) // 삭제 확정 자료의 즉시 폐기
 {
-    channels[channelId]?.feed.block(requestError("삭제된 채널입니다.")); // 기록·진행 조회·예약 종료
+    const channel = channels[channelId]; // 삭제가 확인된 채널
+    if (channel?.feed && !channel.feed.blocked) // 진행 중인 조회와 과거 기록 확인
+    {
+        channel.feed.block(requestError("삭제된 채널입니다.")); // 중복 차단 없이 채널 기록 정리
+    }
+    channel?.attachments?.stop(); // 삭제된 채널의 첨부 조회 종료
     delete channels[channelId]; // 초안과 채널 참조 제거
     if (savedDrafts?.values) // 만료 복원용 초안 존재
     {
@@ -437,6 +449,8 @@ function discardDeletedChannel(channelId) // 삭제 확정 자료의 즉시 폐�
     }
     if (activeChannel === channelId) // 표시 중인 삭제 대상
     {
+        realtimeClient?.stop(); // 삭제된 현재 채널의 구독 종료
+        realtimeClient = null; // 이전 연결 참조 정리
         activeChannel = null; // 더 이상 선택할 수 없는 채널
         messageInput.value = ""; // 삭제된 대화의 입력 제거
         renderEmptyConversation(); // 후속 통신 실패에도 기록 미노출
@@ -685,13 +699,13 @@ async function sendChannelFile() // 선택한 채널 파일 전송
                 byId("channel-file-status").textContent = message; // 현재 화면의 복구 안내
             }
         }
+        else if ([403, 404].includes(error.status)) // 제출한 채널의 접근 종료
+        {
+            channel.feed.block(error); // 원래 채널의 기록과 조회 정리
+        }
         else if (activeChannel !== channelId || directUI?.isActive()) // 다른 대화의 일반 실패
         {
-            return; // 현재 화면의 파일 상태 변경 차단
-        }
-        else if ([403, 404].includes(error.status)) // 채널 접근 상실
-        {
-            channel.feed.block(error); // 기존 기록과 조회 폐기
+            return; // 현재 화면의 안내 보존
         }
         else // 일반 실패 또는 불확실한 결과
         {
@@ -1347,7 +1361,7 @@ messageInput.addEventListener("input", () => // 입력 수정 상태 처리
         channels[activeChannel].feedback = ""; // 이전 제출 결과 제거
         channels[activeChannel].error = false; // 이전 오류 색상 제거
     }
-    updateComposer(); // 최신 초안과 글자 수 갱신
+    updateDraftControls(); // 초안·글자 수·전송 상태만 갱신
 });
 byId("message-form").addEventListener("submit", sendMessage); // 실제 메시지 저장 연결
 byId("channel-file").addEventListener("change", () => // 파일 선택 상태 반영
