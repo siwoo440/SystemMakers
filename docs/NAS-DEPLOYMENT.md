@@ -26,6 +26,8 @@ NAS 관리 화면, MySQL 3306, 웹 내부 80, Ratchet 8090은 별도로 외부 �
 
 2026-11-19 사용자가 소유자에게 받은 모델명은 DH4300 Plus다. UGREEN 공식 자료는 Rockchip ARM 8코어·8GB LPDDR4X와 Docker 지원을 명시하며 Docker 안내는 해당 모델에 ARM64 이미지를 요구한다. 실제 설치된 OS·Docker·Compose 버전, 앱 설치와 프로젝트 생성 권한은 아직 확인되지 않았다.
 
+사용자가 추가로 전달한 장비 구성은 4베이·ARM 8코어·8GB LPDDR4X·24TB HDD·Docker 지원이다. 24TB는 전달받은 HDD 용량이며 실제 남은 공간·RAID 적용 후 사용 가능 용량·백업 할당 공간은 미확인이다.
+
 공식 안내의 설치 경로는 App Center의 Docker 앱과 Docker → Project → Create다. 이 구성은 저장소 전체 빌드 문맥을 사용하므로 해당 UI의 build 지원과 Compose 버전을 확인하고, CLI를 사용할 때는 소유자가 허용한 SSH 계정으로 실행한다. amd64 이미지 강제 실행이나 임의의 비공식 앱 설치를 전제로 하지 않는다.
 
 공식 PHP 8.3 Apache Bookworm과 MySQL 8.4 이미지 목록에 arm64v8이 포함돼 있음을 확인했다. 실제 NAS의 UGOS·CPU·볼륨에서 실행된 결과는 아직 없다. GitHub Actions에 네이티브 AMD64·ARM64 검사를 함께 구성하며 이를 실제 NAS 배포 검증과 구분한다.

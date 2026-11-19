@@ -327,5 +327,6 @@ PHP 8.3, MySQL 8.4, Node.js, Composer와 개인 DB 설정이 필요합니다. PH
 
 - [실시간 연결](docs/REALTIME.md) · [API 명세](docs/API.md) · [DB 구조](docs/DATABASE.md) · [개발 방향](docs/DEVELOPMENT-DIRECTION.md)
 - [NAS Docker 배포와 접속 링크 출력](docs/NAS-DEPLOYMENT.md)
+- [12단계 AMD64·ARM64 컨테이너 검증 결과](docs/PHASE-12-VERIFICATION.md)
 - [변수명 작성과 호환성](docs/VARIABLE-NAMING.md) · [로컬 실행과 검사](docs/LOCAL-SETUP.md)
 - [개인 대화·파일·프로필 검증](docs/PHASE-1-6-VERIFICATION.md) · [11단계 검증 결과](docs/PHASE-11-VERIFICATION.md) · [전체 문서 목록](docs/INDEX.md)
