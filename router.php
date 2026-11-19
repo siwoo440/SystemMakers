@@ -1,5 +1,6 @@
 <?php // 로컬 웹 서버 진입점
 declare(strict_types=1); // 엄격한 자료형 검사
+require_once __DIR__ . '/backend/includes/deployment.php'; // 운영 출처 검증 도구
 header("X-Content-Type-Options: nosniff"); // MIME 자동 추측 차단
 header("X-Frame-Options: DENY"); // 외부 프레임 삽입 차단
 header("Referrer-Policy: same-origin"); // 외부 참조 정보 제한
@@ -8,7 +9,17 @@ if (filter_var($realtimePublicHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === fa
 {
     $realtimePublicHost = '127.0.0.6'; // 안전한 기본 주소
 }
-header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws://$realtimePublicHost:8090; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"); // 지정된 실시간 연결 허용
+try // 운영 설정 오류의 비공개 처리
+{
+    $publicOrigin = deployment_public_origin(); // 명시된 공개 출처 확인
+}
+catch (Throwable $caughtException) // 잘못된 운영 주소
+{
+    http_response_code(503); // 설정 오류 상태
+    exit('Service unavailable.'); // 내부 설정 비노출
+}
+$realtimeSource = $publicOrigin === null ? "ws://$realtimePublicHost:8090" : preg_replace('/\Ahttp/', 'ws', $publicOrigin); // 검증된 같은 출처 연결
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' $realtimeSource; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"); // 지정된 실시간 연결 허용
 $requestPath = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH)); // 요청 경로 추출
 if ($requestPath === '/Team006') // 팀 폴더 주소 확인
 {

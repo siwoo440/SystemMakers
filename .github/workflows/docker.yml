@@ -1,0 +1,21 @@
+name: NAS Docker 검증 # 실제 컨테이너 실행 검사
+on: # 실행 조건
+  push: # 저장소 반영 시 검사
+    branches: [main] # 요청한 대상 브랜치
+  pull_request: # 제안 변경 검사
+  workflow_dispatch: # 수동 재검증
+permissions: # 읽기 전용 저장소 접근
+  contents: read # 소스 체크아웃만 허용
+jobs: # 컨테이너 검사 작업
+  docker: # Linux Docker 런타임
+    runs-on: ubuntu-latest # Docker 사용 가능 러너
+    timeout-minutes: 25 # 무한 실행 방지
+    steps: # 검사 순서
+      - uses: actions/checkout@v4 # 현재 소스 체크아웃
+      - uses: actions/setup-node@v4 # 검사 Node 준비
+        with: # Node 실행 조건
+          node-version: "22" # 지원되는 검사 런타임
+      - name: Compose 빌드와 HTTPS·WSS·복원 검사 # 실제 통합 흐름
+        run: node scripts/check-docker.mjs # 격리된 프로젝트 실행
+        env: # 운영과 분리된 검사 표시
+          SYSTEMMAKERS_DOCKER_TEST: "1" # 검사 전용 실행 승인

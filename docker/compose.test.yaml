@@ -1,0 +1,13 @@
+services: # 별도 검사 프로젝트 전용 변경
+  proxy: # 로컬 인증서 프록시
+    ports: !override # 운영 공개 포트를 검사 루프백 포트로 교체
+      - "127.0.0.1:${TEST_HTTP_PORT:-18088}:80" # HTTP 이동 검사
+      - "127.0.0.1:${TEST_HTTPS_PORT:-18443}:443" # 실제 HTTPS와 WSS 검사
+    volumes: # 같은 대상 설정 파일 교체
+      - ./docker/Caddyfile.test:/etc/caddy/Caddyfile:ro # 로컬 CA 전용 설정
+  web: # 운영 보안 조건을 유지한 검사
+    environment: # 별도 검사 출처
+      APP_PUBLIC_ORIGIN: https://localhost:${TEST_HTTPS_PORT:-18443} # 검사 공개 TLS 포트
+  realtime: # 웹과 같은 정확한 출처
+    environment: # 검사 세션 경계
+      APP_PUBLIC_ORIGIN: https://localhost:${TEST_HTTPS_PORT:-18443} # 실제 Origin 일치

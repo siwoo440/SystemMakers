@@ -266,7 +266,7 @@ SystemMakers는 서버·채널과 1:1 개인 대화에서 메시지와 파일을
 
 ## 현재 제공하지 않는 기능
 
-- **운영 실시간 연결**: 로컬 WebSocket을 제공하며 운영 환경의 WSS·프록시 설정은 별도 검증이 필요합니다.
+- **실제 NAS 외부 접속**: Docker·HTTPS·WSS 공통 구성을 제공하며 실제 NAS·공유기·도메인과 외부망 검증은 남아 있습니다.
 
 - **음성**: 음성 채팅은 제공하지 않습니다.
 
@@ -318,7 +318,7 @@ PHP 8.3, MySQL 8.4, Node.js, Composer와 개인 DB 설정이 필요합니다. PH
 
 - 개인 대화·첨부 파일·프로필·차단·초대 링크·친구 요청을 제공합니다. 기존 DB의 적용 상태를 확인하고 002~005 마이그레이션을 순서대로 적용해야 합니다.
 - 실제 휴대폰·Safari·Firefox와 운영 환경 검증은 남아 있습니다.
-- 12단계 운영 환경·HTTPS·백업 복원·성능 검증은 준비 단계입니다.
+- 12단계의 Docker·HTTPS·WSS·공유 세션 구성을 추가했습니다. 실제 NAS 배포·외부 접속·성능 검증은 남아 있습니다. 장비 확인과 데이터 이관 절차는 [NAS Docker 배포](docs/NAS-DEPLOYMENT.md)를 따릅니다.
 
 
 ---
@@ -326,5 +326,6 @@ PHP 8.3, MySQL 8.4, Node.js, Composer와 개인 DB 설정이 필요합니다. PH
 ## 문서
 
 - [실시간 연결](docs/REALTIME.md) · [API 명세](docs/API.md) · [DB 구조](docs/DATABASE.md) · [개발 방향](docs/DEVELOPMENT-DIRECTION.md)
+- [NAS Docker 배포와 접속 링크 출력](docs/NAS-DEPLOYMENT.md)
 - [변수명 작성과 호환성](docs/VARIABLE-NAMING.md) · [로컬 실행과 검사](docs/LOCAL-SETUP.md)
 - [개인 대화·파일·프로필 검증](docs/PHASE-1-6-VERIFICATION.md) · [11단계 검증 결과](docs/PHASE-11-VERIFICATION.md) · [전체 문서 목록](docs/INDEX.md)

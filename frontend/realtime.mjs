@@ -1,6 +1,22 @@
-export function realtimeUrlForLocation(location) // 내부망 실시간 주소 계산
+export function realtimeUrlForLocation(location) // 같은 출처 실시간 주소 계산
 {
     const hostname = location?.hostname ?? ''; // 현재 페이지 주소
+    if (location?.protocol === 'https:') // 암호화된 페이지 확인
+    {
+        try // 브라우저 주소 형식 검사
+        {
+            const address = new URL(`https://${location.host}`); // 포트를 포함한 출처 해석
+            if (address.hostname !== hostname || address.host !== location.host || address.username || address.password || address.pathname !== '/' || address.search || address.hash) // 출처 변형 검사
+            {
+                return null; // 잘못된 주소 차단
+            }
+            return `wss://${address.host}/Team006/realtime`; // 같은 호스트와 포트의 보안 연결
+        }
+        catch // 잘못된 URL 처리
+        {
+            return null; // 연결 생성 중단
+        }
+    }
     const octets = hostname.split('.'); // IPv4 숫자 분리
     if (location?.protocol !== 'http:' || octets.length !== 4 || octets.some((octet) => !/^(0|[1-9]\d{0,2})$/.test(octet) || Number(octet) > 255)) // HTTP와 유효 IPv4 검사
     {

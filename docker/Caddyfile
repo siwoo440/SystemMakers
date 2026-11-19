@@ -1,0 +1,13 @@
+{$APP_DOMAIN} { # 실제 공개 도메인과 자동 HTTPS
+    request_body { # 첨부 요청 상한
+        max_size 7MB # PHP 요청 상한과 같은 범위
+    } # 요청 상한 끝
+    header Strict-Transport-Security "max-age=31536000" # HTTPS 유지 정책
+    @realtime path /Team006/realtime # 정확한 실시간 경로
+    handle @realtime { # WSS 업그레이드 전달
+        reverse_proxy realtime:8090 # 내부 Ratchet 연결
+    } # 실시간 전달 끝
+    handle { # 나머지 공개 경로
+        reverse_proxy web:80 # 기존 PHP 허용 목록 연결
+    } # 웹 전달 끝
+} # 공개 사이트 끝

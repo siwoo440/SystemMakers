@@ -1,0 +1,117 @@
+name: systemmakers # 운영 볼륨 이름의 안정적인 기준
+x-app-environment: &appEnvironment # 웹과 실시간 서버의 공통 설정
+  APP_ENV: production # 운영 보안 모드
+  APP_PUBLIC_ORIGIN: https://${APP_DOMAIN:?실제 도메인 설정 필요} # 정확한 공개 출처
+  SESSION_COOKIE_SECURE: "1" # HTTPS 전용 쿠키
+  MYSQL_HOST: database # 내부 DB 서비스 이름
+  MYSQL_PORT: "3306" # 컨테이너 내부 포트
+  MYSQL_DATABASE: ${MYSQL_DATABASE:?DB 이름 설정 필요} # 명시적 서비스 DB
+  MYSQL_USER: ${MYSQL_USER:?앱 계정 설정 필요} # 앱 전용 계정
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD:?앱 비밀번호 설정 필요} # 개인 환경 파일의 비밀 값
+  AUTH_RATE_LIMIT_KEY: ${AUTH_RATE_LIMIT_KEY:?32바이트 이상 비밀 키 설정 필요} # 안정적인 제한 키
+x-logging: &boundedLogging # 서비스 로그 용량 제한
+  driver: json-file # Docker 기본 로그 형식
+  options: # 회전 정책
+    max-size: "10m" # 파일당 최대 크기
+    max-file: "3" # 최대 보관 파일 수
+services: # 운영 서비스
+  proxy: # 유일한 외부 진입점
+    image: ${CADDY_IMAGE:-caddy:2-alpine} # Caddy 2 운영 이미지
+    restart: unless-stopped # NAS 재시작 후 복구
+    environment: # 프록시 공개 주소
+      APP_DOMAIN: ${APP_DOMAIN:?실제 도메인 설정 필요} # 인증서 대상 호스트
+    ports: # 프록시만 호스트 포트 공개
+      - "80:80" # HTTPS 이동과 인증서 검증
+      - "443:443" # HTTPS와 WSS
+    volumes: # 설정과 인증서 영속 저장
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro # 읽기 전용 프록시 설정
+      - caddy_data:/data # 인증서와 개인 키 보존
+      - caddy_config:/config # Caddy 상태 보존
+    networks: # 앱 진입 연결망
+      proxy_net: # 프록시 전용 주소
+        ipv4_address: ${CADDY_PROXY_IP:-172.30.60.2} # Apache가 신뢰하는 단일 주소
+    depends_on: # 준비된 앱에 연결
+      web: # 웹 상태 조건
+        condition: service_healthy # DB와 웹 응답 준비
+      realtime: # 실시간 상태 조건
+        condition: service_started # 독립 재시작 허용
+    logging: *boundedLogging # 로그 회전 적용
+  web: # 운영 PHP와 Apache
+    image: systemmakers-php:local # 웹과 실시간 서버의 공통 이미지
+    build: # PHP 확장과 잠금 의존성 빌드
+      context: . # 저장소 빌드 문맥
+      dockerfile: docker/Dockerfile # 운영 이미지 정의
+      args: # 기본 런타임 선택
+        PHP_IMAGE: ${PHP_IMAGE:-php:8.3-apache-bookworm} # PHP 계열 또는 검증한 digest
+    restart: unless-stopped # 비정상 종료 복구
+    environment: # 세션과 실제 접속 IP 설정
+      <<: *appEnvironment # 공통 인증과 DB 설정
+      CADDY_PROXY_IP: ${CADDY_PROXY_IP:-172.30.60.2} # 헤더를 신뢰할 단일 프록시
+    volumes: # PHP 프로세스 사이의 세션 공유
+      - sessions:/var/lib/systemmakers/sessions # 공통 세션 파일
+    networks: [proxy_net, data_net] # 프록시와 DB에만 연결
+    depends_on: # 준비된 DB 사용
+      database: # MySQL 상태 조건
+        condition: service_healthy # 계정 인증과 쿼리 준비
+    healthcheck: # 실제 PHP와 DB 응답 검사
+      test: [CMD, php, /srv/systemmakers/docker/healthcheck.php] # 내부 HTTP 검사
+      interval: 10s # 준비 확인 주기
+      timeout: 8s # 최대 응답 대기
+      retries: 6 # 시작 재시도 횟수
+      start_period: 30s # 초기 준비 유예
+    logging: *boundedLogging # 로그 회전 적용
+  realtime: # 독립 Ratchet 프로세스
+    image: systemmakers-php:local # 웹과 동일한 PHP와 UID
+    restart: unless-stopped # DB 장애 종료 후 재연결
+    user: www-data # 웹과 같은 세션 소유자
+    command: [php, /srv/systemmakers/backend/realtime/server.php] # 운영 실시간 서버
+    environment: # 공통 세션과 출처 설정
+      <<: *appEnvironment # 동일한 인증과 DB 계약
+      REALTIME_CONTAINER: "1" # 명시적 컨테이너 수신 허용
+      REALTIME_LISTEN_HOST: 0.0.0.0 # 컨테이너 연결망에서 수신
+      REALTIME_LISTEN_PORT: "8090" # 내부 전용 실시간 포트
+    volumes: # 웹 인증 상태 읽기와 잠금 공유
+      - sessions:/var/lib/systemmakers/sessions # 웹과 같은 저장소
+    networks: [proxy_net, data_net] # 프록시와 DB에만 연결
+    depends_on: # 웹 이미지와 세션 볼륨 준비
+      web: # 준비 조건
+        condition: service_healthy # 웹 로그인 가능 상태
+    healthcheck: # 프로세스 수신 상태 확인
+      test: [CMD, php, /srv/systemmakers/docker/healthcheck.php, realtime] # 내부 TCP 검사
+      interval: 10s # 상태 확인 주기
+      timeout: 8s # 최대 대기 시간
+      retries: 3 # 비정상 상태 판단 횟수
+    logging: *boundedLogging # 로그 회전 적용
+  database: # 영속 MySQL 8.4
+    image: ${MYSQL_IMAGE:-mysql:8.4} # 원본과 같은 DB 계열
+    restart: unless-stopped # NAS 재시작 후 복구
+    environment: # 빈 볼륨 최초 계정 준비
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?DB 이름 설정 필요} # 빈 서비스 DB 생성
+      MYSQL_USER: ${MYSQL_USER:?앱 계정 설정 필요} # 서비스 DB 계정 생성
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?앱 비밀번호 설정 필요} # 앱 계정 비밀 값
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?관리자 비밀번호 설정 필요} # 관리자 전용 비밀 값
+    command: [--character-set-server=utf8mb4, --collation-server=utf8mb4_0900_as_ci, --max-allowed-packet=64M] # 기존 문자셋과 첨부 수용
+    volumes: # DB 파일 영속 저장
+      - mysql_data:/var/lib/mysql # 컨테이너 재생성 시 데이터 유지
+      - ./backend/sql:/opt/systemmakers/sql:ro # 명시적 신규 DB 준비 자료
+      - ./docker/database.sh:/opt/systemmakers/database.sh:ro # 별도 관리자 작업 도구
+    networks: [data_net] # 호스트와 프록시에 DB 미공개
+    healthcheck: # 실제 계정 인증과 쿼리 확인
+      test: [CMD-SHELL, 'MYSQL_PWD="$${MYSQL_PASSWORD}" mysql -h 127.0.0.1 -u "$${MYSQL_USER}" "$${MYSQL_DATABASE}" -Nse "SELECT 1"'] # 준비 완료 검사
+      interval: 5s # 준비 확인 주기
+      timeout: 5s # DB 응답 대기
+      retries: 30 # 최초 DB 준비 재시도
+      start_period: 30s # 초기화 유예
+    logging: *boundedLogging # 로그 회전 적용
+networks: # 서비스 경계
+  proxy_net: # 외부 프록시 연결망
+    ipam: # 명시적 주소 관리
+      config: # 주소 대역 설정
+        - subnet: ${PROXY_SUBNET:-172.30.60.0/24} # 실제 NAS 대역과 충돌 방지
+  data_net: # 비공개 DB 연결망
+    internal: true # 외부 직접 연결 차단
+volumes: # 운영 영속 데이터
+  mysql_data: # DB 자료 보존
+  sessions: # 웹과 Ratchet 공통 인증 상태
+  caddy_data: # 인증서 자료 보존
+  caddy_config: # 프록시 상태 보존

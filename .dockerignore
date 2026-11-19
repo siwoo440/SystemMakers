@@ -1,0 +1,26 @@
+# Git 이력 제외
+.git
+# 개인 환경과 DB 제외
+.runtime
+# 개인 환경 변수 제외
+.env
+.env.*
+# 예시 환경 변수 포함
+!.env.example
+# 개인 PHP 설정 제외
+**/config.local.php
+# 호스트 의존성 제외
+backend/realtime/vendor
+# 로그와 백업 제외
+**/*.log
+**/*.sql.gz
+**/*.dump
+# 개발 자료 제외
+docs
+tests
+test-results
+.superpowers
+# 운영 백업 원본 제외
+backups
+# 외부 도구 제외
+node_modules
