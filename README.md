@@ -20,8 +20,8 @@ SystemMakers는 서버·채널과 1:1 개인 대화에서 메시지와 파일을
 
 - **접속 주소**: [http://127.0.0.6:8088/Team006/index.html](http://127.0.0.6:8088/Team006/index.html)
 - **주소 구분**: 웹 브라우저는 위 `127.0.0.6` 주소를 사용합니다. MySQL의 `127.0.0.1`은 별도 DB 연결 주소입니다.
-- **화면 자료**: 아래 이미지는 2026-11-16에 별도 테스트 계정과 예시 메시지로 촬영했습니다. 서버·채널 묶음 테두리 적용 전의 화면입니다.
-- **이미지 다운로드**: [현재 화면 이미지 15장 받기](docs/assets/ui/systemmakers-ui-screenshots.zip?raw=true)
+- **화면 자료** — 2026년 11월 19일 Chrome에서 예시 계정으로 촬영했습니다. 데스크톱 화면 15장과 390 × 844 크기의 모바일 배치 1장을 담았습니다.
+- [화면 이미지 16장 내려받기](docs/assets/ui/systemmakers-ui-screenshots.zip?raw=true) · [화면별 설계와 수정 파일 보기](docs/UI-DIRECTION.md)
 
 
 ---
@@ -48,7 +48,7 @@ SystemMakers는 서버·채널과 1:1 개인 대화에서 메시지와 파일을
 <details>
 <summary>채널·개인 대화·친구</summary>
 
-- 채널 대화와 오른쪽 친구 목록
+- 왼쪽 배너의 ‘졸업 전시 준비팀’ 아래에 일반·디자인·공지 채널이 묶입니다. 가운데는 선택한 채널의 대화, 오른쪽은 친구 요청과 목록입니다.
 
 ![채널 대화와 친구 목록 화면](docs/assets/ui/current-channel.jpg)
 
@@ -113,6 +113,15 @@ SystemMakers는 서버·채널과 1:1 개인 대화에서 메시지와 파일을
 
 </details>
 
+
+<details>
+<summary>좁은 화면에서 탐색하기</summary>
+
+- 대화 상단에서 목록을 열면 서버와 채널은 왼쪽, 친구는 오른쪽에 표시됩니다. 가운데 남은 배경을 누르면 대화로 돌아갑니다.
+
+![390 × 844 화면에서 좌우 패널을 연 모습](docs/assets/ui/current-mobile-panels.jpg)
+
+</details>
 
 ---
 

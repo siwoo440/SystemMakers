@@ -6,7 +6,7 @@
 - [DB 구조](DATABASE.md): 테이블·관계·잠금·삭제와 변경 파일.
 - [개발 방향](DEVELOPMENT-DIRECTION.md): 현재 상태와 팀원별 남은 작업.
 - [변수명 작성과 호환성](VARIABLE-NAMING.md): lowerCamelCase와 외부 계약 구분.
-- [UI 시안](UI-DIRECTION.md) · [이미지 생성 기록](UI-PROMPTS.md).
+- [현재 화면 기획서와 수정 파일](UI-DIRECTION.md) · [실제 화면 16장](../README.md#화면-살펴보기) · [초기 시안 제작 기록](UI-PROMPTS.md).
 - [한국어 커밋 메시지](COMMIT-MESSAGES.md).
 
 ---
