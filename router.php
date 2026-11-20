@@ -97,7 +97,11 @@ $staticFiles = // 공개 정적 파일 허용 목록
 [ // 정적 파일 목록 시작
     '/' => ['index.html', 'text/html; charset=utf-8'], // 기본 웹 화면
     '/index.html' => ['index.html', 'text/html; charset=utf-8'], // 직접 홈 접근
-    '/app.css' => ['app.css', 'text/css; charset=utf-8'], // 웹 화면 스타일
+    '/app.css' => ['app.css', 'text/css; charset=utf-8'], // 공통 화면 스타일
+    '/chatting.css' => ['chatting.css', 'text/css; charset=utf-8'], // 채팅과 목록 스타일
+    '/logout.css' => ['logout.css', 'text/css; charset=utf-8'], // 계정과 프로필 스타일
+    '/login.css' => ['login.css', 'text/css; charset=utf-8'], // 로그인 스타일
+    '/Sign up.css' => ['Sign up.css', 'text/css; charset=utf-8'], // 회원가입 스타일
     '/app.js' => ['app.js', 'text/javascript; charset=utf-8'], // 화면 상호작용
     '/message-feed.mjs' => ['message-feed.mjs', 'text/javascript; charset=utf-8'], // 채널 기록과 자동 갱신 모듈
     '/server-manager.mjs' => ['server-manager.mjs', 'text/javascript; charset=utf-8'], // 소속 상태와 변경 수명

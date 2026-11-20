@@ -1,0 +1,1006 @@
+.workspace /* 메신저 전체 배치 */
+{
+    display: grid; /* 요소 배치 방식 */
+    grid-template-columns: 80px 274px minmax(0, 1fr) 234px; /* 열 너비 */
+    width: 100%; /* 가로 크기 */
+    height: 100dvh; /* 세로 크기 */
+    overflow: hidden; /* 넘치는 내용 처리 */
+    background: var(--pageBg); /* 배경색과 무늬 */
+}
+.server-rail /* 서버 선택 막대 */
+{
+    display: flex; /* 요소 배치 방식 */
+    flex-direction: column; /* 요소 배치 방향 */
+    align-items: center; /* 교차축 정렬 */
+    gap: 20px; /* 요소 간격 */
+    padding: 22px 0; /* 안쪽 여백 */
+    background: #11111b; /* 배경색과 무늬 */
+    border-right: 1px solid var(--lineColor); /* 오른쪽 경계선 */
+    min-height: 0; /* 최소 높이 */
+}
+.server-mark /* 서비스 로고 */
+{
+    display: grid; /* 요소 배치 방식 */
+    place-items: center; /* 가로 세로 정렬 */
+    width: 52px; /* 가로 크기 */
+    height: 52px; /* 세로 크기 */
+    border-radius: 15px; /* 모서리 둥글기 */
+    color: white; /* 글자색 */
+    font-weight: 800; /* 글자 굵기 */
+    background: linear-gradient(135deg, #8b72ef, #5541bd); /* 배경색과 무늬 */
+    box-shadow: var(--purpleGlow); /* 그림자 */
+}
+.rail-line /* 서버 구분선 */
+{
+    width: 30px; /* 가로 크기 */
+    height: 2px; /* 세로 크기 */
+    background: var(--lineColor); /* 배경색과 무늬 */
+}
+.server-list /* 실제 소속 탐색 영역 */
+{
+    display: flex; /* 요소 배치 방식 */
+    flex-direction: column; /* 요소 배치 방향 */
+    align-items: center; /* 교차축 정렬 */
+    gap: 12px; /* 요소 간격 */
+    max-height: 65vh; /* 최대 높이 */
+    overflow-y: auto; /* 세로 넘침 처리 */
+}
+.rail-caption /* 레일 작은 문구 */
+{
+    margin-top: auto; /* 위쪽 여백 */
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 10px; /* 글자 크기 */
+    letter-spacing: 2px; /* 글자 간격 */
+    text-align: center; /* 글자 정렬 */
+    line-height: 1.6; /* 줄 높이 */
+}
+.rail-bottom /* 레일 하단 브랜드 */
+{
+    color: var(--accentHover); /* 글자색 */
+    font-weight: bold; /* 글자 굵기 */
+}
+.channel-sidebar /* 관리와 긴 목록의 공존 */
+{
+    display: flex; /* 요소 배치 방식 */
+    flex-direction: column; /* 요소 배치 방향 */
+    min-width: 0; /* 최소 너비 */
+    min-height: 0; /* 최소 높이 */
+    background: #1b1b2a; /* 배경색과 무늬 */
+    border-right: 1px solid #343448; /* 오른쪽 경계선 */
+}
+.workspace-heading /* 서비스 제목 영역 */
+{
+    padding: 25px 20px; /* 안쪽 여백 */
+    min-height: 110px; /* 최소 높이 */
+    border-bottom: 1px solid var(--lineColor); /* 아래쪽 경계선 */
+}
+.workspace-heading h1 /* 작업 공간 이름 */
+{
+    margin-top: 8px; /* 위쪽 여백 */
+    font-size: 21px; /* 글자 크기 */
+}
+.workspace-dot /* 브랜드 이름 옆 장식 */
+{
+    display: inline-block; /* 요소 배치 방식 */
+    width: 7px; /* 가로 크기 */
+    height: 7px; /* 세로 크기 */
+    margin-left: 5px; /* 왼쪽 여백 */
+    border-radius: 50%; /* 모서리 둥글기 */
+    background: var(--accentColor); /* 배경색과 무늬 */
+}
+.sidebar-scroll /* 서버와 채널 탐색 */
+{
+    flex: 1; /* 남은 공간 배분 */
+    min-height: 0; /* 최소 높이 */
+    overflow-y: auto; /* 세로 넘침 처리 */
+    padding: 15px 13px; /* 안쪽 여백 */
+    overflow-x: hidden; /* 불필요한 가로 스크롤 제거 */
+}
+.server-tools /* 서버 관리 묶음 */
+{
+    min-height: 285px; /* 최소 높이 */
+    padding: 18px; /* 안쪽 여백 */
+    margin-bottom: 18px; /* 아래쪽 여백 */
+    background: var(--panelBg); /* 배경색과 무늬 */
+    border: 1px solid #625681; /* 테두리 */
+    border-radius: 14px; /* 모서리 둥글기 */
+    overflow-wrap: anywhere; /* 긴 글자 줄바꿈 */
+}
+.server-tools strong /* 현재 서버 이름 */
+{
+    display: block; /* 요소 배치 방식 */
+    margin-bottom: 14px; /* 아래쪽 여백 */
+    font-size: 16px; /* 글자 크기 */
+}
+.server-tools p /* 서버 상태 안내 */
+{
+    margin-top: 15px; /* 위쪽 여백 */
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 12px; /* 글자 크기 */
+    line-height: 1.9; /* 줄 높이 */
+}
+.server-actions /* 여러 관리 버튼 배치 */
+{
+    display: flex; /* 요소 배치 방식 */
+    align-items: center; /* 교차축 정렬 */
+    gap: 8px; /* 요소 간격 */
+    margin-top: 13px; /* 위쪽 여백 */
+}
+.icon-action /* 그림 버튼 */
+{
+    display: inline-grid; /* 요소 배치 방식 */
+    place-items: center; /* 가로 세로 정렬 */
+    width: 43px; /* 가로 크기 */
+    height: 40px; /* 세로 크기 */
+    border-radius: 9px; /* 모서리 둥글기 */
+    color: var(--mutedColor); /* 글자색 */
+    background: #353349; /* 배경색과 무늬 */
+    border: 1px solid #45415c; /* 테두리 */
+    position: relative; /* 배치 기준 */
+}
+.icon-action:hover:not(:disabled) /* 그림 버튼 강조 */
+{
+    color: white; /* 글자색 */
+    background: #343044; /* 배경색과 무늬 */
+}
+.section-label /* 채널 목록 소제목 */
+{
+    display: flex; /* 요소 배치 방식 */
+    align-items: center; /* 교차축 정렬 */
+    justify-content: space-between; /* 주축 정렬 */
+    margin: 18px 5px 12px; /* 바깥 여백 */
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 12px; /* 글자 크기 */
+    font-weight: bold; /* 글자 굵기 */
+}
+#channel-list, #direct-list, #direct-search-results /* 채널과 개인 대화 목록 */
+{
+    display: grid; /* 요소 배치 방식 */
+    gap: 8px; /* 요소 간격 */
+}
+.channel-status /* 실제 참여 상태 안내 */
+{
+    margin: 13px 5px; /* 바깥 여백 */
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 12px; /* 글자 크기 */
+    line-height: 1.8; /* 줄 높이 */
+}
+.direct-navigation /* 개인 대화 탐색 영역 */
+{
+    padding-top: 2px; /* 위쪽 안쪽 여백 */
+    margin-top: 20px; /* 위쪽 여백 */
+    border-top: 1px solid #343448; /* 위쪽 경계선 */
+}
+.direct-search, .friend-search /* 사용자 검색 입력과 버튼 */
+{
+    display: flex; /* 요소 배치 방식 */
+    gap: 6px; /* 요소 간격 */
+}
+.direct-search /* 개인 대화 검색 */
+{
+    margin-top: 12px; /* 위쪽 여백 */
+    min-width: 0; /* 좁은 패널 안쪽 유지 */
+}
+.direct-search input, .friend-search input /* 대화와 친구 검색 */
+{
+    min-width: 0; /* 최소 너비 */
+    padding: 10px; /* 안쪽 여백 */
+    background: #14141f; /* 배경색과 무늬 */
+    border: 1px solid #39374d; /* 테두리 */
+    border-radius: 9px; /* 모서리 둥글기 */
+}
+.conversation /* 대화 본문 */
+{
+    display: flex; /* 요소 배치 방식 */
+    flex-direction: column; /* 요소 배치 방향 */
+    min-width: 0; /* 최소 너비 */
+    min-height: 0; /* 최소 높이 */
+    height: 100%; /* 세로 크기 */
+    overflow: hidden; /* 넘치는 내용 처리 */
+    background: radial-gradient(ellipse at top right, #21153655, transparent 55%), var(--pageBg); /* 배경색과 무늬 */
+}
+.conversation-header /* 채팅방 상단 */
+{
+    display: flex; /* 요소 배치 방식 */
+    align-items: center; /* 교차축 정렬 */
+    gap: 13px; /* 요소 간격 */
+    min-height: 76px; /* 최소 높이 */
+    padding: 15px 24px; /* 안쪽 여백 */
+    background: #11101a; /* 배경색과 무늬 */
+    border-bottom: 1px solid var(--lineColor); /* 아래쪽 경계선 */
+}
+.header-hash /* 헤더 채널 기호 */
+{
+    color: var(--accentHover); /* 글자색 */
+    font-size: 25px; /* 글자 크기 */
+    font-weight: bold; /* 글자 굵기 */
+}
+.channel-heading /* 채널 제목 영역 */
+{
+    flex: 1; /* 남은 공간 배분 */
+    min-width: 0; /* 최소 너비 */
+}
+.channel-heading h2 /* 채널 이름 */
+{
+    font-size: 16px; /* 글자 크기 */
+}
+.channel-heading p /* 채널 설명 */
+{
+    margin-top: 5px; /* 위쪽 여백 */
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 11px; /* 글자 크기 */
+}
+.header-tag, .preview-badge /* 대화 상태 표시 */
+{
+    color: var(--accentHover); /* 글자색 */
+    font-size: 10px; /* 글자 크기 */
+    font-weight: bold; /* 글자 굵기 */
+}
+.preview-banner /* 실제 갱신 안내 */
+{
+    display: flex; /* 요소 배치 방식 */
+    align-items: center; /* 교차축 정렬 */
+    gap: 10px; /* 요소 간격 */
+    padding: 11px 22px; /* 안쪽 여백 */
+    background: #171326; /* 배경색과 무늬 */
+    border-bottom: 1px solid var(--lineColor); /* 아래쪽 경계선 */
+}
+.preview-banner p /* 메시지 저장 안내 문구 */
+{
+    flex: 1; /* 남은 공간 배분 */
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 11px; /* 글자 크기 */
+}
+.preview-icon /* 안내 장식 */
+{
+    color: var(--accentHover); /* 글자색 */
+}
+.message-scroll /* 대화 스크롤 영역 */
+{
+    flex: 1; /* 남은 공간 배분 */
+    min-height: 0; /* 최소 높이 */
+    overflow-y: auto; /* 세로 넘침 처리 */
+    padding: 25px; /* 안쪽 여백 */
+}
+.channel-welcome /* 채널 시작 소개 */
+{
+    padding: 35px 0; /* 안쪽 여백 */
+    border-bottom: 1px solid var(--lineColor); /* 아래쪽 경계선 */
+}
+.welcome-hash /* 채널 소개 아이콘 */
+{
+    display: grid; /* 요소 배치 방식 */
+    place-items: center; /* 가로 세로 정렬 */
+    width: 48px; /* 가로 크기 */
+    height: 48px; /* 세로 크기 */
+    margin-bottom: 20px; /* 아래쪽 여백 */
+    border-radius: 16px; /* 모서리 둥글기 */
+    background: #29213b; /* 배경색과 무늬 */
+    color: var(--accentHover); /* 글자색 */
+    font-size: 26px; /* 글자 크기 */
+    font-weight: bold; /* 글자 굵기 */
+}
+.channel-welcome h3 /* 소개 제목 */
+{
+    margin: 10px 0; /* 바깥 여백 */
+    font-size: 22px; /* 글자 크기 */
+}
+.channel-welcome > p:last-child /* 소개 본문 */
+{
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 12px; /* 글자 크기 */
+}
+.history-controls /* 이전 기록과 연결 상태 영역 */
+{
+    display: flex; /* 요소 배치 방식 */
+    justify-content: space-between; /* 주축 정렬 */
+    align-items: center; /* 교차축 정렬 */
+    margin: 15px 0; /* 바깥 여백 */
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 11px; /* 글자 크기 */
+}
+.messages /* 대화 목록 간격 */
+{
+    display: flex; /* 요소 배치 방식 */
+    flex-direction: column; /* 요소 배치 방향 */
+    gap: 15px; /* 요소 간격 */
+}
+.composer-region /* 입력 영역 배치 */
+{
+    padding: 12px 22px 16px; /* 안쪽 여백 */
+    background: #11101a; /* 배경색과 무늬 */
+    border-top: 1px solid var(--lineColor); /* 위쪽 경계선 */
+    position: relative; /* 배치 기준 */
+}
+.composer /* 메시지 입력 상자 */
+{
+    padding: 12px; /* 안쪽 여백 */
+    background: var(--inputBg); /* 배경색과 무늬 */
+    border: 1px solid var(--lineColor); /* 테두리 */
+    border-radius: 12px; /* 모서리 둥글기 */
+}
+.composer textarea /* 메시지 작성 필드 */
+{
+    display: block; /* 요소 배치 방식 */
+    min-height: 55px; /* 최소 높이 */
+    resize: vertical; /* 크기 조절 방향 */
+    background: transparent; /* 배경색과 무늬 */
+    border: none; /* 테두리 */
+    box-shadow: none; /* 그림자 */
+    max-height: 22vh; /* 최대 높이 */
+}
+.composer-footer /* 작성 필드 하단 */
+{
+    display: flex; /* 요소 배치 방식 */
+    align-items: center; /* 교차축 정렬 */
+    flex-wrap: wrap; /* 요소 줄바꿈 */
+    gap: 10px; /* 요소 간격 */
+}
+.composer-help, .message-count, .composer-feedback /* 입력 도움말과 상태 */
+{
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 10px; /* 글자 크기 */
+}
+.composer-help /* 키보드 안내 */
+{
+    flex: 1; /* 남은 공간 배분 */
+}
+.attachment-controls /* 파일 버튼 묶음 */
+{
+    display: flex; /* 요소 배치 방식 */
+    align-items: center; /* 교차축 정렬 */
+    flex-wrap: wrap; /* 요소 줄바꿈 */
+    gap: 6px; /* 요소 간격 */
+}
+.attachment-picker /* 파일 선택 아이콘 */
+{
+    cursor: pointer; /* 선택 가능한 포인터 */
+    position: relative; /* 설명 말풍선 기준 */
+    display: inline-grid; /* 아이콘 중앙 정렬 */
+    place-items: center; /* 가로 세로 중앙 정렬 */
+    width: 36px; /* 선택 영역 너비 */
+    height: 36px; /* 선택 영역 높이 */
+    border: 1px solid var(--lineColor); /* 선택 영역 테두리 */
+    border-radius: 6px; /* 선택 영역 모서리 */
+    background: #263344; /* 선택 영역 배경 */
+    color: #edf1f7; /* 아이콘 색상 */
+}
+.send-button /* 전송 버튼 */
+{
+    padding: 10px 18px; /* 안쪽 여백 */
+    border-radius: 8px; /* 모서리 둥글기 */
+    color: white; /* 글자색 */
+    background: linear-gradient(120deg, #7c3aed, #a855f7); /* 배경색과 무늬 */
+    box-shadow: var(--purpleGlow); /* 그림자 */
+}
+.composer-feedback /* 작성 결과 안내 */
+{
+    margin-top: 8px; /* 위쪽 여백 */
+}
+.friend-sidebar /* 오른쪽 친구 목록 */
+{
+    display: flex; /* 요소 배치 방식 */
+    flex-direction: column; /* 요소 배치 방향 */
+    min-width: 0; /* 최소 너비 */
+    min-height: 0; /* 최소 높이 */
+    gap: 17px; /* 요소 간격 */
+    padding: 25px 14px; /* 안쪽 여백 */
+    overflow-y: auto; /* 세로 넘침 처리 */
+    background: #1b1b2a; /* 배경색과 무늬 */
+    border-left: 1px solid #343448; /* 왼쪽 경계선 */
+}
+.friend-heading /* 친구 제목과 새로고침 */
+{
+    display: flex; /* 요소 배치 방식 */
+    align-items: center; /* 교차축 정렬 */
+    justify-content: space-between; /* 주축 정렬 */
+    min-height: 28px; /* 최소 높이 */
+    margin-bottom: 2px; /* 아래쪽 여백 */
+}
+.friend-heading h2 /* 친구 제목 */
+{
+    font-size: 17px; /* 글자 크기 */
+}
+.friend-status /* 친구 상태 안내 */
+{
+    color: var(--mutedColor); /* 글자색 */
+    font-size: 11px; /* 글자 크기 */
+    line-height: 1.7; /* 줄 높이 */
+}
+.friend-search /* 사용자 검색 */
+{
+    gap: 6px; /* 요소 간격 */
+}
+.friend-search .icon-action /* 친구 검색 버튼 */
+{
+    width: 39px; /* 가로 크기 */
+    height: 39px; /* 세로 크기 */
+    background: #29283b; /* 배경색과 무늬 */
+}
+.friend-section /* 친구와 요청 구역 */
+{
+    padding-top: 12px; /* 위쪽 안쪽 여백 */
+    border: none; /* 테두리 */
+}
+.friend-section h3 /* 구역 이름 */
+{
+    margin-bottom: 10px; /* 아래쪽 여백 */
+    color: #aaa7c0; /* 글자색 */
+    font-size: 12px; /* 글자 크기 */
+}
+.friend-list /* 친구 항목 세로 목록 */
+{
+    display: grid; /* 요소 배치 방식 */
+    gap: 8px; /* 요소 간격 */
+    min-height: 52px; /* 최소 높이 */
+    padding: 8px; /* 안쪽 여백 */
+    background: #252438; /* 배경색과 무늬 */
+    border: 1px solid #625681; /* 테두리 */
+    border-radius: 11px; /* 모서리 둥글기 */
+}
+.friend-list > * /* 친구 목록 항목 */
+{
+    padding: 8px; /* 안쪽 여백 */
+    border-radius: 8px; /* 모서리 둥글기 */
+}
+.friend-list > *:hover /* 친구 항목 강조 */
+{
+    background: #36334d; /* 배경색과 무늬 */
+}
+.sidebar-toggle /* 모바일 목록 열기 */
+{
+    display: none; /* 요소 배치 방식 */
+    background: transparent; /* 배경색과 무늬 */
+    color: var(--accentHover); /* 글자색 */
+    font-size: 20px; /* 글자 크기 */
+}
+.sidebar-backdrop /* 모바일 목록 닫기 배경 */
+{
+    position: fixed; /* 배치 기준 */
+    inset: 0; /* 화면 가장자리 기준 */
+    z-index: 5; /* 겹침 순서 */
+    background: #0009; /* 배경색과 무늬 */
+    display: none; /* 요소 배치 방식 */
+}
+.channel-button /* 채널 선택 버튼 */
+{
+    display: flex; /* 채널 기호와 이름 배치 */
+    align-items: center; /* 수직 가운데 정렬 */
+    gap: 12px; /* 기호와 이름 간격 */
+    width: 100%; /* 사이드바 전체 너비 */
+    min-height: 44px; /* 터치 가능한 높이 */
+    padding: 8px 14px; /* 채널 버튼 여백 */
+    margin-bottom: 5px; /* 채널 간 간격 */
+    border: 1px solid transparent; /* 선택 상태 테두리 공간 */
+    border-radius: 7px; /* 채널 버튼 모서리 */
+    background: transparent; /* 기본 투명 배경 */
+    color: #9ba7ba; /* 기본 채널 글자 */
+    text-align: left; /* 채널 이름 왼쪽 정렬 */
+    font-size: 14px; /* 채널 이름 크기 */
+    overflow-wrap: anywhere; /* 긴 실제 채널 이름 줄바꿈 */
+    line-height: 1.5; /* 여러 줄 채널 가독성 */
+}
+.hash /* 채널 목록 기호 */
+{
+    font-size: 23px; /* 기호 크기 */
+    font-weight: 400; /* 기호 기본 굵기 */
+    color: #8191a7; /* 기본 기호 색상 */
+}
+.channel-selected-dot /* 선택 채널 장식 */
+{
+    width: 5px; /* 선택 점 너비 */
+    height: 5px; /* 선택 점 높이 */
+    margin-left: auto; /* 오른쪽 정렬 */
+    border-radius: 50%; /* 원형 선택 점 */
+    background: #ad9fff; /* 선택 채널 점 색상 */
+}
+.date-divider /* 날짜 구분선 */
+{
+    display: flex; /* 날짜 양옆 선 배치 */
+    align-items: center; /* 날짜 수직 가운데 */
+    gap: 16px; /* 선과 날짜 사이 간격 */
+    margin: 19px 0 24px; /* 날짜 구분 여백 */
+    color: #7e8ba0; /* 날짜 글자색 */
+    font-size: 10px; /* 날짜 글자 크기 */
+}
+.date-divider::before, .date-divider::after /* 날짜 양옆 장식 선 */
+{
+    content: ""; /* 장식 선 생성 */
+    height: 1px; /* 장식 선 두께 */
+    flex: 1; /* 남은 너비 채우기 */
+    background: #303949; /* 장식 선 색상 */
+}
+.message /* 개별 메시지 */
+{
+    display: flex; /* 아바타와 본문 가로 배치 */
+    align-items: flex-start; /* 위쪽 정렬 */
+    gap: 12px; /* 요소 간격 */
+    padding: 0; /* 안쪽 여백 */
+}
+.message-content /* 메시지 내용 영역 */
+{
+    min-width: 0; /* 긴 내용 줄바꿈 허용 */
+    flex: 0 1 auto; /* 내용에 맞는 말풍선 */
+    max-width: min(78%, 560px); /* 긴 메시지 최대 너비 */
+}
+.message-meta /* 작성자와 시각 */
+{
+    display: flex; /* 작성 정보 가로 배치 */
+    align-items: center; /* 작성 정보 수직 정렬 */
+    gap: 10px; /* 이름과 시각 간격 */
+    margin: 1px 0 7px; /* 작성 정보 여백 */
+}
+.message-meta strong /* 메시지 작성자 */
+{
+    font-size: 13px; /* 작성자 이름 크기 */
+    overflow-wrap: anywhere; /* 긴 사용자명 줄바꿈 */
+}
+.message-meta time /* 메시지 작성 시각 */
+{
+    color: #7f8ca1; /* 시각 글자색 */
+    font-size: 10px; /* 시각 글자 크기 */
+    white-space: nowrap; /* 시각 한 줄 */
+}
+.message-body /* 메시지 본문 */
+{
+    margin: 0; /* 본문 기본 여백 제거 */
+    font-size: 13px; /* 읽기 편한 본문 크기 */
+    line-height: 1.65; /* 메시지 줄간격 */
+    color: #f0eff9; /* 메시지 본문 글자 */
+    white-space: pre-wrap; /* 입력 줄바꿈 유지 */
+    overflow-wrap: anywhere; /* 긴 메시지 줄바꿈 */
+    display: inline-block; /* 내용 크기의 말풍선 */
+    max-width: 100%; /* 긴 문장 너비 제한 */
+    padding: 10px 15px; /* 말풍선 안쪽 여백 */
+    border-radius: 4px 16px 16px 16px; /* 상대방 말풍선 모서리 */
+    background: #393c52; /* 상대방 말풍선 배경 */
+}
+.history-button /* 과거 기록과 재연결 버튼 */
+{
+    border: 1px solid #4c6b78; /* 버튼 윤곽 */
+    border-radius: 7px; /* 버튼 모서리 */
+    padding: 8px 12px; /* 터치 영역 */
+    color: #d7eeee; /* 버튼 글자 색상 */
+    background: #263b47; /* 버튼 배경 */
+    cursor: pointer; /* 클릭 가능 표시 */
+}
+.history-button:disabled /* 조회 중 버튼 */
+{
+    opacity: 0.6; /* 비활성 상태 표시 */
+    cursor: wait; /* 실제 요청 진행 표시 */
+}
+.local-label /* DB 저장 메시지 배지 */
+{
+    color: #78bcb4; /* 로컬 배지 색상 */
+    font-size: 9px; /* 로컬 배지 크기 */
+    white-space: nowrap; /* 배지 한 줄 */
+}
+.composer textarea::placeholder /* 작성 안내 문구 */
+{
+    color: #8c99ae; /* 안내 글자색 */
+}
+.message-count.over-limit, .composer-feedback.error /* 입력 제한 오류 */
+{
+    color: #ff9e98; /* 오류 글자색 */
+}
+.composer-help span /* 키보드 안내 구분점 */
+{
+    margin: 0 5px; /* 구분점 좌우 여백 */
+}
+.send-button span /* 전송 화살표 */
+{
+    margin-left: 8px; /* 전송 화살표 간격 */
+}
+.new-messages /* 읽지 않은 로컬 메시지 안내 */
+{
+    position: absolute; /* 입력 상자 위 배치 */
+    right: 30px; /* 오른쪽 위치 */
+    top: -38px; /* 입력 영역 위 위치 */
+    padding: 8px 13px; /* 새 메시지 버튼 여백 */
+    border: 1px solid #29a499; /* 안내 테두리 */
+    border-radius: 20px; /* 둥근 안내 버튼 */
+    background: var(--inputBg); /* 배경색과 무늬 */
+    color: var(--textColor); /* 글자색 */
+    font-size: 11px; /* 안내 글자 크기 */
+    border-color: var(--accentHover); /* 테두리 색상 */
+}
+.channel-navigation /* 실제 채널 목록 */
+{
+    min-height: 0; /* 긴 목록의 축소 허용 */
+    overflow: visible; /* 전체 탐색 영역에서 스크롤 */
+}
+.channel-retry /* 실패한 채널 조회 재시도 */
+{
+    margin: 0 10px 12px; /* 주변 목록 여백 */
+    padding: 9px 12px; /* 누르기 편한 버튼 여백 */
+    border: 1px solid #3f665f; /* 재시도 버튼 테두리 */
+    border-radius: 6px; /* 버튼 모서리 */
+    background: #243a37; /* 버튼 배경 */
+    color: #b4eee1; /* 재시도 글자색 */
+    font-size: 12px; /* 버튼 글자 크기 */
+}
+.channel-retry:disabled, #message-input:disabled /* 사용 불가능한 입력 안내 */
+{
+    opacity: .65; /* 비활성 상태 구분 */
+    cursor: not-allowed; /* 입력 제한 포인터 */
+}
+.server-choice /* 이름 기반 서버 버튼 */
+{
+    width: 44px; /* 탐색 크기 */
+    min-height: 44px; /* 터치 영역 */
+    border-radius: 14px; /* 둥근 서버 아이콘 */
+    border: 1px solid #3a485b; /* 공간 구분 */
+    background: #252e3d; /* 어두운 배경 */
+    color: #e5eef7; /* 읽기 쉬운 이름 */
+    overflow: hidden; /* 긴 서버 이름 제한 */
+    white-space: nowrap; /* 서버 이름 한 줄 */
+    text-overflow: ellipsis; /* 긴 서버 이름 줄임 */
+    font-size: 11px; /* 서버 아이콘 글자 크기 */
+}
+.icon-action svg /* 선으로 그린 관리 그림 */
+{
+    width: 20px; /* 그림 너비 */
+    height: 20px; /* 그림 높이 */
+    fill: none; /* 내부 채우기 제거 */
+    stroke: currentColor; /* 버튼 글자색 사용 */
+    stroke-width: 1.8; /* 선 두께 */
+    stroke-linecap: round; /* 둥근 선 끝 */
+    stroke-linejoin: round; /* 둥근 선 연결 */
+}
+.icon-action::after /* 버튼 기능 안내 */
+{
+    content: attr(data-tooltip); /* 각 버튼의 설명 */
+    position: absolute; /* 버튼 위 말풍선 */
+    top: calc(100% + 6px); /* 버튼 아래 위치 */
+    left: 0; /* 버튼 왼쪽 정렬 */
+    z-index: 10; /* 주변 버튼 위 표시 */
+    padding: 5px 8px; /* 설명 내부 여백 */
+    border-radius: 5px; /* 둥근 말풍선 */
+    background: #080d15; /* 짙은 설명 배경 */
+    color: #fff; /* 밝은 설명 글씨 */
+    white-space: nowrap; /* 설명 줄바꿈 방지 */
+    pointer-events: none; /* 마우스 이동 방해 방지 */
+    opacity: 0; /* 기본 설명 숨김 */
+    visibility: hidden; /* 숨긴 설명 접근 방지 */
+}
+.icon-action:hover::after, .icon-action:focus-visible::after /* 마우스와 키보드 안내 */
+{
+    opacity: 1; /* 설명 표시 */
+    visibility: visible; /* 설명 노출 */
+}
+.icon-action:focus-visible /* 키보드 선택 표시 */
+{
+    outline: 2px solid #74e8d2; /* 뚜렷한 선택 테두리 */
+    outline-offset: 2px; /* 버튼과 테두리 간격 */
+}
+#channel-list:not(:empty) /* 채널 관리 버튼과 목록 구분 */
+{
+    margin-top: 14px; /* 버튼 아래와 채널 사이 간격 */
+}
+.invite-copy-row /* 초대 입력과 복사 버튼 */
+{
+    display: flex; /* 입력과 버튼 가로 배치 */
+    align-items: stretch; /* 입력과 버튼 높이 일치 */
+    gap: 8px; /* 입력과 버튼 간격 */
+    margin: 8px 0; /* 입력 영역 위아래 간격 */
+}
+.server-dialog .invite-copy-row input /* 초대 코드와 링크 입력 */
+{
+    flex: 1 1 auto; /* 남은 입력 공간 사용 */
+    min-width: 0; /* 좁은 화면 입력 축소 */
+    margin: 0; /* 행 간격 중복 제거 */
+}
+.invite-copy-row button /* 초대 복사 버튼 */
+{
+    flex: 0 0 auto; /* 버튼 크기 유지 */
+    white-space: nowrap; /* 버튼 문구 줄바꿈 방지 */
+}
+#invite-panel:not([hidden]) ~ .server-actions #server-submit /* 초대 발급 버튼 */
+{
+    margin-left: auto; /* 창 오른쪽 배치 */
+}
+#channel-value[hidden] ~ .server-actions #channel-manage-submit /* 채널 삭제 확인 버튼 */
+{
+    margin-left: auto; /* 창 오른쪽 배치 */
+}
+.attachment-picker::after /* 파일 선택 설명 위치 */
+{
+    top: auto; /* 아래쪽 말풍선 위치 해제 */
+    bottom: calc(100% + 6px); /* 아이콘 위쪽 설명 */
+}
+.attachment-input:focus-visible + .attachment-picker /* 키보드 선택 표시 */
+{
+    outline: 2px solid var(--accentHover); /* 초점 테두리 */
+    outline-offset: 2px; /* 테두리 간격 */
+}
+.attachment-input:focus-visible + .attachment-picker::after /* 키보드 기능 안내 */
+{
+    opacity: 1; /* 설명 표시 */
+    visibility: visible; /* 설명 노출 */
+}
+.attachment-input:disabled + .attachment-picker /* 파일 선택 비활성 */
+{
+    opacity: .45; /* 비활성 투명도 */
+    cursor: not-allowed; /* 비활성 포인터 */
+}
+.search-action::after, .friend-heading .icon-action::after /* 오른쪽 경계 안의 버튼 설명 */
+{
+    right: 0; /* 검색 영역 안쪽 정렬 */
+    left: auto; /* 왼쪽 기준 해제 */
+}
+.friend-row /* 사용자별 칸 */
+{
+    display: flex; /* 이름과 동작 가로 배치 */
+    align-items: center; /* 세로 중앙 정렬 */
+    gap: 5px; /* 사용자와 버튼 간격 */
+    padding: 6px; /* 항목 안쪽 여백 */
+    border: 1px solid #303c4c; /* 항목 구분 테두리 */
+    border-radius: 7px; /* 항목 모서리 */
+}
+.friend-row .friend-name /* 사용자 이름 */
+{
+    flex: 1; /* 남은 너비 사용 */
+    min-width: 0; /* 최소 너비 */
+    overflow-wrap: anywhere; /* 긴 이름 줄바꿈 */
+    text-align: left; /* 이름 왼쪽 정렬 */
+}
+.attachment-controls button /* 파일 전송 버튼 */
+{
+    padding: 6px 9px; /* 버튼 안쪽 여백 */
+    border: 1px solid var(--lineColor); /* 버튼 테두리 */
+    border-radius: 5px; /* 버튼 모서리 */
+    background: #263344; /* 버튼 배경 */
+    color: #edf1f7; /* 버튼 글자색 */
+}
+.attachment-link /* 첨부 다운로드 링크 */
+{
+    display: inline-block; /* 파일 링크 영역 */
+    margin-top: 6px; /* 본문과 링크 간격 */
+    color: var(--accentHover); /* 글자색 */
+    overflow-wrap: anywhere; /* 긴 파일명 줄바꿈 */
+}
+.channel-button, .server-choice /* 서버와 채널 목록 */
+{
+    border-radius: 9px; /* 둥근 목록 모서리 */
+    color: #b7b8cc; /* 목록 기본 글자 */
+}
+.direct-search input /* 개인 대화 검색 입력 */
+{
+    flex: 1 1 0; /* 버튼을 제외한 너비 */
+}
+.channel-button:hover, .server-choice:hover /* 목록 강조 */
+{
+    background: #343348; /* 목록 강조 배경 */
+    color: #fff; /* 목록 강조 글자 */
+}
+.channel-button.active, .server-choice[aria-pressed="true"] /* 선택한 서버와 채널 */
+{
+    background: linear-gradient(160deg, #514b71, #3d3a56); /* 보라색 선택 광택 */
+    border-color: #615a8b; /* 선택 항목 경계 */
+    box-shadow: inset 0 1px 0 #ffffff1f; /* 선택 항목 상단 빛 */
+    color: #fff; /* 선택 항목 글자 */
+}
+.active .hash, .channel-selected-dot /* 선택 채널 기호 */
+{
+    color: #d2caff; /* 선택 채널 글자 */
+}
+.message--own /* 본인 메시지 */
+{
+    flex-direction: row-reverse; /* 본인 아바타 오른쪽 정렬 */
+}
+.message--own .message-content /* 본인 메시지 내용 */
+{
+    text-align: right; /* 본문과 첨부 오른쪽 정렬 */
+}
+.message--own .message-meta /* 본인 작성 정보 */
+{
+    justify-content: flex-end; /* 작성 정보 오른쪽 정렬 */
+}
+.message--own .message-body /* 본인 메시지 말풍선 */
+{
+    border-radius: 16px 4px 16px 16px; /* 본인 말풍선 모서리 */
+    background: linear-gradient(155deg, #7062df, #5b4cc3); /* 본인 말풍선 보라색 광택 */
+    box-shadow: inset 0 1px 0 #ffffff50, 0 4px 12px #17132933; /* 말풍선 상단 빛과 그림자 */
+    color: #fff; /* 본인 말풍선 글자 */
+    text-align: left; /* 긴 본문의 읽기 방향 */
+}
+.attachment-controls .attachment-clear /* 선택한 파일 취소 */
+{
+    display: inline-grid; /* 취소 기호 가운데 배치 */
+    place-items: center; /* 가로 세로 가운데 정렬 */
+    width: 32px; /* 취소 버튼 너비 */
+    height: 32px; /* 취소 버튼 높이 */
+    padding: 0; /* 기호 주변 기본 여백 제거 */
+    font-size: 19px; /* 취소 기호 크기 */
+}
+#channel-file-status, #direct-file-status /* 선택 파일 이름 */
+{
+    max-width: min(180px, 28vw); /* 긴 이름의 최대 너비 */
+    overflow-wrap: anywhere; /* 긴 파일 이름 줄바꿈 */
+}
+.composer:focus-within /* 입력 중 강조 */
+{
+    border-color: #a99cff; /* 보라색 입력 경계 */
+}
+.history-button, .channel-retry, .attachment-controls button, .friend-row button /* 대화와 친구 보조 버튼 */
+{
+    background: var(--inputBg); /* 배경색과 무늬 */
+    color: var(--textColor); /* 글자색 */
+    border: 1px solid var(--lineColor); /* 테두리 */
+    border-radius: 8px; /* 모서리 둥글기 */
+}
+.friend-row button /* 친구 관리 버튼 */
+{
+    padding: 6px 8px; /* 안쪽 여백 */
+}
+.channel-sidebar, .friend-sidebar /* 모바일 양쪽 목록 */
+{
+    background: var(--sideBg); /* 배경색과 무늬 */
+}
+.conversation-header, .preview-banner, .composer-region /* 대화창 고정 영역 */
+{
+    flex-shrink: 0; /* 너비 축소 비율 */
+}
+
+@media (min-width: 761px) and (max-width: 1050px) /* 태블릿 화면 배치 */
+{
+    .workspace /* 메신저 전체 배치 */
+    {
+        grid-template-columns: 56px 200px minmax(0,1fr) 170px; /* 열 너비 */
+    }
+    .server-mark /* 서비스 로고 */
+    {
+        width: 42px; /* 가로 크기 */
+        height: 42px; /* 세로 크기 */
+    }
+    .server-actions /* 여러 관리 버튼 배치 */
+    {
+        gap: 5px; /* 요소 간격 */
+    }
+    .server-tools /* 서버 관리 묶음 */
+    {
+        padding: 12px; /* 안쪽 여백 */
+    }
+    .message-scroll /* 대화 스크롤 영역 */
+    {
+        padding: 15px; /* 안쪽 여백 */
+    }
+}
+
+@media (max-width: 760px) /* 모바일 화면 배치 */
+{
+    .workspace /* 메신저 전체 배치 */
+    {
+        grid-template-columns: 44px minmax(0,1fr); /* 열 너비 */
+    }
+    .server-rail /* 서버 선택 막대 */
+    {
+        padding: 12px 0; /* 안쪽 여백 */
+        gap: 12px; /* 요소 간격 */
+    }
+    .server-mark, .server-choice /* 좁은 서버 아이콘 */
+    {
+        width: 34px; /* 가로 크기 */
+        min-height: 34px; /* 최소 높이 */
+        height: 34px; /* 세로 크기 */
+    }
+    .channel-sidebar, .friend-sidebar /* 모바일 양쪽 목록 */
+    {
+        position: fixed; /* 배치 기준 */
+        top: 0; /* 위쪽 위치 */
+        bottom: 0; /* 아래쪽 위치 */
+        width: min(280px,calc((100% - 44px) / 2)); /* 가로 크기 */
+        z-index: 12; /* 겹침 순서 */
+        visibility: hidden; /* 목록 표시 상태 */
+        overflow-x: hidden; /* 가로 넘침 처리 */
+    }
+    .channel-sidebar /* 관리와 긴 목록의 공존 */
+    {
+        left: 0; /* 왼쪽 위치 */
+        transform: translateX(-100%); /* 목록 위치 이동 */
+    }
+    .friend-sidebar /* 오른쪽 친구 목록 */
+    {
+        right: 0; /* 오른쪽 위치 */
+        transform: translateX(100%); /* 목록 위치 이동 */
+        padding: 16px 7px; /* 안쪽 여백 */
+    }
+    body.sidebar-open .channel-sidebar, body.sidebar-open .friend-sidebar /* 열린 채널과 친구 목록 */
+    {
+        visibility: visible; /* 목록 표시 상태 */
+        transform: translateX(0); /* 목록 위치 이동 */
+    }
+    .sidebar-backdrop /* 모바일 목록 닫기 배경 */
+    {
+        display: block; /* 요소 배치 방식 */
+        z-index: 11; /* 겹침 순서 */
+    }
+    .sidebar-toggle /* 모바일 목록 열기 */
+    {
+        display: grid; /* 요소 배치 방식 */
+        place-items: center; /* 가로 세로 정렬 */
+        min-width: 34px; /* 최소 너비 */
+        min-height: 34px; /* 최소 높이 */
+    }
+    .workspace-heading /* 서비스 제목 영역 */
+    {
+        padding: 15px 8px; /* 안쪽 여백 */
+        min-height: 76px; /* 최소 높이 */
+    }
+    .workspace-heading h1 /* 작업 공간 이름 */
+    {
+        font-size: 16px; /* 글자 크기 */
+    }
+    .sidebar-scroll /* 서버와 채널 탐색 */
+    {
+        padding: 10px 6px; /* 안쪽 여백 */
+    }
+    .server-tools /* 서버 관리 묶음 */
+    {
+        padding: 10px 6px; /* 안쪽 여백 */
+        min-height: 0; /* 최소 높이 */
+    }
+    .server-actions /* 여러 관리 버튼 배치 */
+    {
+        gap: 4px; /* 요소 간격 */
+    }
+    .server-actions .icon-action /* 서버와 채널의 그림 버튼 */
+    {
+        width: clamp(22px,7vw,28px); /* 가로 크기 */
+        height: 28px; /* 세로 크기 */
+    }
+    .server-actions .icon-action svg /* 좁은 패널의 관리 그림 */
+    {
+        width: 16px; /* 가로 크기 */
+        height: 16px; /* 세로 크기 */
+    }
+    .section-label /* 채널 목록 소제목 */
+    {
+        gap: 3px; /* 요소 간격 */
+        font-size: 10px; /* 글자 크기 */
+    }
+    .direct-navigation .history-button /* 개인 대화 새로고침 */
+    {
+        padding: 4px; /* 안쪽 여백 */
+        font-size: 10px; /* 글자 크기 */
+    }
+    .conversation-header /* 채팅방 상단 */
+    {
+        min-height: 64px; /* 최소 높이 */
+        padding: 12px; /* 안쪽 여백 */
+    }
+    .header-tag, .preview-badge /* 대화 상태 표시 */
+    {
+        display: none; /* 요소 배치 방식 */
+    }
+    .preview-banner /* 실제 갱신 안내 */
+    {
+        padding: 8px; /* 안쪽 여백 */
+    }
+    .message-scroll /* 대화 스크롤 영역 */
+    {
+        padding: 15px; /* 안쪽 여백 */
+    }
+    .message-content /* 채팅 말풍선 내용 */
+    {
+        max-width: 82%; /* 최대 너비 */
+    }
+    .composer-region /* 입력 영역 배치 */
+    {
+        padding: 8px 8px max(10px,env(safe-area-inset-bottom)); /* 안쪽 여백 */
+    }
+    .composer-footer /* 작성 필드 하단 */
+    {
+        gap: 6px; /* 요소 간격 */
+    }
+    .composer-footer .send-button /* 모바일 전송 동작 */
+    {
+        margin-left: auto; /* 왼쪽 여백 */
+    }
+    .friend-row .friend-name /* 사용자 이름 */
+    {
+        overflow: hidden; /* 넘치는 내용 처리 */
+        text-overflow: ellipsis; /* 긴 글자 생략 */
+        white-space: nowrap; /* 공백과 줄바꿈 처리 */
+    }
+}

@@ -747,6 +747,7 @@ function switchAuth(mode) // 인증 화면 유형 전환
         return; // 요청 중 화면 전환 중단
     }
     authMode = mode; // 현재 인증 유형 변경
+    authDialog.dataset.mode = mode; // 로그인과 회원가입 스타일 선택
     const register = mode === "register"; // 가입 화면 여부
     authForm.reset(); // 이전 입력과 비밀번호 초기화
     clearAuthErrors(); // 이전 입력 오류 제거

@@ -42,9 +42,17 @@ test("실제 웹 라우터와 비공개 경로 차단", async (context) => // �
             assert.match(home.headers.get("content-security-policy"), /ws:\/\/127\.0\.0\.6:8090/); // 지정한 로컬 실시간 연결만 허용
             const html = await home.text(); // 실제 HTML 본문
             assert.match(html, /SystemMakers/); // 실제 프로젝트 화면 확인
-            assert.match(html, /href=["'](?:\.\/)?frontend\/app\.css["']/); // 팀 폴더 기준 스타일 경로
+            const styles = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(match => match[1]); // 실제 화면의 스타일 경로
+            assert.deepEqual(styles, ["./frontend/app.css", "./frontend/chatting.css", "./frontend/logout.css", "./frontend/login.css", "./frontend/Sign%20up.css"]); // 공통과 화면별 스타일 연결 확인
+            for (const style of styles) // 브라우저와 같은 상대 주소 해석
+            {
+                const response = await fetch(new URL(style, home.url)); // 화면에 연결된 스타일 요청
+                assert.equal(response.status, 200, style); // 공개 스타일 응답 확인
+                assert.match(response.headers.get("content-type"), /^text\/css\b/i); // 브라우저용 스타일 형식 확인
+                assert.ok((await response.text()).trim(), style); // 빈 스타일 파일 방지
+            }
             assert.match(html, /src=["'](?:\.\/)?frontend\/app\.js["']/); // 팀 폴더 기준 스크립트 경로
-            for (const file of ["app.css", "app.js", "message-feed.mjs", "server-manager.mjs", "server-ui.mjs", "channel-ui.mjs", "profile-ui.mjs", "realtime.mjs", "dialog-dismiss.mjs"]) // 실제 정적 자원 목록
+            for (const file of ["app.js", "message-feed.mjs", "server-manager.mjs", "server-ui.mjs", "channel-ui.mjs", "profile-ui.mjs", "realtime.mjs", "dialog-dismiss.mjs"]) // 실제 스크립트 자원 목록
             {
                 const asset = await fetch(origin + "/Team006/frontend/" + file); // 팀 폴더 기준 상대 자원 요청
                 assert.equal(asset.status, 200, file); // 각 자원 응답 확인

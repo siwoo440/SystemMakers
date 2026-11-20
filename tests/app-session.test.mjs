@@ -136,6 +136,17 @@ test("계정 아이콘은 로그인 상태에 맞는 설명과 그림을 표시"
     assert.equal(harness.evaluate('byId("open-auth")["aria-label"]'), "로그인"); // 로그인 설명
     assert.equal(harness.evaluate('byId("auth-login-icon").hidden'), false); // 로그인 아이콘
 });
+test("로그인과 회원가입을 전환하면 창의 스타일과 사용자명 입력이 함께 변경", (context) => // 인증 모드와 화면 일치
+{
+    const harness = setup(() => ({ status: 200, data: {} })); // 인증 화면 준비
+    context.after(harness.stop); // 조회 예약 정리
+    for (const mode of ["register", "login"]) // 두 방향의 인증 화면 전환
+    {
+        harness.evaluate(`switchAuth("${mode}")`); // 실제 인증 창 전환
+        assert.equal(harness.evaluate("authDialog.dataset.mode"), mode); // 화면별 스타일 선택 확인
+        assert.equal(harness.evaluate('byId("username-field").hidden'), mode === "login"); // 가입 전용 입력 표시 확인
+    }
+});
 test("선택한 채널이 없으면 별도 선택 안내를 표시하지 않음", (context) => // 빈 채널 안내 제거
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 로그인 화면 준비

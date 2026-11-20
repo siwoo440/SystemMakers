@@ -1,0 +1,56 @@
+.auth-dialog[data-mode="register"] /* 회원가입 대화상자 */
+{
+    position: fixed; /* 배치 기준 */
+    width: min(440px, calc(100% - 30px)); /* 가로 크기 */
+    max-height: 90vh; /* 최대 높이 */
+    margin: auto; /* 바깥 여백 */
+    padding: 35px; /* 안쪽 여백 */
+    overflow-y: auto; /* 세로 넘침 처리 */
+    background: #232234; /* 배경색과 무늬 */
+    border: 1px solid #3c3b52; /* 테두리 */
+    inset: 0; /* 화면 가장자리 기준 */
+}
+.auth-dialog[data-mode="register"] input /* 회원가입 입력란 */
+{
+    background: #2b2d3c; /* 배경색과 무늬 */
+    border: 1px solid #414358; /* 테두리 */
+    border-radius: 8px; /* 모서리 둥글기 */
+    padding: 12px 14px; /* 안쪽 여백 */
+    transition: border-color 0.15s ease, box-shadow 0.15s ease; /* 상태 전환 효과 */
+}
+.auth-dialog[data-mode="register"] input::placeholder /* 회원가입 입력 예시 */
+{
+    color: #7c7e93; /* 글자색 */
+}
+.auth-dialog[data-mode="register"] input:focus /* 회원가입 입력 초점 */
+{
+    border-color: #c4b5fd; /* 테두리 색상 */
+    box-shadow: 0 0 0 3px #232234, 0 0 0 4.5px #c4b5fd; /* 그림자 */
+}
+.auth-dialog[data-mode="register"] .auth-submit /* 회원가입 제출 버튼 */
+{
+    width: 100%; /* 가로 크기 */
+    margin-top: 8px; /* 위쪽 여백 */
+    padding: 13px 18px; /* 안쪽 여백 */
+    font-weight: 600; /* 글자 굵기 */
+    background: linear-gradient(90deg, #7456d8, #6347c7); /* 배경색과 무늬 */
+    box-shadow: none; /* 그림자 */
+    color: white; /* 글자색 */
+    border-radius: 8px; /* 모서리 둥글기 */
+}
+.auth-dialog[data-mode="register"] .auth-switch button /* 회원가입 화면 전환 버튼 */
+{
+    color: #ffffff; /* 글자색 */
+    background: transparent; /* 배경색과 무늬 */
+    font-weight: 600; /* 글자 굵기 */
+    text-decoration: underline; /* 글자 장식 */
+    text-underline-offset: 3px; /* 밑줄 간격 */
+}
+
+@media (max-width: 760px) /* 모바일 화면 배치 */
+{
+    .auth-dialog[data-mode="register"] /* 회원가입 창 여백 */
+    {
+        padding: 25px; /* 안쪽 여백 */
+    }
+}
