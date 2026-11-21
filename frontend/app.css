@@ -161,111 +161,181 @@ input[type="checkbox"] /* 선택 상자 크기 */
 {
     width: auto; /* 가로 크기 */
 }
-.dialog-close /* 모달 닫기 버튼 */
+.auth-dialog /* 로그인과 회원가입 창의 공통 배치 */
 {
-    position: absolute; /* 배치 기준 */
-    top: 15px; /* 위쪽 위치 */
-    right: 17px; /* 오른쪽 위치 */
-    background: transparent; /* 배경색과 무늬 */
-    color: var(--mutedColor); /* 글자색 */
-    font-size: 25px; /* 글자 크기 */
+    position: fixed; /* 위치 기준 */
+    inset: 0; /* 화면 가장자리 기준 */
+    margin: auto; /* 바깥 여백 */
+    width: min(480px, calc(100% - 40px)); /* 가로 크기 */
+    max-height: min(95vh, calc(100% - 40px)); /* 스크롤 시작 높이 */
+    overflow-y: auto; /* 세로 넘침 처리 */
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; /* 시스템 글꼴과 대체 글꼴 */
 }
-.auth-brand /* 모달 브랜드 */
+.auth-dialog::backdrop /* 인증 창 뒤쪽 배경 */
 {
-    display: flex; /* 요소 배치 방식 */
-    align-items: center; /* 교차축 정렬 */
+    background: rgba(0, 0, 0, 0.82); /* 배경 */
+    backdrop-filter: none; /* 뒤쪽 화면 흐림 */
+}
+.dialog-close /* 인증 창 닫기 */
+{
+    position: absolute; /* 위치 기준 */
+    top: 24px; /* 위쪽 위치 */
+    right: 24px; /* 오른쪽 위치 */
+    color: var(--authSecondary); /* 글자색 */
+    background: transparent; /* 배경 */
+    font-size: 22px; /* 글자 크기 */
+    text-decoration: none; /* 글자 장식 */
+    line-height: 1; /* 줄 높이 */
+    cursor: pointer; /* 마우스 포인터 */
+    transition: color 0.15s ease; /* 상태 전환 효과 */
+}
+.dialog-close:hover /* 닫기 버튼 강조 */
+{
+    color: #ffffff; /* 글자색 */
+}
+.auth-brand /* 인증 창 서비스 이름과 로고 */
+{
+    display: flex; /* 요소 배치 */
+    align-items: center; /* 세로 정렬 */
     gap: 10px; /* 요소 간격 */
-    margin-bottom: 30px; /* 아래쪽 여백 */
-    font-size: 18px; /* 글자 크기 */
+    margin-bottom: 28px; /* 아래쪽 여백 */
 }
-.auth-brand strong /* 인증 창 서비스 이름 */
+.auth-brand strong /* 서비스 이름 */
 {
-    font-size: 19px; /* 글자 크기 */
+    color: #ffffff; /* 글자색 */
+    font-size: 17px; /* 글자 크기 */
     font-weight: 700; /* 글자 굵기 */
     letter-spacing: -0.3px; /* 글자 간격 */
 }
-.auth-mark /* 모달 브랜드 타일 */
+.auth-mark /* 서비스 로고 */
 {
-    display: grid; /* 요소 배치 방식 */
+    display: grid; /* 요소 배치 */
     place-items: center; /* 가로 세로 정렬 */
-    width: 38px; /* 가로 크기 */
-    height: 38px; /* 세로 크기 */
-    border-radius: 14px; /* 모서리 둥글기 */
-    background: linear-gradient(135deg, #8b72ef, #5541bd); /* 배경색과 무늬 */
+    width: 36px; /* 가로 크기 */
+    height: 36px; /* 세로 크기 */
+    border-radius: 12px; /* 모서리 둥글기 */
+    background: linear-gradient(135deg, #7c5dfa, #583fcd); /* 배경 */
     color: #ffffff; /* 글자색 */
-    font-size: 13px; /* 글자 크기 */
-    font-weight: bold; /* 글자 굵기 */
+    font-size: 12px; /* 글자 크기 */
+    font-weight: 800; /* 글자 굵기 */
     letter-spacing: -0.5px; /* 글자 간격 */
-    box-shadow: var(--purpleGlow); /* 그림자 */
+    box-shadow: var(--authLogoGlow); /* 그림자 */
 }
-.auth-heading /* 인증 제목 */
+.auth-heading .subSlogan /* 인증 창 슬로건 */
 {
-    margin-bottom: 22px; /* 아래쪽 여백 */
+    display: block; /* 요소 배치 */
+    font-size: 10px; /* 글자 크기 */
+    font-weight: 700; /* 글자 굵기 */
+    color: var(--authSecondary); /* 글자색 */
+    letter-spacing: 1.5px; /* 글자 간격 */
+    text-transform: uppercase; /* 영문 대문자 표시 */
+    margin-bottom: 12px; /* 아래쪽 여백 */
 }
-.auth-heading h2 /* 인증 제목 문구 */
+.auth-heading /* 제목과 안내 배너 사이 간격 */
 {
-    margin: 10px 0; /* 바깥 여백 */
-    font-size: 23px; /* 글자 크기 */
+    margin-bottom: 24px; /* 아래쪽 여백 */
 }
-.auth-heading > p:last-child /* 인증 설명 */
+.auth-heading h2 /* 인증 창 제목 */
 {
-    color: var(--mutedColor); /* 글자색 */
+    margin: 0 0 8px; /* 바깥 여백 */
+    color: #ffffff; /* 글자색 */
+    font-size: 26px; /* 글자 크기 */
+    font-weight: 700; /* 글자 굵기 */
+    letter-spacing: -0.5px; /* 글자 간격 */
+}
+#auth-description /* 현재 화면 설명 */
+{
+    margin: 0; /* 바깥 여백 */
+    color: var(--authDescription); /* 글자색 */
+    font-size: 14px; /* 글자 크기 */
+    font-weight: 400; /* 글자 굵기 */
+    line-height: 1.5; /* 줄 높이 */
+}
+.auth-note /* 계정 이용 안내 배너 */
+{
+    padding: 16px; /* 안쪽 여백 */
+    background: rgba(124, 93, 250, 0.04); /* 배경 */
+    border: 1px solid rgba(124, 93, 250, 0.15); /* 테두리 */
+    border-radius: 8px; /* 모서리 둥글기 */
+    margin-bottom: 24px; /* 아래쪽 여백 */
+}
+.auth-note strong /* 안내 배너 제목 */
+{
+    display: block; /* 요소 배치 */
+    color: #b5a2f8; /* 글자색 */
     font-size: 12px; /* 글자 크기 */
-    line-height: 1.7; /* 줄 높이 */
+    font-weight: 700; /* 글자 굵기 */
+    margin-bottom: 6px; /* 아래쪽 여백 */
 }
-.auth-note /* 로그인 안내 */
+.auth-note p /* 안내 배너 본문 */
 {
-    display: grid; /* 요소 배치 방식 */
-    gap: 7px; /* 요소 간격 */
-    margin-bottom: 20px; /* 아래쪽 여백 */
-    padding: 13px; /* 안쪽 여백 */
-    background: #28263b; /* 배경색과 무늬 */
-    border: 1px solid #3d3b54; /* 테두리 */
-    border-radius: 10px; /* 모서리 둥글기 */
+    margin: 0; /* 바깥 여백 */
+    color: var(--authNote); /* 글자색 */
+    font-size: 11px; /* 글자 크기 */
+    line-height: 1.5; /* 줄 높이 */
 }
-.auth-note strong /* 인증 안내 제목 */
+#auth-form /* 인증 입력 양식 */
 {
-    font-size: 12px; /* 글자 크기 */
-    color: var(--textColor); /* 글자색 */
+    display: grid; /* 요소 배치 */
+    gap: 16px; /* 요소 간격 */
 }
-.auth-note span /* 회원 기능 설명 */
+.auth-field /* 라벨과 입력란 배치 */
 {
-    color: var(--mutedColor); /* 글자색 */
-    font-size: 12px; /* 글자 크기 */
-    line-height: 1.7; /* 줄 높이 */
+    display: flex; /* 요소 배치 */
+    flex-direction: column; /* 요소 배치 방향 */
+    gap: 8px; /* 요소 간격 */
 }
-#auth-form, .auth-field /* 인증 입력 배치 */
+.auth-field label /* 인증 입력 항목 이름 */
 {
-    display: grid; /* 요소 배치 방식 */
-    gap: 15px; /* 요소 간격 */
+    color: #c9c8d4; /* 글자색 */
+    font-size: 13px; /* 글자 크기 */
+    font-weight: 600; /* 글자 굵기 */
 }
-.auth-field /* 인증 입력 필드 묶음 */
-{
-    gap: 7px; /* 요소 간격 */
-}
-.auth-field label, dialog label /* 입력 항목 이름 */
+dialog label /* 대화상자 입력 항목 이름 */
 {
     font-size: 12px; /* 글자 크기 */
     font-weight: bold; /* 글자 굵기 */
 }
-.auth-field small, .field-error /* 입력 도움말과 오류 글자 */
+.auth-field small /* 입력 도움말 */
 {
-    color: var(--mutedColor); /* 글자색 */
-    font-size: 10px; /* 글자 크기 */
+    font-size: 11px; /* 글자 크기 */
+    color: var(--authHint); /* 글자색 */
+    margin-top: 4px; /* 위쪽 여백 */
 }
-.auth-switch /* 인증 화면 전환 안내 */
+.auth-switch /* 로그인과 회원가입 전환 안내 */
 {
-    display: flex; /* 요소 배치 방식 */
-    justify-content: center; /* 주축 정렬 */
+    display: flex; /* 요소 배치 */
+    justify-content: center; /* 가로 정렬 */
+    align-items: center; /* 세로 정렬 */
     gap: 8px; /* 요소 간격 */
-    margin-top: 20px; /* 위쪽 여백 */
-    color: var(--mutedColor); /* 글자색 */
-    font-size: 12px; /* 글자 크기 */
+    margin-top: 28px; /* 위쪽 여백 */
+    color: var(--authSecondary); /* 글자색 */
+    font-size: 13px; /* 글자 크기 */
 }
-.auth-field .field-error /* 실제 인증 필드 오류 */
+.auth-switch button /* 인증 화면 전환 버튼 */
 {
-    color: #f0b398; /* 입력 오류 강조 색상 */
-    line-height: 1.6; /* 오류 안내 줄간격 */
+    color: #a594f9; /* 글자색 */
+    font-weight: 600; /* 글자 굵기 */
+    text-decoration: none; /* 글자 장식 */
+    cursor: pointer; /* 마우스 포인터 */
+    transition: color 0.15s ease; /* 상태 전환 효과 */
+    background: transparent; /* 배경 */
+    border: none; /* 테두리 */
+    padding: 0; /* 안쪽 여백 */
+}
+.auth-switch button:hover:not(:disabled) /* 전환 버튼 강조 */
+{
+    color: #ffffff; /* 글자색 */
+    text-decoration: underline; /* 글자 장식 */
+}
+.auth-field .field-error /* 입력 항목 오류 */
+{
+    color: #f87171; /* 글자색 */
+    line-height: 1.6; /* 줄 높이 */
+}
+.auth-feedback:empty /* 빈 결과 안내 공간 접기 */
+{
+    display: none; /* 요소 배치 */
 }
 .field-error:empty /* 오류 없는 필드 안내 */
 {

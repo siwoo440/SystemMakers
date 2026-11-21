@@ -147,6 +147,22 @@ test("로그인과 회원가입을 전환하면 창의 스타일과 사용자명
         assert.equal(harness.evaluate('byId("username-field").hidden'), mode === "login"); // 가입 전용 입력 표시 확인
     }
 });
+test("비로그인 바로가기는 지정한 인증 창을 열고 가입에서 로그인으로 주소를 갱신", (context) => // 인증 화면 바로가기 확인
+{
+    const harness = setup(() => ({ status: 200, data: {} })); // 세션과 화면 준비
+    context.after(harness.stop); // 조회 예약 정리
+    harness.evaluate('window.location.hash = "#signup-window"; authDialog.showModal = () => authDialog.open = true;'); // 회원가입 주소로 접속
+    harness.evaluate("syncAuthLink()"); // 로그인 상태에서 바로가기 확인
+    assert.ok(!harness.evaluate("authDialog.open")); // 로그인한 사용자의 창 열기 방지
+    harness.evaluate("currentUser = null; syncAuthLink();"); // 게스트의 같은 주소 접속
+    assert.equal(harness.evaluate("authDialog.dataset.mode"), "register"); // 회원가입 화면 표시
+    harness.evaluate('window.history = { replaceState: (state, title, hash) => window.location.hash = hash }; switchAuth("login");'); // 같은 창에서 로그인으로 전환
+    assert.equal(harness.evaluate("window.location.hash"), "#login-window"); // 새로고침 주소 일치
+    harness.evaluate('authDialog.close = () => authDialog.open = false; window.location.hash = ""; syncAuthLink();'); // 인증 주소에서 뒤로 가기
+    assert.equal(harness.evaluate("authDialog.open"), false); // 돌아온 메인 화면 확인
+    harness.evaluate('window.location.hash = "#invite=" + "a".repeat(64); openAuth();'); // 서버 초대에서 로그인 진입
+    assert.equal(harness.evaluate("window.location.hash"), "#invite=" + "a".repeat(64)); // 로그인 후 사용할 초대 코드 보존
+});
 test("선택한 채널이 없으면 별도 선택 안내를 표시하지 않음", (context) => // 빈 채널 안내 제거
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 로그인 화면 준비

@@ -740,6 +740,31 @@ function setSidebar(open) // 모바일 목록 표시 설정
         byId("sidebar-toggle").focus(); // 목록 열기 버튼으로 포커스 복원
     }
 }
+function authLinkMode() // 주소로 지정한 인증 화면
+{
+    const hash = window.location.hash; // 현재 화면 바로가기
+    if (hash === "#signup-window") // 회원가입 바로가기
+    {
+        return "register"; // 가입 화면 선택
+    }
+    return hash === "#login-window" ? "login" : null; // 로그인 주소와 일반 주소 구분
+}
+function syncAuthLink() // 현재 주소와 인증 창 연결
+{
+    if (authInitializing || authBusy || currentUser) // 세션 확인 중이거나 로그인한 사용자
+    {
+        return; // 기존 계정 상태 유지
+    }
+    const mode = authLinkMode(); // 바로가기에서 선택한 화면
+    if (mode && (!authDialog.open || authMode !== mode)) // 새로 열거나 전환할 인증 창
+    {
+        openAuth(mode); // 주소에 해당하는 화면 열기
+    }
+    else if (!mode && authDialog.open) // 뒤로 가기로 인증 주소에서 벗어난 상태
+    {
+        authDialog.close(); // 이전 화면 복원
+    }
+}
 function switchAuth(mode) // 인증 화면 유형 전환
 {
     if (authBusy) // 진행 중인 요청 보호
@@ -749,6 +774,11 @@ function switchAuth(mode) // 인증 화면 유형 전환
     authMode = mode; // 현재 인증 유형 변경
     authDialog.dataset.mode = mode; // 로그인과 회원가입 스타일 선택
     const register = mode === "register"; // 가입 화면 여부
+    const linkedMode = authLinkMode(); // 주소로 열린 인증 창 확인
+    if (linkedMode && linkedMode !== mode) // 화면 전환 후 이전 주소 여부
+    {
+        window.history.replaceState(window.history.state, "", register ? "#signup-window" : "#login-window"); // 다른 모드 새로고침 주소 반영
+    }
     authForm.reset(); // 이전 입력과 비밀번호 초기화
     clearAuthErrors(); // 이전 입력 오류 제거
     byId("username-field").hidden = !register; // 가입 사용자명 필드 표시
@@ -765,7 +795,7 @@ function switchAuth(mode) // 인증 화면 유형 전환
         byId(register ? "auth-username" : "auth-email").focus(); // 새 화면 첫 필드 포커스
     }
 }
-function openAuth() // 실제 로그인 화면 열기
+function openAuth(mode = "login") // 선택한 인증 화면 열기
 {
     if (authBusy || authInitializing) // 중복 처리 또는 초기 확인 여부
     {
@@ -776,12 +806,12 @@ function openAuth() // 실제 로그인 화면 열기
     {
         setSidebar(false); // 인증 화면 전에 목록 접기
     }
-    switchAuth("login"); // 로그인 화면으로 시작
+    switchAuth(mode); // 선택한 인증 폼 준비
     if (!authDialog.open) // 중복 대화상자 열기 방지
     {
         authDialog.showModal(); // 기본 포커스 제한 대화상자 열기
     }
-    byId("auth-email").focus(); // 이메일 필드 포커스
+    byId(mode === "register" ? "auth-username" : "auth-email").focus(); // 현재 화면 첫 입력란 선택
 }
 function validatePassword() // 공통 비밀번호 규칙 검사
 {
@@ -1252,6 +1282,10 @@ async function checkConnections() // 최초 세션과 실제 연결 확인
             openAuth(); // 초기 조회 종료 후 로그인 화면 표시
             showAuthError("세션이 만료되었습니다. 다시 로그인하세요."); // 확인된 만료 이유
         }
+        else if (authLinkMode()) // 로그인 또는 회원가입 바로가기 접속
+        {
+            syncAuthLink(); // 실제 세션 확인 후 화면 표시
+        }
     }
     await health; // 실제 데이터베이스 확인 종료 대기
 }
@@ -1426,7 +1460,20 @@ document.addEventListener("keydown", (uiEvent) => // 모바일 목록 키보드 
         }
     }
 });
-byId("open-auth").addEventListener("click", () => currentUser ? logout() : openAuth()); // 현재 인증 상태별 로그인과 로그아웃 연결
+window.addEventListener("hashchange", syncAuthLink); // 바로가기와 브라우저 뒤로 가기 반영
+byId("open-auth").addEventListener("click", () => // 현재 계정에 맞는 버튼 동작
+{
+    if (currentUser) // 이미 로그인한 사용자
+    {
+        logout(); // 실제 세션 종료 요청
+        return; // 로그인 창 열기 생략
+    }
+    if (!window.location.hash) // 초대 등 기존 바로가기 보존
+    {
+        window.history.pushState({ ...window.history.state, authDialogEntry: true }, "", "#login-window"); // 이 창에서 추가한 방문 기록 표시
+    }
+    openAuth(); // 게스트 로그인 창 열기
+});
 byId("close-auth").addEventListener("click", () => authDialog.close()); // 요청 대기 중 비활성화된 닫기 버튼 연결
 byId("switch-auth").addEventListener("click", () => switchAuth(authMode === "login" ? "register" : "login")); // 인증 화면 전환 연결
 authForm.addEventListener("input", (uiEvent) => // 수정한 필드의 이전 오류 정리
@@ -1449,6 +1496,21 @@ authDialog.addEventListener("cancel", (uiEvent) => // 요청 중 Escape 닫기 �
 });
 authDialog.addEventListener("close", () => // 인증 화면 닫힌 뒤 정리
 {
+    if (authDialog.open) // 닫기 이벤트 전에 다시 열린 창
+    {
+        return; // 새로 열린 입력 폼 유지
+    }
+    if (authLinkMode()) // 닫은 인증 창의 바로가기
+    {
+        if (window.history.state?.authDialogEntry) // 메인 화면에서 연 인증 창
+        {
+            window.history.back(); // 중복 방문 기록 없이 메인으로 복귀
+        }
+        else // 주소로 직접 연 인증 창
+        {
+            window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search); // 현재 페이지에서 인증 주소 제거
+        }
+    }
     authForm.reset(); // 입력한 자격 증명 제거
     clearAuthErrors(); // 입력 오류 상태 제거
     if (mobileQuery.matches) // 모바일 닫기 포커스 위치
