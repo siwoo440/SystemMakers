@@ -2,7 +2,7 @@
 
 # SystemMakers 남은 작업
 
-2026년 11월 19일 기준. Windows에서 같은 Wi-Fi로 접속할 수 있고, NAS용 Docker 구성은 AMD64·ARM64에서 검증했다. 실제 NAS 설치와 외부 접속 검증이 남아 있다. [컨테이너 검증 결과](PHASE-12-VERIFICATION.md)
+Windows의 같은 Wi-Fi 개발 설정과 NAS용 Docker 구성을 제공한다. AMD64·ARM64 컨테이너 검사와 별도로 실제 NAS에 설치하고 외부 기기에서 접속하는 작업이 남았다. [자동 검사 구성](../.github/workflows/docker.yml) · [배포 절차](NAS-DEPLOYMENT.md)
 
 ---
 
@@ -26,7 +26,7 @@
 - **권한과 복구** — 두 계정과 여러 탭으로 초대·탈퇴·채널 삭제·프로필 변경·계정 전환을 검사한다. 소유자·관리자·회원별 접근, 소속 종료 뒤 초안·기록 정리, 통신 중단과 복구 후 누락 여부를 기록한다.
 - **운영 기준** — 소유자와 비용, 동시 사용자 수, 허용 응답 시간, 백업 보관 기간과 복구 목표를 정한다. NAS 부하·장시간 연결·재시작·인증서 갱신·암호화한 외부 백업 사본 복구를 실제로 측정한다. 오래된 요청 제한 기록의 정리 주기도 정한다.
 - **호환성** — PHP 8.3에서 Ratchet 0.4.4가 남기는 동적 속성 경고를 추적하고, 라이브러리를 갱신할 때 세션 공유와 연결 종료를 재검증한다.
-- **결과 기록** — 화면 담당은 기기·OS·브라우저 버전과 화면 결과를, DB·인증 담당은 권한·저장·복원 결과를, 서버·채널 담당은 역할별 결과를 기록한다. 발견한 오류는 같은 기기와 회귀 검사에서 수정 여부를 확인한다. [로컬 통합 검증 기록](PHASE-11-VERIFICATION.md)
+- **결과 기록** — 화면 담당은 기기·OS·브라우저 버전과 화면 결과를, DB·인증 담당은 권한·저장·복원 결과를, 서버·채널 담당은 역할별 결과를 기록한다. 발견한 오류는 같은 기기와 회귀 검사에서 수정 여부를 확인한다. [통합 흐름 검사](../tests/integration-flow.test.mjs)
 
 <a id="추가-최적화-후보"></a>
 
@@ -48,7 +48,7 @@
 
 MySQL 8.4 검사 DB에 채널·개인 메시지를 각각 800개, 첨부를 각각 160개 넣었다. `after_id=20`에서 50개와 다음 페이지 확인용 1개를 읽는 `EXPLAIN ANALYZE` 결과, 변경 전후 모두 기존 대화별 범위 인덱스를 사용했다. 통합 조회는 메시지마다 `uq_attachment_channel` 또는 `uq_attachment_direct` 고유 인덱스로 첨부를 확인했다. 실제 NAS의 동시 접속 처리량·알림 지연과 휴대폰의 렌더링 시간은 별도 측정 대상이다.
 
-로컬 전체 회귀 검사는 245개 중 244개 통과, 실패 0개였다. Docker 전용 검사 1개는 Linux AMD64·ARM64에서 별도로 실행한다. HTTPS 로그인·CSRF·WSS·백업 복원과 함께, 첨부를 포함한 기록의 회원 조회 성공과 비회원 조회 거절도 점검한다. [main의 Docker 검사](https://github.com/siwoo440/SystemMakers/actions/workflows/docker.yml?query=branch%3Amain)
+이 최적화를 도입할 당시의 로컬 회귀 검사는 245개 중 244개 통과, 실패 0개였다. Docker 전용 검사 1개는 Linux AMD64·ARM64에서 별도로 실행한다. HTTPS 로그인·CSRF·WSS·백업 복원과 함께, 첨부를 포함한 기록의 회원 조회 성공과 비회원 조회 거절도 점검한다. [main의 Docker 검사](https://github.com/siwoo440/SystemMakers/actions/workflows/docker.yml?query=branch%3Amain)
 
 ---
 

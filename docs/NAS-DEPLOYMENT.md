@@ -30,7 +30,7 @@ NAS 관리 화면, MySQL 3306, 웹 내부 80, Ratchet 8090은 별도로 외부 �
 
 공식 안내의 설치 경로는 App Center의 Docker 앱과 Docker → Project → Create다. 이 구성은 저장소 전체 빌드 문맥을 사용하므로 해당 UI의 build 지원과 Compose 버전을 확인하고, CLI를 사용할 때는 소유자가 허용한 SSH 계정으로 실행한다. amd64 이미지 강제 실행이나 임의의 비공식 앱 설치를 전제로 하지 않는다.
 
-공식 PHP 8.3 Apache Bookworm과 MySQL 8.4 이미지에는 arm64v8이 포함된다. `c7b8b39`로 실행한 GitHub Actions에서 Linux AMD64·ARM64 컨테이너가 모두 통과했다. 실제 DH4300 Plus의 UGOS 버전·볼륨 권한·공인 인증서와 이동통신망 접속은 아직 확인할 항목이다. [검증 기록](PHASE-12-VERIFICATION.md#후속-코드-검증)
+저장소의 자동 검사는 Linux AMD64와 ARM64에서 같은 Compose 구성을 빌드하고 실행한다. 실제 DH4300 Plus의 UGOS 버전, 볼륨 권한, 공인 인증서와 이동통신망 접속은 소유자와 별도로 확인한다. [자동 검사 구성](../.github/workflows/docker.yml) · [컨테이너 통합 검사](../tests/docker-flow.test.mjs)
 
 ---
 ## 2. 서비스 구조와 보존 경계

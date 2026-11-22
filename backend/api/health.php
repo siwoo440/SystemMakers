@@ -1,4 +1,4 @@
-<?php // GET DB 연결 상태 API
+<?php // 앱 계정에서 보이는 필수 DB 테이블 확인
 declare(strict_types=1); // 엄격한 자료형 검사
 require_once __DIR__ . '/../includes/bootstrap.php'; // 공통 API 환경
 require_method(['GET']); // GET 요청만 허용

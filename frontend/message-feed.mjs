@@ -77,7 +77,7 @@ export function createMessageList(container, createBubble) // 대화별 말풍�
         }
     };
 }
-export class MessageFeed // 채널 하나의 기록과 조회 수명 관리
+export class MessageFeed // 채널 또는 개인 대화 한 곳의 기록·조회 주기 관리
 {
     constructor({ channelId, request, onChange, onError, setTimer = (callback, retryDelay) => globalThis.setTimeout(callback, retryDelay), clearTimer = (timerId) => globalThis.clearTimeout(timerId) }) // 전역 호출을 유지하는 타이머 경계
     {

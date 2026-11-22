@@ -1,9 +1,9 @@
 "use strict"; // 엄격한 자바스크립트 검사
-import { MessageFeed, createMessageList, messageForDisplay } from "./message-feed.mjs"; // 채널 기록과 자동 갱신 수명 관리
+import { MessageFeed, createMessageList, messageForDisplay } from "./message-feed.mjs"; // 대화 기록 조회와 말풍선 재사용
 import { ServerManager } from "./server-manager.mjs"; // 실제 서버 소속 상태
-import { mountServerUI } from "./server-ui.mjs"; // 명시적 관리 화면
+import { mountServerUI } from "./server-ui.mjs"; // 서버 생성·초대·탈퇴·삭제 화면
 import { mountChannelUI } from "./channel-ui.mjs"; // 역할별 채널 관리 화면
-import { mountProfileUI } from "./profile-ui.mjs"; // 본인 정보 조회·사용자명 수정
+import { mountProfileUI } from "./profile-ui.mjs"; // 사용자명·상태·사진·차단 설정
 import { createRealtimeClient, realtimeUrlForLocation } from "./realtime.mjs"; // 인증된 새 메시지 알림
 import { mountDirectUI } from "./direct-ui.mjs"; // 개인 대화 화면과 조회 수명
 import { mountFriendsUI } from "./friends-ui.mjs"; // 친구 요청과 목록 화면

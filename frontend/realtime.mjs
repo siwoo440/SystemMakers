@@ -1,4 +1,4 @@
-export function realtimeUrlForLocation(location) // 같은 출처 실시간 주소 계산
+export function realtimeUrlForLocation(location) // HTTPS는 같은 출처의 WSS, 로컬 HTTP는 8090 포트의 WS 주소 선택
 {
     const hostname = location?.hostname ?? ''; // 현재 페이지 주소
     if (location?.protocol === 'https:') // 암호화된 페이지 확인

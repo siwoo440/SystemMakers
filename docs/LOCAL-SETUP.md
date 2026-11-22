@@ -1,9 +1,11 @@
 ---
+
 # 로컬 실행과 검사 방법
 
 이 문서는 로컬 개발·검사 환경의 준비 방법이다. PHP 내장 개발 서버는 운영용 배포 서버가 아니다.
 
 ---
+
 ## 1. 실행 환경
 
 - PHP 8.3의 Argon2id 지원과 `pdo_mysql`·`mbstring`·`gd` 확장, MySQL 8.4, Node.js가 필요하다. `php -r "print_r(password_algos());"`에서 `argon2id`를 확인한다. GD가 없으면 프로필 사진 저장은 503이다.
@@ -15,6 +17,7 @@
 - 로컬 HTTP에서는 `APP_ENV=development`와 `SESSION_COOKIE_SECURE=0`을 명시한다. 운영 환경에서는 HTTPS와 기본 Secure 쿠키를 사용한다.
 
 ---
+
 ## 2. 데이터베이스 구조 적용
 
 - 새로운 DB는 `backend/sql/schema.sql`을 적용한 뒤 001 변경을 적용하고 아래 002~005 도구를 순서대로 실행한다.
@@ -31,9 +34,10 @@
 ```
 
 ---
+
 ## 3. 로컬 웹 서버 실행
 
-- 저장소 전체를 웹 서버의 `htdocs/Team006/`에 배치하고 해당 프로젝트 루트에서 아래 명령을 실행한다. 이 경로에 복사하지 않은 기존 작업 폴더에서도 같은 PHP 라우터로 개발 주소를 실행할 수 있다.
+- 저장소 루트에서 PowerShell을 연다. 개발 스크립트가 `/Team006/` 경로를 연결하므로 작업 폴더를 `htdocs`로 옮길 필요가 없다.
 - 기본 주소는 `http://127.0.0.6:8088/Team006/index.html`이다. PHP 내장 서버가 `/Team006/` 요청을 프로젝트의 화면과 허용된 API에 연결한다.
 - `start-dev.ps1`은 개인 `.runtime/web-env.json`이 있으면 현재 프로세스 환경에 읽는다.
 - 다른 PHP 실행 파일은 `-PhpPath`, 로컬 IPv4 주소는 `-WebHost`, 포트는 `-Port`로 지정한다. 지정한 주소와 포트의 사용 여부를 확인하고 PHP 서버에도 같은 값을 사용한다.
@@ -45,6 +49,7 @@
 ```
 
 ---
+
 ## 같은 Wi-Fi에서 개발용으로 공유
 
 - 웹과 실시간 서버는 같은 Wi-Fi 사설 IPv4에 연결한다. 네트워크를 바꾸면 새 주소를 확인한다.
@@ -70,6 +75,7 @@ $wifiAddress = Get-SystemMakersWifiAddress # 현재 Wi-Fi 사설 주소
 - 개발용 HTTP와 WebSocket은 신뢰하는 Wi-Fi에서 테스트 계정으로 사용한다. 다른 네트워크에서는 [NAS Docker 배포 절차](NAS-DEPLOYMENT.md)에 따라 공인 HTTPS·WSS 주소를 구성하고 이동통신망에서 확인한다.
 
 ---
+
 ## 같은 Wi-Fi 개발 서버 자동 실행
 
 - Windows에서 `scripts/install-lan-autostart.ps1`을 한 번 실행하면 현재 사용자의 로그인 시 `SystemMakers-LAN` 작업이 감시기를 실행한다. 같은 이름의 작업은 덮어쓰지 않는다.
@@ -80,6 +86,7 @@ $wifiAddress = Get-SystemMakersWifiAddress # 현재 Wi-Fi 사설 주소
 - 예약 작업 제거는 Windows 작업 스케줄러에서 `SystemMakers-LAN`을 선택해 삭제한다. DB 데이터는 삭제되지 않는다.
 
 ---
+
 ## 4. 개발용 채널 준비
 
 - 회원가입만으로 서버 소속이 생기지 않는다. 웹에서 서버를 만들거나 초대 코드로 참여할 수 있다.
@@ -92,13 +99,14 @@ $wifiAddress = Get-SystemMakersWifiAddress # 현재 Wi-Fi 사설 주소
 ```
 
 ---
+
 ## 5. 전체 자동 검사
 
 - 실제 PHP와 별도의 로컬 MySQL 검사 인스턴스가 필요하다. 프로젝트 검사 코드는 테스트 포트 `33361`과 무작위 테스트 DB 이름을 사용한다.
 - `PHP_TEST_BIN`, `MYSQL_TEST_CLIENT`, `MYSQL_TEST_PORT=33361`을 지정한다. 공개 웹 라우터 검사에는 위 MYSQL_*·APP_ENV·SESSION_COOKIE_SECURE 설정도 필요하다.
 - 테스트 인스턴스는 로컬 root·빈 비밀번호 기준이며 검사마다 전용 DB를 만들고 해당 DB만 정리한다. 개발 DB `33360`과 분리한다.
 - `PHP_TEST_INI`로 PHP 8.3용 설정 파일을 지정하며, `pdo_mysql`, `mbstring`, `gd`와 세션 저장 위치를 설정한다.
-- 11단계의 검증 환경과 범위는 [11단계 결과](PHASE-11-VERIFICATION.md), 최신 변수명 정리 기준은 [변수명 안내](VARIABLE-NAMING.md)를 따른다.
+- 화면·세션·백업 보존 및 AMD64·ARM64 컨테이너 검사 명령은 [자동 검사 구성](../.github/workflows/docker.yml)에서 확인한다.
 
 ```powershell
 node --test # 전체 자동 검사
