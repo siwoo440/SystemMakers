@@ -136,6 +136,27 @@ test("계정 아이콘은 로그인 상태에 맞는 설명과 그림을 표시"
     assert.equal(harness.evaluate('byId("open-auth")["aria-label"]'), "로그인"); // 로그인 설명
     assert.equal(harness.evaluate('byId("auth-login-icon").hidden'), false); // 로그인 아이콘
 });
+test("채널과 친구 목록은 각각 열리고 닫을 때 두 대화의 입력 잠금이 풀림", (context) => // 반응형 목록의 독립 상태
+{
+    const harness = setup(noChange); // 독립 화면 준비
+    context.after(harness.stop); // 메시지 조회 정리
+    harness.evaluate(` // 두 목록 버튼의 접근성 상태 관측
+        const toggles = ["channel-sidebar", "friend-panel"].map(id => // 채널과 친구 목록 준비
+        {
+            byId(id).id = id; // 실제 목록 식별자 지정
+            return { getAttribute: () => id, setAttribute: (name, value) => byId(id).expanded = value }; // 각 목록 버튼의 펼침 상태
+        });
+        document.querySelectorAll = () => toggles; // 실제 함수의 버튼 탐색 연결
+    `); // 목록 경계 준비 끝
+    harness.evaluate('setSidebar(byId("channel-sidebar")); setSidebar(byId("friend-panel"));'); // 채널 목록에서 친구 목록으로 전환
+    assert.equal(harness.evaluate('byId("channel-sidebar").expanded'), "false"); // 이전 목록 닫힘
+    assert.equal(harness.evaluate('byId("friend-panel").expanded'), "true"); // 선택한 목록 열림
+    assert.equal(harness.evaluate('byId("direct-conversation").inert'), true); // 개인 대화의 배경 입력 차단
+    harness.evaluate("setSidebar(null)"); // 목록 닫기
+    assert.equal(harness.evaluate('byId("sidebar-backdrop").hidden'), true); // 닫기 배경 해제
+    assert.equal(harness.evaluate('byId("channel-conversation").inert'), false); // 채널 대화 입력 복원
+    assert.equal(harness.evaluate('byId("direct-conversation").inert'), false); // 개인 대화 입력 복원
+});
 test("로그인과 회원가입을 전환하면 창의 스타일과 사용자명 입력이 함께 변경", (context) => // 인증 모드와 화면 일치
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 인증 화면 준비

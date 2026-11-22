@@ -11,6 +11,10 @@
     border-radius: 16px; /* 모서리 둥글기 */
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); /* 그림자 */
 }
+.auth-dialog[data-mode="login"] #auth-description /* 로그인 제목 아래 설명 */
+{
+    line-height: normal; /* 로그인 시안의 기본 줄 높이 */
+}
 .auth-dialog[data-mode="login"] input /* 로그인 입력란 */
 {
     width: 100%; /* 가로 크기 */

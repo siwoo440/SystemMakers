@@ -65,6 +65,7 @@
                 <span class="header-hash" aria-hidden="true">#</span> <!-- 채널 기호 -->
                 <div class="channel-heading"><h2 id="channel-title">채널 선택</h2><p id="channel-description">참여 중인 채널에서 대화를 시작하세요</p></div> <!-- 채널 제목과 설명 -->
                 <span class="header-tag">팀 프로젝트</span> <!-- 작업 공간 유형 -->
+                <button type="button" class="sidebar-toggle friends-toggle" aria-controls="friend-panel" aria-expanded="false" aria-label="친구 목록 열기">친구</button> <!-- 접힌 친구 목록 열기 -->
             </header> <!-- 현재 채널 제목 끝 -->
             <div class="preview-banner"><span class="preview-icon" aria-hidden="true">◈</span><p>이전 대화 조회 <span aria-hidden="true">·</span> 새 메시지 자동 갱신</p><span class="preview-badge">CONNECTED</span></div> <!-- 실제 대화 기록과 자동 갱신 안내 -->
             <section class="message-scroll" id="message-scroll" aria-label="대화 내역" tabindex="0"> <!-- 스크롤 가능한 대화 -->
@@ -83,11 +84,16 @@
             </div> <!-- 메시지 작성 영역 끝 -->
         </main> <!-- 대화 영역 끝 -->
         <main class="conversation" id="direct-conversation" hidden> <!-- 개인 대화 영역 -->
-            <header class="conversation-header"><button type="button" class="sidebar-toggle" id="direct-sidebar-toggle" aria-controls="channel-sidebar" aria-expanded="false" aria-label="대화 목록 열기">☰</button><span class="header-hash" aria-hidden="true">@</span><div class="channel-heading"><h2 id="direct-title">개인 대화</h2><p>개인 대화 · 자동 갱신</p></div></header> <!-- 상대방 제목과 모바일 탐색 -->
+            <header class="conversation-header"> <!-- 개인 대화 제목과 목록 탐색 -->
+                <button type="button" class="sidebar-toggle" id="direct-sidebar-toggle" aria-controls="channel-sidebar" aria-expanded="false" aria-label="대화 목록 열기">☰</button> <!-- 대화 목록 열기 -->
+                <span class="header-hash" aria-hidden="true">@</span> <!-- 개인 대화 기호 -->
+                <div class="channel-heading"><h2 id="direct-title">개인 대화</h2><p>개인 대화 · 자동 갱신</p></div> <!-- 대화 상대와 갱신 안내 -->
+                <button type="button" class="sidebar-toggle friends-toggle" aria-controls="friend-panel" aria-expanded="false" aria-label="친구 목록 열기">친구</button> <!-- 개인 대화에서 친구 목록 열기 -->
+            </header> <!-- 개인 대화 제목 끝 -->
             <section class="message-scroll" id="direct-scroll" aria-label="개인 대화 내역"><div class="history-controls"><button type="button" id="direct-older" class="history-button" hidden>이전 대화 더 보기</button></div><div class="messages" id="direct-messages" aria-label="개인 메시지"></div></section> <!-- 개인 기록과 이전 조회 -->
             <div class="composer-region"><form class="composer" id="direct-form"><label class="visually-hidden" for="direct-input">개인 메시지 작성</label><textarea id="direct-input" rows="2" placeholder="개인 메시지 작성" disabled></textarea><div class="composer-footer"><div class="attachment-controls"><input type="file" id="direct-file" class="visually-hidden attachment-input" aria-label="파일 선택" disabled><label for="direct-file" class="attachment-picker icon-action" title="파일 선택" data-tooltip="파일 선택"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 12.5 15 5.5a4 4 0 0 1 5.7 5.7l-9 9a6 6 0 0 1-8.5-8.5l9-9M7 16l8-8"/></svg></label><button type="button" id="direct-upload" disabled>파일 전송</button><button type="button" id="direct-file-clear" class="attachment-clear" aria-label="선택한 파일 제거" title="선택한 파일 제거" disabled hidden>×</button><span id="direct-file-status" role="status">최대 약 5.24 MB</span></div><span class="composer-help">최대 2,000자</span><button type="submit" class="send-button" id="direct-send" disabled>전송 ↗</button></div></form></div> <!-- 개인 메시지와 파일 전송 -->
         </main> <!-- 개인 대화 끝 -->
-        <aside class="friend-sidebar" id="friend-panel" aria-label="친구 목록"> <!-- 오른쪽 친구 패널 -->
+        <aside class="friend-sidebar" id="friend-panel" aria-label="친구 목록" tabindex="-1"> <!-- 오른쪽 친구 패널 -->
             <header class="friend-heading"><h2>친구</h2><button type="button" id="friend-refresh" class="icon-action" title="친구 목록 새로고침" data-tooltip="친구 목록 새로고침" aria-label="친구 목록 새로고침" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 8a7 7 0 0 0-12-2L5 8M5 4v4h4M5 16a7 7 0 0 0 12 2l2-2M19 20v-4h-4"/><circle cx="12" cy="12" r="1.5"/></svg></button></header> <!-- 친구 제목과 새로고침 -->
             <form id="friend-search-form" class="friend-search"><label class="visually-hidden" for="friend-search-input">친구 사용자명 검색</label><input id="friend-search-input" placeholder="사용자명 검색" autocomplete="off" disabled><button type="submit" id="friend-search-submit" class="search-action icon-action" aria-label="친구 검색" title="친구 검색" data-tooltip="친구 검색" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="8" r="2"/><path d="M6.5 14a3.5 3.5 0 0 1 7 0M15 15l5 5"/></svg></button></form> <!-- 친구 요청 대상 검색 -->
             <p id="friend-status" class="friend-status" role="status">로그인 후 친구를 확인하세요.</p> <!-- 친구 요청 상태 -->
@@ -97,7 +103,7 @@
             <div class="friend-section"><h3>친구 목록</h3><div id="friend-list" class="friend-list"></div></div> <!-- 수락된 친구 목록 -->
         </aside> <!-- 친구 패널 끝 -->
     </div> <!-- 메신저 전체 배치 끝 -->
-    <button type="button" class="sidebar-backdrop" id="sidebar-backdrop" aria-label="채널 목록 닫기" hidden></button> <!-- 모바일 목록 배경 -->
+    <button type="button" class="sidebar-backdrop" id="sidebar-backdrop" aria-label="열린 목록 닫기" hidden></button> <!-- 목록 바깥 닫기 영역 -->
     <dialog class="auth-dialog" id="auth-dialog" data-mode="login" aria-labelledby="auth-title" aria-describedby="auth-note"> <!-- 인증 화면 대화상자 -->
         <button type="button" class="dialog-close" id="close-auth" aria-label="인증 화면 닫기">×</button> <!-- 인증 화면 닫기 -->
         <div class="auth-brand"><span class="auth-mark">SM</span><strong>SystemMakers</strong></div> <!-- 인증 화면 브랜드 -->
@@ -148,7 +154,7 @@
         </form> <!-- 채널 관리 폼 끝 -->
     </dialog> <!-- 채널 관리 대화상자 끝 -->
     <dialog id="profile-dialog" class="server-dialog" aria-labelledby="profile-title" aria-describedby="profile-help"> <!-- 본인 프로필 대화상자 -->
-        <button type="button" id="profile-close-top" class="profile-close-top" aria-label="프로필 창 닫기" title="프로필 창 닫기">×</button> <!-- 왼쪽 위 닫기 버튼 -->
+        <button type="button" id="profile-close-top" class="profile-close-top" aria-label="프로필 창 닫기" title="프로필 창 닫기">×</button> <!-- 오른쪽 위 닫기 버튼 -->
         <form id="profile-form"> <!-- 명시적 사용자명 저장 -->
             <h2 id="profile-title">내 프로필</h2> <!-- 본인 정보 제목 -->
             <p id="profile-help">사용자명은 한글·영문·숫자·밑줄 2~32자이며 소문자로 저장됩니다. 이름을 바꿔도 기존 대화와 서버 소속은 유지됩니다.</p> <!-- 실제 변경 범위 -->

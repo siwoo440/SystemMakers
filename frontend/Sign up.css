@@ -1,10 +1,10 @@
 .auth-dialog[data-mode="register"] /* 회원가입 창의 색상과 카드 */
 {
-    --authSecondary: var(--mutedColor); /* 보조 글자색 */
-    --authDescription: var(--mutedColor); /* 화면 설명 색상 */
-    --authNote: var(--mutedColor); /* 배너 안내 색상 */
-    --authHint: var(--mutedColor); /* 입력 도움말 색상 */
-    --authLogoGlow: var(--purpleGlow); /* 로고 그림자 */
+    --authSecondary: var(--mutedColor, #72718a); /* 보조 글자색 */
+    --authDescription: var(--mutedColor, #9291a5); /* 화면 설명 색상 */
+    --authNote: var(--mutedColor, #8c8ba0); /* 배너 안내 색상 */
+    --authHint: var(--mutedColor, #535266); /* 입력 도움말 색상 */
+    --authLogoGlow: var(--purpleGlow, 0 0 15px rgba(124, 93, 250, 0.4)); /* 로고 그림자 */
     padding: 40px 32px; /* 안쪽 여백 */
     background: #1e1e2e; /* 배경 */
     color: var(--textColor, #ffffff); /* 글자색 */
@@ -45,6 +45,7 @@
     font-size: 14px; /* 글자 크기 */
     font-weight: 600; /* 글자 굵기 */
     background: #583fcd; /* 배경 */
+    box-shadow: var(--purpleGlow); /* 회원가입 버튼의 보라색 그림자 */
     border: none; /* 테두리 */
     border-radius: 8px; /* 모서리 둥글기 */
     cursor: pointer; /* 마우스 포인터 */

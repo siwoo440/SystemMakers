@@ -3,7 +3,8 @@
     display: grid; /* 요소 배치 방식 */
     grid-template-columns: 80px 274px minmax(0, 1fr) 234px; /* 열 너비 */
     width: 100%; /* 가로 크기 */
-    height: 100dvh; /* 세로 크기 */
+    height: 100vh; /* 기본 화면 높이 */
+    height: 100dvh; /* 모바일 주소창에 맞춘 높이 */
     overflow: hidden; /* 넘치는 내용 처리 */
     background: var(--pageBg); /* 배경색과 무늬 */
 }
@@ -680,7 +681,7 @@
 .invite-copy-row /* 초대 입력과 복사 버튼 */
 {
     display: flex; /* 입력과 버튼 가로 배치 */
-    align-items: stretch; /* 입력과 버튼 높이 일치 */
+    align-items: center; /* 입력과 복사 버튼 가운데 정렬 */
     gap: 8px; /* 입력과 버튼 간격 */
     margin: 8px 0; /* 입력 영역 위아래 간격 */
 }
@@ -842,165 +843,108 @@
     flex-shrink: 0; /* 너비 축소 비율 */
 }
 
-@media (min-width: 761px) and (max-width: 1050px) /* 태블릿 화면 배치 */
+@media (max-width: 1050px) /* 친구 목록을 접는 화면 */
 {
-    .workspace /* 메신저 전체 배치 */
+    .workspace /* 서버 막대와 채널 목록, 대화 영역 */
     {
-        grid-template-columns: 56px 200px minmax(0,1fr) 170px; /* 열 너비 */
+        grid-template-columns: 65px 220px minmax(0, 1fr); /* 세 영역의 너비 */
     }
-    .server-mark /* 서비스 로고 */
+    .friend-sidebar /* 접힌 친구 목록 */
     {
-        width: 42px; /* 가로 크기 */
-        height: 42px; /* 세로 크기 */
+        display: none; /* 기본 화면에서 목록 숨김 */
     }
-    .server-actions /* 여러 관리 버튼 배치 */
+    .friend-sidebar.open /* 요청한 친구 목록 */
     {
-        gap: 5px; /* 요소 간격 */
+        display: flex; /* 검색과 목록 표시 */
+        position: fixed; /* 대화 위에 배치 */
+        inset: 0 0 0 auto; /* 화면 오른쪽 정렬 */
+        width: min(250px, calc(100% - 50px)); /* 목록과 닫기 공간 확보 */
+        z-index: 10; /* 배경보다 위에 표시 */
     }
-    .server-tools /* 서버 관리 묶음 */
+    .friends-toggle /* 대화 상단의 친구 버튼 */
     {
-        padding: 12px; /* 안쪽 여백 */
+        display: block; /* 접힌 목록의 진입점 표시 */
+        padding: 6px 10px; /* 버튼 안쪽 여백 */
+        font-size: 14px; /* 버튼 글자 크기 */
     }
-    .message-scroll /* 대화 스크롤 영역 */
+    .sidebar-backdrop /* 열린 목록 바깥 배경 */
     {
-        padding: 15px; /* 안쪽 여백 */
+        display: block; /* 바깥 클릭으로 목록 닫기 */
     }
 }
 
-@media (max-width: 760px) /* 모바일 화면 배치 */
+@media (max-width: 650px) /* 모바일 채팅 화면 */
 {
-    .workspace /* 메신저 전체 배치 */
+    .workspace /* 서버 막대와 대화 화면 */
     {
-        grid-template-columns: 44px minmax(0,1fr); /* 열 너비 */
+        grid-template-columns: 50px minmax(0, 1fr); /* 모바일 두 열 배치 */
     }
-    .server-rail /* 서버 선택 막대 */
+    .server-rail /* 작은 서버 막대 */
     {
-        padding: 12px 0; /* 안쪽 여백 */
-        gap: 12px; /* 요소 간격 */
+        padding: 12px 0; /* 위아래 여백 */
+        gap: 12px; /* 서버 아이콘 간격 */
     }
-    .server-mark, .server-choice /* 좁은 서버 아이콘 */
+    .server-mark, .server-choice /* 작은 서버 아이콘 */
     {
-        width: 34px; /* 가로 크기 */
-        min-height: 34px; /* 최소 높이 */
-        height: 34px; /* 세로 크기 */
+        width: 34px; /* 아이콘 너비 */
+        min-height: 34px; /* 누를 수 있는 높이 */
+        height: 34px; /* 아이콘 높이 */
     }
-    .channel-sidebar, .friend-sidebar /* 모바일 양쪽 목록 */
+    .channel-sidebar /* 접힌 채널 목록 */
     {
-        position: fixed; /* 배치 기준 */
-        top: 0; /* 위쪽 위치 */
-        bottom: 0; /* 아래쪽 위치 */
-        width: min(280px,calc((100% - 44px) / 2)); /* 가로 크기 */
-        z-index: 12; /* 겹침 순서 */
-        visibility: hidden; /* 목록 표시 상태 */
-        overflow-x: hidden; /* 가로 넘침 처리 */
+        position: fixed; /* 대화 위에 배치 */
+        inset: 0 auto 0 50px; /* 서버 막대 오른쪽 정렬 */
+        width: min(250px, calc(100% - 50px)); /* 화면 안쪽에 맞춘 목록 너비 */
+        z-index: 10; /* 배경보다 위에 표시 */
+        visibility: hidden; /* 닫힌 목록의 키보드 접근 방지 */
+        transform: translateX(-120%); /* 화면 밖으로 이동 */
+        transition: transform .25s ease; /* 목록 펼침 효과 */
     }
-    .channel-sidebar /* 관리와 긴 목록의 공존 */
+    .channel-sidebar.open /* 펼친 채널 목록 */
     {
-        left: 0; /* 왼쪽 위치 */
-        transform: translateX(-100%); /* 목록 위치 이동 */
+        visibility: visible; /* 선택 가능한 목록 표시 */
+        transform: translateX(0); /* 서버 막대 옆으로 이동 */
     }
-    .friend-sidebar /* 오른쪽 친구 목록 */
+    .sidebar-toggle /* 채널과 친구 목록 버튼 */
     {
-        right: 0; /* 오른쪽 위치 */
-        transform: translateX(100%); /* 목록 위치 이동 */
-        padding: 16px 7px; /* 안쪽 여백 */
+        display: block; /* 모바일 목록 버튼 표시 */
+        min-width: 34px; /* 최소 터치 너비 */
+        min-height: 34px; /* 최소 터치 높이 */
     }
-    body.sidebar-open .channel-sidebar, body.sidebar-open .friend-sidebar /* 열린 채널과 친구 목록 */
+    .conversation-header /* 채널과 개인 대화 제목 */
     {
-        visibility: visible; /* 목록 표시 상태 */
-        transform: translateX(0); /* 목록 위치 이동 */
+        padding: 12px; /* 제목 안쪽 여백 */
     }
-    .sidebar-backdrop /* 모바일 목록 닫기 배경 */
+    .message-scroll /* 모바일 대화 기록 */
     {
-        display: block; /* 요소 배치 방식 */
-        z-index: 11; /* 겹침 순서 */
+        padding: 15px; /* 기록 안쪽 여백 */
     }
-    .sidebar-toggle /* 모바일 목록 열기 */
+    .composer-region /* 모바일 메시지 작성 영역 */
     {
-        display: grid; /* 요소 배치 방식 */
-        place-items: center; /* 가로 세로 정렬 */
-        min-width: 34px; /* 최소 너비 */
-        min-height: 34px; /* 최소 높이 */
+        padding: 10px 10px max(10px, env(safe-area-inset-bottom)); /* 하단 안전 영역 확보 */
     }
-    .workspace-heading /* 서비스 제목 영역 */
+    .header-tag /* 대화 상단 보조 문구 */
     {
-        padding: 15px 8px; /* 안쪽 여백 */
-        min-height: 76px; /* 최소 높이 */
+        display: none; /* 좁은 화면 제목 공간 확보 */
     }
-    .workspace-heading h1 /* 작업 공간 이름 */
+    .message-content /* 모바일 말풍선 */
     {
-        font-size: 16px; /* 글자 크기 */
+        max-width: 82%; /* 긴 메시지의 최대 너비 */
     }
-    .sidebar-scroll /* 서버와 채널 탐색 */
+    .composer-footer /* 입력란 아래 도구 */
     {
-        padding: 10px 6px; /* 안쪽 여백 */
+        gap: 6px; /* 전송 도구 간격 */
     }
-    .server-tools /* 서버 관리 묶음 */
+    .composer-footer .send-button /* 모바일 전송 버튼 */
     {
-        padding: 10px 6px; /* 안쪽 여백 */
-        min-height: 0; /* 최소 높이 */
+        margin-left: auto; /* 전송 버튼 오른쪽 정렬 */
     }
-    .server-actions /* 여러 관리 버튼 배치 */
+}
+
+@media (prefers-reduced-motion: reduce) /* 화면 이동 효과 축소 설정 */
+{
+    .channel-sidebar /* 모바일 채널 목록 */
     {
-        gap: 4px; /* 요소 간격 */
-    }
-    .server-actions .icon-action /* 서버와 채널의 그림 버튼 */
-    {
-        width: clamp(22px,7vw,28px); /* 가로 크기 */
-        height: 28px; /* 세로 크기 */
-    }
-    .server-actions .icon-action svg /* 좁은 패널의 관리 그림 */
-    {
-        width: 16px; /* 가로 크기 */
-        height: 16px; /* 세로 크기 */
-    }
-    .section-label /* 채널 목록 소제목 */
-    {
-        gap: 3px; /* 요소 간격 */
-        font-size: 10px; /* 글자 크기 */
-    }
-    .direct-navigation .history-button /* 개인 대화 새로고침 */
-    {
-        padding: 4px; /* 안쪽 여백 */
-        font-size: 10px; /* 글자 크기 */
-    }
-    .conversation-header /* 채팅방 상단 */
-    {
-        min-height: 64px; /* 최소 높이 */
-        padding: 12px; /* 안쪽 여백 */
-    }
-    .header-tag, .preview-badge /* 대화 상태 표시 */
-    {
-        display: none; /* 요소 배치 방식 */
-    }
-    .preview-banner /* 실제 갱신 안내 */
-    {
-        padding: 8px; /* 안쪽 여백 */
-    }
-    .message-scroll /* 대화 스크롤 영역 */
-    {
-        padding: 15px; /* 안쪽 여백 */
-    }
-    .message-content /* 채팅 말풍선 내용 */
-    {
-        max-width: 82%; /* 최대 너비 */
-    }
-    .composer-region /* 입력 영역 배치 */
-    {
-        padding: 8px 8px max(10px,env(safe-area-inset-bottom)); /* 안쪽 여백 */
-    }
-    .composer-footer /* 작성 필드 하단 */
-    {
-        gap: 6px; /* 요소 간격 */
-    }
-    .composer-footer .send-button /* 모바일 전송 동작 */
-    {
-        margin-left: auto; /* 왼쪽 여백 */
-    }
-    .friend-row .friend-name /* 사용자 이름 */
-    {
-        overflow: hidden; /* 넘치는 내용 처리 */
-        text-overflow: ellipsis; /* 긴 글자 생략 */
-        white-space: nowrap; /* 공백과 줄바꿈 처리 */
+        transition: none; /* 이동 효과 생략 */
     }
 }

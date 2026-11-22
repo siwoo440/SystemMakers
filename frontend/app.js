@@ -17,12 +17,13 @@ const renderChannelMessages = createMessageList(messages, createMessage); // 채
 const authDialog = byId("auth-dialog"); // 인증 대화상자
 const authForm = byId("auth-form"); // 실제 인증 요청 폼
 const passwordInput = byId("auth-password"); // 비밀번호 입력 필드
-const mobileQuery = window.matchMedia("(max-width: 760px)"); // 모바일 화면 판별
+const mobileQuery = window.matchMedia("(max-width: 650px)"); // 채널 목록이 접히는 화면
+const compactQuery = window.matchMedia("(max-width: 1050px)"); // 친구 목록이 접히는 화면
 let activeChannel = null; // 실제 선택한 채널 식별자
 let authMode = "login"; // 인증 화면 유형
 let currentUser = null; // 서버에서 확인한 사용자
 let csrfToken = null; // 메모리의 최신 보호 토큰
-let sidebarOpen = false; // 모바일 목록 열림 상태
+let openSidebar = null; // 좁은 화면에서 펼친 목록
 let lastAuthTrigger = null; // 인증 이전 포커스
 let authBusy = false; // 인증 요청 진행 상태
 let authInitializing = true; // 최초 세션 확인 상태
@@ -392,9 +393,9 @@ function selectChannel(channelId) // 실제 소속 채널 전환
     showNewMessages(); // 선택 채널의 새 메시지 안내
     channel.feed.activate(); // 최초 조회 또는 기존 커서의 신규 확인
     startRealtime(channelId); // 현재 채널의 실시간 연결 시작
-    if (sidebarOpen) // 모바일 목록 열림 여부
+    if (openSidebar) // 모바일 목록 열림 여부
     {
-        setSidebar(false); // 선택 후 대화 화면 복귀
+        setSidebar(null); // 선택 후 대화 화면 복귀
     }
 }
 async function expireMessageSession(changed = false) // 만료되거나 다른 계정으로 바뀐 화면 정리
@@ -721,23 +722,31 @@ async function sendChannelFile() // 선택한 채널 파일 전송
         }
     }
 }
-function setSidebar(open) // 모바일 목록 표시 설정
+function setSidebar(panel) // 좁은 화면에서 선택한 목록 열기 또는 닫기
 {
-    sidebarOpen = open && mobileQuery.matches; // 모바일에서만 목록 열기
-    document.body.classList.toggle("sidebar-open", sidebarOpen); // 목록 열림 스타일 적용
-    byId("sidebar-backdrop").hidden = !sidebarOpen; // 목록 바깥 닫기 버튼 표시
-    byId("sidebar-toggle").setAttribute("aria-expanded", String(sidebarOpen)); // 펼침 상태 접근성 갱신
-    byId("sidebar-toggle").setAttribute("aria-label", sidebarOpen ? "채널 목록 닫기" : "채널 목록 열기"); // 메뉴 버튼 설명 갱신
-    document.querySelector(".conversation").inert = sidebarOpen; // 목록 열린 동안 대화 포커스 제한
-    if (sidebarOpen) // 목록 열기 요청 여부
+    if (openSidebar === panel) // 같은 목록 상태
     {
-        const retryButton = byId("retry-channels"); // 실제 목록 복구 버튼
-        const focusTarget = document.querySelector(".channel-button.active") || (!retryButton.hidden && !retryButton.disabled ? retryButton : !byId("open-auth").disabled ? byId("open-auth") : byId("channel-sidebar")); // 빈 목록에서도 보이는 포커스 대상
-        focusTarget.focus(); // 사용 가능한 목록 요소로 포커스 이동
+        return; // 불필요한 포커스 이동 방지
     }
-    else if (mobileQuery.matches) // 모바일 목록 닫기 여부
+    const previousPanel = openSidebar; // 닫을 목록과 포커스 복원 대상
+    previousPanel?.classList.remove("open"); // 이전 목록 접기
+    openSidebar = panel; // 현재 열린 목록 갱신
+    panel?.classList.add("open"); // 선택한 목록 펼치기
+    byId("sidebar-backdrop").hidden = !panel; // 바깥을 눌러 닫는 배경
+    for (const button of document.querySelectorAll(".sidebar-toggle")) // 채널·개인 대화의 목록 버튼
     {
-        byId("sidebar-toggle").focus(); // 목록 열기 버튼으로 포커스 복원
+        button.setAttribute("aria-expanded", String(button.getAttribute("aria-controls") === panel?.id)); // 각 버튼의 펼침 상태
+    }
+    byId("channel-conversation").inert = Boolean(panel); // 펼친 목록 뒤 채널 입력 차단
+    byId("direct-conversation").inert = Boolean(panel); // 펼친 목록 뒤 개인 대화 입력 차단
+    if (panel) // 목록 열기
+    {
+        panel.focus(); // 처음부터 목록 탐색
+    }
+    else // 목록 닫기
+    {
+        const trigger = document.querySelector(`.conversation:not([hidden]) .sidebar-toggle[aria-controls="${previousPanel.id}"]`); // 현재 대화의 열기 버튼
+        trigger?.focus(); // 목록을 열었던 동작으로 복귀
     }
 }
 function authLinkMode() // 주소로 지정한 인증 화면
@@ -802,9 +811,9 @@ function openAuth(mode = "login") // 선택한 인증 화면 열기
         return; // 요청 상태 확정 전 열기 중단
     }
     lastAuthTrigger = byId("open-auth"); // 닫은 뒤 복원할 버튼
-    if (sidebarOpen) // 모바일 목록 열림 여부
+    if (openSidebar) // 모바일 목록 열림 여부
     {
-        setSidebar(false); // 인증 화면 전에 목록 접기
+        setSidebar(null); // 인증 화면 전에 목록 접기
     }
     switchAuth(mode); // 선택한 인증 폼 준비
     if (!authDialog.open) // 중복 대화상자 열기 방지
@@ -1341,9 +1350,9 @@ directUI = mountDirectUI({ byId, request: requestEndpoint, getUser: () => curren
     byId("channel-conversation").hidden = true; // 채널 화면 숨김
     byId("direct-conversation").hidden = false; // 개인 화면 표시
     renderChannels(); // 채널 선택 강조 해제
-    if (sidebarOpen) // 모바일 목록 열림 여부
+    if (openSidebar) // 모바일 목록 열림 여부
     {
-        setSidebar(false); // 대화 화면 복귀
+        setSidebar(null); // 대화 화면 복귀
     }
 }, startRealtime: (conversationId, feed, userId) => // 개인 대화의 본문 없는 알림 연결
 {
@@ -1428,29 +1437,32 @@ messageScroll.addEventListener("scroll", () => // 사용자의 대화 읽기 위
     }
 });
 byId("new-messages").addEventListener("click", scrollToBottom); // 새 메시지로 직접 이동
-byId("sidebar-toggle").addEventListener("click", () => setSidebar(!sidebarOpen)); // 모바일 목록 전환
-byId("direct-sidebar-toggle").addEventListener("click", () => setSidebar(!sidebarOpen)); // 개인 화면의 모바일 목록 전환
-byId("sidebar-backdrop").addEventListener("click", () => setSidebar(false)); // 목록 바깥 클릭 닫기
-mobileQuery.addEventListener("change", () => setSidebar(false)); // 화면 크기 변경 시 목록 정리
+for (const button of document.querySelectorAll(".sidebar-toggle")) // 두 대화 화면의 목록 버튼 연결
+{
+    button.addEventListener("click", () => setSidebar(byId(button.getAttribute("aria-controls")))); // 버튼이 가리키는 목록 열기
+}
+byId("sidebar-backdrop").addEventListener("click", () => setSidebar(null)); // 목록 바깥 클릭 닫기
+mobileQuery.addEventListener("change", () => setSidebar(null)); // 채널 목록 배치 변경 시 정리
+compactQuery.addEventListener("change", () => setSidebar(null)); // 친구 목록 배치 변경 시 정리
 document.addEventListener("keydown", (uiEvent) => // 모바일 목록 키보드 제어
 {
-    if (!sidebarOpen || authDialog.open) // 목록 전용 제어 여부
+    if (!openSidebar || document.querySelector("dialog[open]")) // 열린 대화상자의 키보드 조작 우선
     {
         return; // 다른 화면 키보드 처리 유지
     }
     if (uiEvent.key === "Escape") // 목록 닫기 키 여부
     {
         uiEvent.preventDefault(); // 기본 Escape 동작 차단
-        setSidebar(false); // 모바일 목록 접기
+        setSidebar(null); // 열린 목록 접기
     }
     if (uiEvent.key === "Tab") // 목록 포커스 순환 여부
     {
-        const focusableButtons = [...byId("channel-sidebar").querySelectorAll("button:not([hidden]):not(:disabled), input:not([hidden]):not(:disabled)"), ...byId("friend-panel").querySelectorAll("button:not([hidden]):not(:disabled), input:not([hidden]):not(:disabled)")]; // 두 목록의 조작 가능한 요소
+        const focusableButtons = [...openSidebar.querySelectorAll("button:enabled, input:enabled, [tabindex='0']")].filter((element) => element.getClientRects().length > 0); // 펼친 목록의 보이는 조작 요소
         const focusIndex = focusableButtons.indexOf(document.activeElement); // 현재 목록 포커스 위치
         if (focusableButtons.length === 0) // 초기 조회 중 사용할 버튼 없는 상태
         {
             uiEvent.preventDefault(); // 비활성 대화 영역으로 이동 차단
-            byId("channel-sidebar").focus(); // 목록 영역 포커스 유지
+            openSidebar.focus(); // 열린 목록에 포커스 유지
             return; // 빈 목록 순환 종료
         }
         if (focusIndex < 0 || (uiEvent.shiftKey && focusIndex === 0) || (!uiEvent.shiftKey && focusIndex === focusableButtons.length - 1)) // 목록 경계 이동 여부

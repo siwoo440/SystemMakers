@@ -6,21 +6,26 @@
     gap: 10px 12px; /* 항목 간격 */
     margin: 16px 0; /* 프로필 정보 여백 */
 }
-.profile-close-top /* 프로필 왼쪽 위 닫기 */
+.profile-close-top /* 프로필 오른쪽 위 닫기 */
 {
     position: sticky; /* 긴 프로필 스크롤에도 버튼 유지 */
     top: 0; /* 창 위쪽 고정 */
     z-index: 2; /* 프로필 내용 위 표시 */
-    display: block; /* 독립 버튼 배치 */
-    width: 34px; /* 버튼 너비 */
-    height: 34px; /* 버튼 높이 */
-    margin: 0 0 12px; /* 제목과 버튼 간격 */
-    border: 1px solid var(--lineColor); /* 버튼 테두리 */
-    border-radius: 6px; /* 버튼 모서리 */
-    color: #edf1f7; /* 닫기 기호 색상 */
-    background: #263344; /* 버튼 배경 */
+    display: grid; /* 닫기 기호 배치 */
+    place-items: center; /* 기호 가운데 정렬 */
+    width: 32px; /* 버튼 너비 */
+    height: 32px; /* 버튼 높이 */
+    margin: 0 0 12px auto; /* 오른쪽 정렬과 제목 간격 */
+    border-radius: 8px; /* 버튼 모서리 */
+    color: var(--mutedColor); /* 닫기 기호 색상 */
+    background: transparent; /* 기본 배경 비우기 */
     font-size: 21px; /* 닫기 기호 크기 */
     cursor: pointer; /* 클릭 안내 */
+}
+.profile-close-top:hover /* 프로필 닫기 버튼 강조 */
+{
+    color: white; /* 닫기 기호 강조 */
+    background: #353349; /* 마우스가 놓인 버튼 배경 */
 }
 #profile-form dt /* 프로필 항목 이름 */
 {
@@ -87,22 +92,27 @@
     color: #a9b8cb; /* 보조 안내 색상 */
     font-size: 12px; /* 안내 글자 크기 */
 }
-.profile-extra button /* 추가 설정 버튼 */
+.server-dialog .profile-card button /* 프로필 카드의 저장·검색·삭제 버튼 */
 {
     min-height: 38px; /* 터치 가능한 높이 */
-    padding: 8px 12px; /* 버튼 안쪽 여백 */
-    border: 1px solid #46566c; /* 버튼 테두리 */
-    border-radius: 7px; /* 버튼 모서리 */
-    background: #293649; /* 보조 버튼 배경 */
-    color: #eef6fc; /* 버튼 글자색 */
+    padding: 9px 12px; /* 버튼 안쪽 여백 */
+    border: 1px solid #45415c; /* 버튼 테두리 */
+    border-radius: 8px; /* 버튼 모서리 */
+    background: #353349; /* 버튼 기본 배경 */
+    color: white; /* 버튼 글자색 */
     font-size: 12px; /* 버튼 글자 크기 */
     font-weight: 600; /* 버튼 글자 강조 */
     white-space: nowrap; /* 버튼 글자 줄바꿈 방지 */
 }
-.profile-extra button:hover:not(:disabled) /* 사용 가능한 버튼 강조 */
+.profile-card button:hover:not(:disabled) /* 사용 가능한 버튼 강조 */
 {
-    border-color: #69cfc4; /* 마우스 테두리 강조 */
-    background: #32465a; /* 마우스 배경 강조 */
+    border-color: var(--accentColor); /* 보라색 테두리 강조 */
+    background: #453b61; /* 버튼 배경 강조 */
+}
+.profile-card button:disabled /* 비활성 프로필 버튼 */
+{
+    opacity: .45; /* 비활성 상태 표시 */
+    cursor: not-allowed; /* 사용 불가 포인터 */
 }
 .profile-extra-status /* 추가 설정 결과 */
 {
@@ -171,7 +181,7 @@
     background: #214047; /* 청록 아이콘 배경 */
     color: #80ded0; /* 아이콘 선 색상 */
 }
-.profile-card-icon svg, .profile-picture-frame svg /* 벡터 아이콘 */
+.profile-card-icon svg /* 설정 카드 아이콘 */
 {
     width: 20px; /* 아이콘 너비 */
     height: 20px; /* 아이콘 높이 */
@@ -189,7 +199,7 @@
 .profile-extra .profile-card-heading p /* 카드 보조 설명 */
 {
     margin: 3px 0 0; /* 제목 아래 간격 */
-    color: #9eafc2; /* 보조 설명 색상 */
+    color: var(--mutedColor); /* 카드 설명 색상 */
     font-size: 11px; /* 보조 설명 크기 */
 }
 .profile-card label /* 설정 입력 이름 */
@@ -206,7 +216,7 @@
     min-width: 0; /* 좁은 화면 축소 */
     min-height: 40px; /* 터치 가능한 높이 */
     margin: 0; /* 기본 입력 여백 제거 */
-    padding: 9px 10px; /* 입력 안쪽 여백 */
+    padding: 9px 11px; /* 입력 안쪽 여백 */
     border: 1px solid #526279; /* 입력 경계 */
     border-radius: 7px; /* 입력 모서리 */
     background: #111b29; /* 입력 배경 */
@@ -233,12 +243,6 @@
     color: #9eafc2; /* 보조 글자색 */
     font-size: 11px; /* 작은 안내 크기 */
 }
-.profile-extra .profile-action-primary /* 저장 버튼 */
-{
-    border-color: #178b85; /* 저장 테두리 */
-    background: #087d79; /* 저장 강조 배경 */
-    color: #f3fffc; /* 저장 글자색 */
-}
 .profile-picture-row /* 사진 미리보기와 선택 */
 {
     display: flex; /* 요소 배치 방식 */
@@ -250,7 +254,7 @@
     position: relative; /* 사진 겹침 기준 */
     display: grid; /* 기본 그림 중앙 정렬 */
     place-items: center; /* 가로 세로 중앙 */
-    flex: 0 0 70px; /* 남은 공간 배분 */
+    flex: none; /* 화면별 원형 사진 크기 유지 */
     width: 70px; /* 가로 크기 */
     height: 70px; /* 세로 크기 */
     overflow: hidden; /* 넘치는 내용 처리 */
@@ -258,6 +262,13 @@
     border-radius: 50%; /* 모서리 둥글기 */
     background: #29213b; /* 배경색과 무늬 */
     color: var(--accentHover); /* 글자색 */
+}
+.profile-picture-frame svg /* 저장된 사진이 없을 때의 기본 그림 */
+{
+    width: 100%; /* 사진 자리에 맞춘 너비 */
+    height: 100%; /* 사진 자리에 맞춘 높이 */
+    padding: 18px; /* 기본 그림 안쪽 여백 */
+    color: var(--accentHover); /* 기본 그림 선 색상 */
 }
 .profile-picture-frame img /* 저장된 사진 */
 {
@@ -274,7 +285,6 @@
 }
 #profile-dialog .profile-picture-controls input /* 사진 파일 선택 */
 {
-    padding: 6px; /* 파일 선택 안쪽 여백 */
     font-size: 11px; /* 파일명 크기 */
 }
 .profile-picture-controls input::file-selector-button /* 파일 선택 버튼 */
@@ -291,7 +301,7 @@
 {
     flex: 1; /* 남은 너비 사용 */
 }
-.profile-extra :is(input, select, button):disabled /* 조회 전과 처리 중 비활성 */
+.profile-extra :is(input, select):disabled /* 조회 전과 처리 중 입력 비활성 */
 {
     opacity: 1; /* 비활성 글자 가독성 유지 */
     color: #8596aa; /* 비활성 글자색 */
@@ -353,6 +363,12 @@
     background: transparent; /* 배경색과 무늬 */
     color: var(--accentHover); /* 글자색 */
     flex-shrink: 0; /* 너비 축소 비율 */
+    border-radius: 8px; /* 계정 버튼 모서리 */
+}
+.login-button:hover:not(:disabled) /* 로그인과 로그아웃 버튼 강조 */
+{
+    background: #29213b; /* 마우스가 놓인 버튼 배경 */
+    color: white; /* 계정 아이콘 강조 */
 }
 .profile-username-row, .profile-control-row /* 프로필 입력과 동작 버튼 */
 {
@@ -370,12 +386,26 @@
     font-size: 11px; /* 글자 크기 */
 }
 
-@media (max-width: 420px) /* 좁은 프로필 창 */
+@media (max-width: 650px) /* 모바일 계정과 프로필 */
 {
+    .user-panel /* 모바일 하단 계정 영역 */
+    {
+        padding: 10px; /* 계정 영역 안쪽 여백 */
+        gap: 8px; /* 이름과 계정 버튼 간격 */
+    }
     .profile-card /* 작은 화면 카드 */
     {
-        padding: 13px; /* 카드 여백 축소 */
+        padding: 12px; /* 카드 여백 축소 */
     }
+    .profile-picture-frame /* 모바일 프로필 사진 */
+    {
+        width: 60px; /* 사진 너비 */
+        height: 60px; /* 사진 높이 */
+    }
+}
+
+@media (max-width: 420px) /* 좁은 프로필 창 */
+{
     .profile-control-row /* 차단 입력과 버튼 */
     {
         flex-wrap: wrap; /* 좁은 화면 동작 줄바꿈 */
@@ -383,24 +413,5 @@
     .profile-control-row input, .profile-control-row select /* 차단 입력 */
     {
         flex-basis: 100%; /* 작은 화면 전체 너비 */
-    }
-}
-
-@media (max-width: 760px) /* 모바일 화면 배치 */
-{
-    .user-panel /* 고정된 사용자 정보 */
-    {
-        padding: 8px 4px; /* 안쪽 여백 */
-        gap: 3px; /* 요소 간격 */
-    }
-    .user-panel .avatar, .user-panel .login-button /* 작은 계정 아이콘 */
-    {
-        width: 24px; /* 가로 크기 */
-        height: 24px; /* 세로 크기 */
-    }
-    .user-panel .login-button svg /* 작은 계정 버튼 그림 */
-    {
-        width: 16px; /* 가로 크기 */
-        height: 16px; /* 세로 크기 */
     }
 }

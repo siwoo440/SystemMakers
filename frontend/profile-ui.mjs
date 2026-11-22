@@ -344,7 +344,7 @@ export function mountProfileUI({ manager, byId, getUser, isReady, onUser, onErro
             }
         }
     });
-    byId("profile-close-top").addEventListener("click", () => // 왼쪽 위 닫기
+    byId("profile-close-top").addEventListener("click", () => // 오른쪽 위 닫기
     {
         if (!manager.busy) // 처리 중 닫기 제한
         {
