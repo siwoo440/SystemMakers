@@ -51,7 +51,7 @@ ZIP 안의 `index.html`을 직접 열면 PHP가 실행되지 않아 로그인과
 
 ## 코드와 검사
 
-채팅 화면은 다크 네이비 바탕과 하늘색 경계선을 사용합니다. `index.html`에서 화면 구조를, `frontend/app.css`와 화면별 CSS에서 색상과 배치를 확인할 수 있습니다. [화면별 CSS](docs/UI-DIRECTION.md#색상과-조작-기준)
+채팅 화면은 기존 어두운 바탕과 보라색 강조를 사용합니다. 패널과 입력 영역은 밝은 푸른색 경계선으로 구분합니다. `index.html`에서 화면 구조를, `frontend/app.css`와 화면별 CSS에서 색상과 배치를 확인할 수 있습니다. [화면별 CSS](docs/UI-DIRECTION.md#색상과-조작-기준)
 
 PHP 요청의 진입점, 메시지 저장·조회, 실시간 구독과 관련 테스트는 [코드 안내](docs/INDEX.md)에 모았습니다. 요청 필드와 오류 응답은 [API 명세](docs/API.md), 테이블 관계와 삭제 규칙은 [DB 구조](docs/DATABASE.md)에서 확인할 수 있습니다.
 

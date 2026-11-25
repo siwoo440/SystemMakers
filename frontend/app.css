@@ -1,16 +1,19 @@
 :root /* 공통 색상과 글꼴 */
 {
     color-scheme: dark; /* 기본 색상 모드 */
-    --pageBg: #080f1d; /* 짙은 남색 페이지 배경 */
-    --sideBg: #111e32; /* 남색 양쪽 패널 배경 */
-    --panelBg: #172943; /* 남색 카드 배경 */
-    --inputBg: #10223a; /* 남색 입력란 배경 */
+    --pageBg: #09090d; /* 기존 페이지 배경 */
+    --sideBg: #1b1b2a; /* 기존 양쪽 패널 배경 */
+    --panelBg: #29283e; /* 기존 카드 배경 */
+    --inputBg: #26243a; /* 기존 입력란 배경 */
     --lineColor: #668bac; /* 연한 파란색 구분선 */
-    --textColor: #f1f7ff; /* 밝은 기본 글자 */
-    --mutedColor: #a9bdd4; /* 읽기 쉬운 보조 글자 */
-    --accentColor: #81c8ff; /* 연한 파란색 강조 */
-    --accentHover: #b6e1ff; /* 밝은 파란색 강조 글자 */
-    --purpleGlow: 0 0 0 3px #81c8ff33; /* 기존 이름과 호환되는 파란색 강조 테두리 */
+    --textColor: #f5f3ff; /* 기존 기본 글자 */
+    --mutedColor: #9997ad; /* 기존 보조 글자 */
+    --accentColor: #a855f7; /* 기존 보라색 강조 */
+    --accentHover: #c084fc; /* 기존 보라색 강조 글자 */
+    --purpleGlow: 0 0 15px #a855f744; /* 기존 보라색 장식 그림자 */
+    --borderAccentColor: #81c8ff; /* 밝은 파란색 선택 경계 */
+    --focusColor: #b6e1ff; /* 밝은 파란색 키보드 초점 */
+    --focusGlow: 0 0 0 3px #81c8ff33; /* 입력과 버튼의 파란색 경계 */
     font-family: "Segoe UI", "Malgun Gothic", sans-serif; /* 한글과 영문 글꼴 */
 }
 * /* 전체 요소 기준 */
@@ -62,8 +65,8 @@ input, textarea, select /* 입력란 공통 모양 */
 }
 input:focus, textarea:focus, select:focus /* 입력 중인 항목 강조 */
 {
-    border-color: var(--accentColor); /* 테두리 색상 */
-    box-shadow: var(--purpleGlow); /* 그림자 */
+    border-color: var(--borderAccentColor); /* 밝은 파란색 입력 경계 */
+    box-shadow: var(--focusGlow); /* 파란색 입력 강조 */
 }
 svg /* 아이콘 선과 크기 */
 {
@@ -137,7 +140,7 @@ dialog::backdrop /* 대화상자 뒤 배경 */
 {
     padding: 9px 12px; /* 안쪽 여백 */
     border-radius: 7px; /* 모서리 둥글기 */
-    background: var(--inputBg); /* 남색 버튼 배경 */
+    background: #29243a; /* 기존 관리 버튼 배경 */
 }
 button, input, textarea, a, [tabindex] /* 키보드 포커스 대상 */
 {
@@ -151,11 +154,11 @@ button, input, textarea, a, [tabindex] /* 키보드 포커스 대상 */
     z-index: 30; /* 가장 위 표시 */
     padding: 12px; /* 바로가기 여백 */
     color: #fff; /* 바로가기 글자색 */
-    background: #214c76; /* 남색 바로가기 배경 */
+    background: #087d83; /* 기존 바로가기 배경 */
 }
 :focus-visible /* 키보드 선택 표시 */
 {
-    outline: 3px solid var(--accentHover); /* 뚜렷한 키보드 초점 테두리 */
+    outline: 3px solid var(--focusColor); /* 뚜렷한 파란색 키보드 초점 */
 }
 input[type="checkbox"] /* 선택 상자 크기 */
 {

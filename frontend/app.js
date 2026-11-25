@@ -14,6 +14,7 @@ const messageInput = byId("message-input"); // 메시지 작성 필드
 const messageScroll = byId("message-scroll"); // 대화 스크롤 영역
 const messages = byId("messages"); // 메시지 목록
 const renderChannelMessages = createMessageList(messages, createMessage); // 채널별 말풍선 재사용
+const messageTimeFormatter = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }); // 말풍선 공통 시간 형식
 const authDialog = byId("auth-dialog"); // 인증 대화상자
 const authForm = byId("auth-form"); // 실제 인증 요청 폼
 const passwordInput = byId("auth-password"); // 비밀번호 입력 필드
@@ -260,7 +261,7 @@ function createMessage(message) // HTML 실행 없는 저장 메시지 생성
     authorName.textContent = message.name; // 일반 텍스트 사용자명
     const messageTime = document.createElement("time"); // 저장 시각
     messageTime.dateTime = message.timestamp; // 기계 판독 시각
-    messageTime.textContent = new Date(message.timestamp).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }); // 사용자 시간대 표시
+    messageTime.textContent = messageTimeFormatter.format(new Date(message.timestamp)); // 공통 형식의 사용자 시간대 표시
     const savedLabel = document.createElement("span"); // 확인된 저장 배지
     savedLabel.className = "local-label"; // 배지 스타일
     savedLabel.textContent = "저장됨"; // 실제 성공 응답 구분

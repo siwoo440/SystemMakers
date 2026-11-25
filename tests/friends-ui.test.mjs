@@ -70,6 +70,26 @@ test("친구가 없어도 별도 빈 목록 안내 문구는 표시하지 않음
     assert.equal(harness.byId("friend-status").textContent, ""); // 빈 목록 안내 제거
     harness.ui.clear(); // 조회 수명 정리
 });
+test("친구 자동 갱신에서 사용자 목록이 같으면 버튼을 유지", async () => // 반복 DOM 교체와 키보드 초점 유실 확인
+{
+    const bob = { id: "2", username: "bob" }; // 수락된 친구
+    const carol = { id: "3", username: "carol" }; // 받은 요청 사용자
+    let incoming = [carol]; // 최초 받은 요청
+    const harness = setup(async () => ({ friends: [{ ...bob }], incoming: incoming.map((user) => ({ ...user })), outgoing: [] })); // 요청마다 새 객체를 반환하는 API
+    harness.ui.render(); // 실제 인증 목록 조회
+    await new Promise((resolve) => setImmediate(resolve)); // 최초 목록 표시 완료
+    const friend = harness.byId("friend-list").children[0]; // 현재 친구 행
+    const request = harness.byId("friend-incoming").children[0]; // 현재 받은 요청 행
+    await harness.ui.refresh(); // 동일 목록 자동 갱신
+    assert.equal(harness.byId("friend-list").children[0], friend); // 친구 행과 초점 대상 유지
+    assert.equal(harness.byId("friend-incoming").children[0], request); // 받은 요청 행 유지
+    incoming = [{ ...carol, username: "carol_new" }]; // 한 목록에서만 사용자명 변경
+    await harness.ui.refresh(); // 변경된 목록 갱신
+    assert.equal(harness.byId("friend-list").children[0], friend); // 다른 구역의 요소 유지
+    assert.notEqual(harness.byId("friend-incoming").children[0], request); // 이름이 달라진 구역 갱신
+    assert.equal(harness.byId("friend-incoming").children[0].children[0].textContent, "carol_new"); // 변경된 사용자명 표시
+    harness.ui.clear(); // 검사 수명 정리
+});
 test("수락된 친구 목록과 검색 요청 화면", async () => // 친구 표시와 명시적 요청
 {
     const calls = []; // 서버 요청 기록

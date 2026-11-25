@@ -12,6 +12,7 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
     let requestsOpen = false; // 요청 묶음 펼침 상태
     let incomingIds = []; // 현재 받은 요청 사용자
     let seenIncomingIds = new Set(); // 현재 계정에서 확인한 요청
+    const renderedLists = new Map(); // 종류별로 마지막에 표시한 사용자 정보
     function renderRequestActions() // 받은 요청과 보낸 요청의 조작 상태
     {
         const unavailable = !requestsOpen || !getUser() || !isReady() || requestBusy; // 펼친 상태와 계정 및 변경 확인
@@ -42,6 +43,7 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
         requestsOpen = false; // 이전 계정 요청 접기
         incomingIds = []; // 이전 받은 요청 제거
         seenIncomingIds.clear(); // 이전 계정 확인 이력 제거
+        renderedLists.clear(); // 이전 계정의 표시 정보 폐기
         byId("friend-requests-toggle").disabled = true; // 게스트 요청 열기 차단
         renderRequests(); // 이전 계정 요청 배지 제거
         listController?.abort(); // 이전 계정의 목록 조회 취소
@@ -130,6 +132,17 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
         }
         return element; // 완성된 사용자 칸
     }
+    function renderUserList(elementId, kind, users) // 변경된 친구 구역만 화면에 반영
+    {
+        const previousUsers = renderedLists.get(kind); // 같은 종류의 최근 표시 목록
+        if (previousUsers?.length === users.length && users.every((user, index) => user.id === previousUsers[index].id && user.username === previousUsers[index].username)) // 이름과 순서 및 사용자 일치
+        {
+            return false; // 기존 버튼과 키보드 초점 유지
+        }
+        byId(elementId).replaceChildren(...users.map((user) => row(user, kind))); // 바뀐 구역만 다시 표시
+        renderedLists.set(kind, users); // 새로 표시한 사용자 정보 보관
+        return true; // 요청 배지의 상태 갱신 필요
+    }
     async function refresh() // 서버의 친구와 요청 확인
     {
         const userId = getUser()?.id; // 조회 계정
@@ -156,11 +169,15 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
                     throw new Error("친구 목록 응답을 확인하지 못했습니다."); // 잘못된 목록 차단
                 }
             }
-            byId("friend-list").replaceChildren(...data.friends.map((user) => row(user, "friends"))); // 수락된 친구 세로 표시
-            byId("friend-incoming").replaceChildren(...data.incoming.map((user) => row(user, "incoming"))); // 받은 요청 표시
-            byId("friend-outgoing").replaceChildren(...data.outgoing.map((user) => row(user, "outgoing"))); // 보낸 요청 표시
-            incomingIds = data.incoming.map((user) => user.id); // 최신 받은 요청 식별자
-            seenIncomingIds = new Set([...seenIncomingIds].filter((userId) => incomingIds.includes(userId))); // 종료한 요청 확인 이력 제거
+            renderUserList("friend-list", "friends", data.friends); // 수락된 친구 갱신
+            const incomingChanged = renderUserList("friend-incoming", "incoming", data.incoming); // 변경된 받은 요청 갱신
+            renderUserList("friend-outgoing", "outgoing", data.outgoing); // 보낸 요청 갱신
+            if (incomingChanged) // 새로운 받은 요청 목록 여부
+            {
+                incomingIds = data.incoming.map((user) => user.id); // 최신 받은 요청 식별자
+                const currentIncoming = new Set(incomingIds); // 현재 남아 있는 요청 찾기
+                seenIncomingIds = new Set([...seenIncomingIds].filter((userId) => currentIncoming.has(userId))); // 종료한 요청 확인 이력 제거
+            }
             renderRequests(); // 새 요청 배지와 펼침 상태 갱신
             byId("friend-status").textContent = data.friends.length ? "친구 " + data.friends.length + "명" : ""; // 친구 수 안내
             return true; // 최신 목록이 실제로 표시된 결과
