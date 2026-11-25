@@ -1,7 +1,29 @@
 const validId = (value) => typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value) && (value.length < 20 || value <= "18446744073709551615"); // 정밀한 문자열 식별자
+const maxAttachmentBytes = 200000000; // 테스트용 파일당 200 MB
+const previewImageTypes = new Set(["image/png", "image/jpeg", "image/webp"]); // 서버가 확인한 미리보기 형식
+export const ATTACHMENT_LIMIT_TEXT = "최대 200 MB"; // 채널과 개인 대화의 공통 한도 안내
 export function validAttachment(attachment) // 공개 첨부 정보 검사
 {
-    return attachment && validId(attachment.id) && validId(attachment.message_id) && typeof attachment.original_name === "string" && attachment.original_name.length > 0 && Number.isInteger(attachment.file_size) && attachment.file_size > 0 && attachment.file_size <= 5242880; // 안전한 이름과 크기
+    return attachment && validId(attachment.id) && validId(attachment.message_id) && typeof attachment.original_name === "string" && attachment.original_name.length > 0 && Number.isInteger(attachment.file_size) && attachment.file_size > 0 && attachment.file_size <= maxAttachmentBytes && (attachment.preview_mime == null || previewImageTypes.has(attachment.preview_mime)); // 이름·크기·선택적 이미지 형식 검사
+}
+export function createAttachmentElements(attachment, createElement) // 검증된 파일의 이미지와 다운로드 링크
+{
+    const url = "./backend/api/download_attachment.php?id=" + encodeURIComponent(attachment.id); // 같은 출처의 권한 확인 경로
+    const link = createElement("a"); // 원본 파일 다운로드
+    link.className = "attachment-link"; // 첨부 링크 스타일
+    link.href = url; // 원본 다운로드 주소
+    link.textContent = `${attachment.original_name} 다운로드 (${attachment.file_size.toLocaleString("ko-KR")}바이트)`; // 파일 이름과 실제 크기
+    if (!previewImageTypes.has(attachment.preview_mime)) // 일반 파일과 이전 첨부
+    {
+        return [link]; // 다운로드만 표시
+    }
+    const preview = createElement("img"); // 검증된 이미지 미리보기
+    preview.className = "attachment-preview"; // 말풍선 너비 안의 이미지
+    preview.alt = attachment.original_name; // 이미지를 읽지 못할 때 파일 이름
+    preview.loading = "lazy"; // 화면 주변 이미지만 요청
+    preview.decoding = "async"; // 다른 말풍선 표시 방해 감소
+    preview.src = url + "&preview=1"; // 권한 확인 뒤 제공하는 이미지 주소
+    return [preview, link]; // 미리보기와 원본 저장
 }
 export function createAttachmentView({ kind, targetId, userId, getUser, request, onChange, onError }) // 한 대화의 첨부 조회 수명
 {
@@ -101,9 +123,9 @@ export function createAttachmentView({ kind, targetId, userId, getUser, request,
 }
 export async function uploadAttachment({ kind, targetId, userId, file, request }) // 선택한 파일 한 번 전송
 {
-    if (!["channel", "direct"].includes(kind) || !validId(targetId) || !validId(userId) || !file || file.size < 1 || file.size > 5242880) // 대화와 실제 파일 크기 검사
+    if (!["channel", "direct"].includes(kind) || !validId(targetId) || !validId(userId) || !file || file.size < 1 || file.size > maxAttachmentBytes) // 대화와 실제 파일 크기 검사
     {
-        throw new Error("파일은 1바이트부터 약 5.24 MB까지 선택할 수 있습니다."); // 업로드 제한 안내
+        throw new Error("파일은 1바이트부터 200 MB까지 선택할 수 있습니다."); // 업로드 제한 안내
     }
     const body = new FormData(); // 브라우저 multipart 본문
     body.append("kind", kind); // 대화 유형

@@ -1,7 +1,12 @@
 https://localhost { # 격리된 컨테이너 검사 주소
     tls internal # 공개 인증서 발급 없는 검사 인증서
-    request_body { # 첨부 요청 상한
-        max_size 7MB # 운영과 같은 요청 한도
+    @attachment path /Team006/backend/api/upload_attachment.php /Team006/api/upload_attachment.php /backend/api/upload_attachment.php /api/upload_attachment.php # 운영과 같은 첨부 경로
+    @ordinary not path /Team006/backend/api/upload_attachment.php /Team006/api/upload_attachment.php /backend/api/upload_attachment.php /api/upload_attachment.php # 운영과 같은 일반 경로
+    request_body @attachment { # 첨부 전용 요청 상한
+        max_size 201000000 # 운영과 같은 200 MB 첨부 요청 경계
+    }
+    request_body @ordinary { # 일반 API의 기존 요청 경계
+        max_size 7MB # 운영과 같은 일반 요청 한도
     }
     @realtime path /Team006/realtime # 운영과 같은 실시간 경로
     handle @realtime { # 실제 TLS 업그레이드 검사

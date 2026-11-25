@@ -30,7 +30,7 @@ try // 권한과 첨부 정보 조회
     $targetColumn = $kind === 'channel' ? 'channel_id' : 'conversation_id'; // 고정 대화 열
     $messageColumn = $kind === 'channel' ? 'channel_message_id' : 'direct_message_id'; // 고정 첨부 연결 열
     $placeholders = implode(',', array_fill(0, count($messageIds), '?')); // 준비된 ID 자리
-    $query = $databaseConnection->prepare("SELECT a.id, a.$messageColumn AS message_id, a.original_name, a.file_size FROM message_attachments a JOIN $tableName m ON m.id = a.$messageColumn WHERE m.$targetColumn = ? AND m.id IN ($placeholders)"); // 대화 내부 파일만 조회
+    $query = $databaseConnection->prepare("SELECT a.id, a.$messageColumn AS message_id, a.original_name, a.file_size, a.preview_mime FROM message_attachments a JOIN $tableName m ON m.id = a.$messageColumn WHERE m.$targetColumn = ? AND m.id IN ($placeholders)"); // 대화 내부 공개 메타데이터만 조회
     $query->execute(array_merge([$targetId], $messageIds)); // 문자열 ID 바인딩
     $attachments = array_map('attachment_public', $query->fetchAll()); // 공개 메타데이터 변환
     $databaseConnection->commit(); // 조회 잠금 해제

@@ -1,6 +1,11 @@
 {$APP_DOMAIN} { # 실제 공개 도메인과 자동 HTTPS
-    request_body { # 첨부 요청 상한
-        max_size 7MB # PHP 요청 상한과 같은 범위
+    @attachment path /Team006/backend/api/upload_attachment.php /Team006/api/upload_attachment.php /backend/api/upload_attachment.php /api/upload_attachment.php # 허용한 첨부 경로
+    @ordinary not path /Team006/backend/api/upload_attachment.php /Team006/api/upload_attachment.php /backend/api/upload_attachment.php /api/upload_attachment.php # 나머지 기존 요청 경로
+    request_body @attachment { # 첨부 전용 요청 상한
+        max_size 201000000 # 200 MB 원본과 multipart 요청 여유
+    }
+    request_body @ordinary { # 일반 API의 기존 요청 경계
+        max_size 7MB # 첨부 이외 요청 상한 유지
     }
     header Strict-Transport-Security "max-age=31536000" # HTTPS 유지 정책
     @realtime path /Team006/realtime # 정확한 실시간 경로

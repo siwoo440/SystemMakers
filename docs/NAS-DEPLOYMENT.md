@@ -45,7 +45,7 @@ NAS 관리 화면, MySQL 3306, 웹 내부 80, Ratchet 8090은 별도로 외부 �
 - 실시간 알림 연결은 메시지를 저장하지 않는다. 기존 CSRF 보호 HTTP API가 저장하고, WebSocket은 변경 신호만 전달한다. 끊김 중 HTTP 주기 조회도 유지한다.
 - 프레임·메시지는 각각 1,024바이트, 메시지당 분할은 최대 64개, 미완성 수신은 10초로 제한한다. 30초 ping/pong으로 유휴 연결을 확인한다. 5초 DB 감시 실패 시 Ratchet을 종료해 컨테이너 재시작으로 PDO 연결을 갱신한다.
 - 이 구현은 Ratchet 0.4.4의 보호된 연결 맥락과 잠금 파일의 RFC6455 MessageBuffer 계약을 사용한다. Composer 갱신 시 프레임·분할·수신 시간 및 실시간 통합 검사를 재실행한다.
-- DB 자료는 mysql_data, 인증 세션은 sessions, 인증서는 caddy_data·caddy_config 볼륨에 보관한다. 볼륨 이름은 Compose 프로젝트 이름에 종속되므로 운영에서 프로젝트 이름을 임의로 바꾸지 않는다.
+- DB 자료는 mysql_data, 첨부 원본은 attachments, 인증 세션은 sessions, 인증서는 caddy_data·caddy_config 볼륨에 보관한다. 볼륨 이름은 Compose 프로젝트 이름에 종속되므로 운영 환경에서 같은 이름을 사용한다.
 
 ---
 ## 3. 개인 설정과 이미지 준비
@@ -78,9 +78,9 @@ docker compose up -d --wait database # DB 접속 가능 상태까지 대기
 
 **보존 대상 원본 DB를 먼저 확정한다. 개발·검사 DB 이름을 보고 임의로 선택하지 않는다.** 원본에 초기화·seed를 적용하지 않는다.
 
-기존 자료가 있으면 원본 MySQL 8.4 버전·001~005 적용 상태를 확인하고 쓰기를 중단한 뒤 일관된 논리 백업을 만든다. 바이너리 첨부 보존을 위해 hex-blob, 트랜잭션 일관성을 위해 single-transaction 등을 사용한다. 백업 중 DDL을 실행하지 않는다. 백업 해시·원본 테이블별 행 수·관계·첨부 해시를 기록하고 원본과 사본을 별도로 보관한다.
+기존 자료가 있으면 원본 MySQL 8.4 버전과 001~007 적용 상태를 확인한 뒤 일관된 백업을 만든다. 006부터 새 첨부는 별도 비공개 볼륨에 저장되므로 SQL 덤프와 첨부 아카이브를 함께 보관한다. 이전 MySQL 바이너리와 첨부 원본의 해시, 테이블별 행 수를 복원본과 대조한다. [백업과 복원](#6-백업복원과-롤백)
 
-Windows MySQL 자료 디렉터리를 Linux 볼륨에 직접 연결하지 않는다. 다음 명령은 **새 빈 대상 DB**에서만 실행하며 기존 테이블이 있으면 도구가 거절한다.
+다음 명령은 첨부가 모두 MySQL 안에 있던 이전 SQL 백업을 새 빈 DB에 이관할 때 사용한다. 첨부 아카이브가 있는 백업은 6절의 쌍 복원을 사용한다.
 
 ```sh
 docker compose exec -T database sh /opt/systemmakers/database.sh restore-empty < /private/systemmakers-backup.sql # 신뢰한 원본 백업의 빈 DB 복원
@@ -89,10 +89,17 @@ docker compose exec -T database sh /opt/systemmakers/database.sh restore-empty <
 기존 자료가 전혀 없는 새 서비스에만 아래 명령을 대신 사용한다. 두 경로를 연속 실행하지 않는다.
 
 ```sh
-docker compose exec -T database sh /opt/systemmakers/database.sh bootstrap-empty # 빈 DB 기본 구조와 001~005 준비
+docker compose exec -T database sh /opt/systemmakers/database.sh bootstrap-empty # 빈 DB 기본 구조와 001~007 준비
 ```
 
 도구는 트랜잭션으로 되돌릴 수 없는 DDL을 포함한다. 부분 실패 시 자동 재적용하거나 테이블을 지우지 말고 상태를 확인해 새 별도 볼륨에서 다시 준비한다. 복원본에 이미 적용된 변경을 반복 실행하지 않는다. 누락 변경이 있으면 관리자 계정으로 복원본에서 확인 후 필요한 SQL만 실행한다.
+
+001~005가 적용된 DB를 갱신할 때는 먼저 백업하고 웹·실시간·프록시를 중지한다. 아래 두 명령은 지정된 마이그레이션의 선행 구조와 적용 상태를 확인한다. 이미 적용한 명령은 건너뛴다.
+
+```sh
+docker compose exec -T database sh /opt/systemmakers/database.sh migrate-006 # 기존 첨부 보존과 비공개 파일 저장 열 추가
+docker compose exec -T database sh /opt/systemmakers/database.sh migrate-007 # 개인 대화 읽음 테이블과 조회 인덱스 추가
+```
 
 원본과 계정 ID·비밀번호 해시·소속·역할·대화·첨부·프로필·친구·차단 관계를 비교한 뒤 앱 계정의 DDL 권한을 제거한다. 공식 이미지가 처음 만드는 앱 계정은 대상 DB에 넓은 권한을 가지므로 **외부 공개 전** 아래 단계를 실행한다.
 
@@ -103,7 +110,7 @@ docker compose ps # DB·웹·Ratchet 상태 확인
 docker compose exec -T web php scripts/show-public-url.php # 설정한 웹 링크와 WSS 진단 주소 출력
 ```
 
-DB 컨테이너의 정상 상태는 MySQL 접속 가능을 뜻한다. 웹 상태 검사 `/Team006/backend/api/health.php`는 앱 계정이 기본 테이블과 001~005의 테이블 14개를 모두 볼 수 있을 때 200을 반환한다. 빈 볼륨이나 일부만 복원된 스키마에는 503을 반환한다. 이 경우 Compose 프로젝트 이름·볼륨·권한·복원 단계를 먼저 확인한다. 행 수와 첨부 해시는 원본과 따로 비교한다.
+DB 컨테이너의 정상 상태는 MySQL 접속 가능을 뜻한다. 웹 상태 검사 `/Team006/backend/api/health.php`는 앱 계정에서 필수 테이블 15개와 첨부 저장 열을 확인하면 200을 반환한다. 빈 볼륨이나 일부만 복원된 스키마에는 503을 반환한다. 행 수와 첨부 해시는 원본과 따로 비교한다.
 
 이관 시 기존 Windows 로그인 세션은 복사하지 않고 다시 로그인한다. 계정·대화 데이터는 보존하며 NAS 안의 웹·Ratchet 인증 상태는 공통 세션 볼륨으로 공유한다.
 
@@ -118,7 +125,7 @@ DB 컨테이너의 정상 상태는 MySQL 접속 가능을 뜻한다. 웹 상태
 4. 개발자 도구에서 WSS의 101 전환과 subscribed 응답 확인. HTTP 주기 조회만 작동하는 상태와 구분.
 5. 서로 다른 망의 두 계정으로 채널·개인 대화 전송과 알림 확인.
 6. CSRF 누락·다른 서버·개인 대화 제삼자·첨부 권한 거절, 로그아웃·만료·탈퇴 후 구독 종료 확인.
-7. 5 MiB 첨부 업로드·다운로드, 5 MiB 초과 거절, 재다운로드 해시 확인.
+7. 테스트용 200 MB 경계와 초과 거절, PNG·JPEG·WebP 미리보기, 파일을 다시 받은 뒤 원본 해시 일치 확인.
 8. Ratchet 중단 중 기존 HTTP 조회와 메시지 저장 유지, 재시작 후 WSS 복구 확인.
 9. DB·NAS 재시작과 컨테이너 재생성 후 계정·대화·첨부 보존 확인.
 10. 확인일·NAS 모델/OS/CPU·이미지 digest·도메인·다른 망의 검사 결과를 기록한 뒤 실제 접속 링크 전달.
@@ -128,17 +135,21 @@ DB 컨테이너의 정상 상태는 MySQL 접속 가능을 뜻한다. 웹 상태
 ---
 ## 6. 백업·복원과 롤백
 
-NAS의 Linux 셸에서 Compose 프로젝트 루트로 이동해 아래 명령을 실행한다. 백업과 최종 SQL 파일은 같은 로컬 파일시스템에 둔다. 보관 폴더는 하드 링크를 지원해야 한다.
+NAS의 Linux 셸에서 Compose 프로젝트 루트로 이동해 아래 명령을 실행한다. 백업 중 웹·Ratchet·프록시가 잠시 중지되므로 시연·운영 시간을 피한다. 백업 폴더는 하드 링크를 지원해야 한다.
 
 ```sh
-backupFile=$(sh scripts/backup.sh) && sha256sum "$backupFile" # 성공한 백업의 경로와 해시 확인
+backupFile=$(sh scripts/backup.sh) && sha256sum "$backupFile" "$backupFile.attachments.tar" # 완료된 백업 쌍의 해시 확인
 ```
 
-기본 폴더는 `backups/`다. 다른 위치는 `sh scripts/backup.sh /볼륨/전용백업폴더`처럼 지정한다. 백업 도구는 소유자 전용 임시 파일에 덤프를 쓰고, 성공한 비어 있지 않은 파일만 UTC 시각과 고유 번호가 붙은 SQL 파일로 공개한다. 연결 실패·디스크 쓰기 실패·이름 충돌이 발생하면 이전 사본을 보존하고 실패로 종료한다.
+기본 폴더는 `backups/`다. 다른 위치는 `sh scripts/backup.sh /볼륨/전용백업폴더`처럼 지정한다. SQL과 같은 이름의 `.attachments.tar` 파일을 한 쌍으로 보관한다. 두 파일이 준비되면 도구가 완료 SQL 경로를 출력하며 실패 시 기존 사본을 보존한다.
 
 백업 해시와 사본을 NAS 외부에도 암호화해 보관한다. 일별·주별 보관 주기는 허용 가능한 데이터 손실 시간과 복원 시간을 정한 뒤 NAS 스케줄러에 설정한다.
 
-백업 복원은 운영과 **다른 Compose 프로젝트·볼륨**에 restore-empty로 실행해 원본과 비교한다. 백업 생성만으로 복원 성공을 주장하지 않는다. 서비스는 최소 DML 권한 계정, 백업·복원·마이그레이션은 관리자 계정을 사용한다.
+운영과 **다른 Compose 프로젝트·볼륨**의 빈 DB와 빈 첨부 저장소에 신뢰한 백업 쌍을 복원한다. 데이터베이스가 준비되고 웹과 Ratchet이 멈춘 상태에서 아래 명령을 실행한다. 복원 후 원본과 파일 해시를 비교한다.
+
+```sh
+sh scripts/restore.sh /private/systemmakers-backup.sql # DB와 같은 이름의 첨부 아카이브 복원
+```
 
 일반 중지는 `docker compose down`이며 운영에서 `--volumes`를 붙이지 않는다. mysql_data 삭제·이름 변경·다른 프로젝트로 실행은 기존 DB를 비어 보이게 하거나 지울 수 있다. 볼륨 변경은 백업과 복원 검증 후 별도 작업으로 다룬다.
 

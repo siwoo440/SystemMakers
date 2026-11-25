@@ -6,7 +6,7 @@
 
 PHP 내부 변수는 lowerCamelCase를 사용하지만 `server_id`, `channel_id` 같은 DB 열 이름과 SQL 계약은 기존 표기 그대로 유지한다. 구분 예시는 [변수명 안내](VARIABLE-NAMING.md)에 기록한다.
 
-[기본 스키마](../backend/sql/schema.sql)는 테이블 6개를 만든다. [마이그레이션 001~005](../backend/sql/migrations)는 초대·요청 제한, 개인 대화·차단, 프로필, 첨부, 친구 관계에 쓰는 테이블 8개를 추가한다. 모두 적용하면 14개다.
+[기본 스키마](../backend/sql/schema.sql)는 테이블 6개를 만든다. [마이그레이션 001~007](../backend/sql/migrations)은 초대·요청 제한, 개인 대화·차단, 프로필, 첨부, 친구 관계와 개인 대화 읽음 상태에 쓰는 테이블 9개를 추가한다. 모두 적용하면 15개다.
 
 빈 DB는 기본 스키마부터 005까지 순서대로 준비한다. 기존 DB는 먼저 백업하고 실제 적용 상태를 확인한다. NAS로 이관할 때는 별도의 빈 DB에 복원하고 계정·소속·대화 수와 첨부 해시를 대조한다. [로컬 실행 절차](LOCAL-SETUP.md) · [NAS 이관·복원 절차](NAS-DEPLOYMENT.md)
 
@@ -308,14 +308,15 @@ invite_issue_user는 10회/600초, invite_join_user는 10회/600초, invite_join
 | `direct_messages` | `id`, `conversation_id`, `user_id`, `content`, `created_at` | 개인 대화의 작성자와 메시지 기록 |
 | `user_blocks` | `blocker_id`, `blocked_id`, `created_at` | 사용자별 단방향 차단 관계 |
 | `user_profiles` | `user_id`, `status_message`, `picture_mime`, `picture_data` | 사용자별 상태와 재인코딩한 사진 |
-| `message_attachments` | `id`, `channel_message_id`, `direct_message_id`, `original_name`, `file_size`, `file_data` | 채널 또는 개인 메시지 하나에 연결된 파일과 원본 바이트 |
+| `message_attachments` | `id`, `channel_message_id`, `direct_message_id`, `original_name`, `file_size`, `storage_key`, `preview_mime`, `file_data` | 메시지 파일 정보, 새 원본 저장 키와 이전 MySQL 원본 |
+| `direct_read_receipts` | `conversation_id`, `user_id`, `last_read_message_id` | 참여자마다 확인한 개인 메시지 위치 |
 | `friendships` | `user_a_id`, `user_b_id`, `requester_id`, `status`, `created_at` | 두 사용자 사이의 요청과 상호 수락 상태 |
 
-첨부는 두 메시지 외래 키 중 하나만 사용하며 메시지당 최대 하나다. 메시지가 삭제되면 첨부도 삭제된다. 사용자 차단은 기존 대화와 파일을 지우지 않는다. 차단 변경과 개인 메시지 전송은 같은 순서로 사용자 행을 잠가 경합을 처리한다.
+첨부는 두 메시지 외래 키 중 하나만 사용하며 메시지당 최대 하나다. 새 파일은 006에서 추가한 `storage_key`로 비공개 저장소의 원본을 찾고, 이전 파일은 원래의 `file_data`를 읽는다. 메시지를 삭제하면 첨부의 DB 연결이 삭제되어 파일 조회가 차단된다. 사용자 차단은 기존 대화와 파일을 보존한다. 차단 변경과 개인 메시지 전송은 같은 순서로 사용자 행을 잠가 경합을 처리한다.
 
 친구는 정렬된 사용자 쌍으로 한 관계만 저장한다. 요청 대상이 수락하면 양쪽 목록에 표시한다. 차단 관계가 있으면 새 요청과 수락을 거절한다. 친구 삭제는 개인 메시지를 삭제하지 않는다.
 
-기존 DB에서는 `scripts/migrate.php`의 001 적용 상태를 먼저 확인하고 `scripts/migrate-002.php`부터 `scripts/migrate-005.php`까지 순서대로 각 한 번만 실행한다. 새 DB도 기존 `schema.sql`과 001 이후 같은 순서를 따른다. 도구는 새 테이블이 이미 있으면 중단한다. MySQL DDL이 일부만 적용된 경우 자동 재실행하지 않고 실제 구조를 확인한다.
+기존 DB에서는 001~007 적용 상태를 확인한 뒤 누락된 변경만 순서대로 실행한다. 새 DB는 `schema.sql` 다음에 001부터 적용한다. MySQL DDL이 일부만 적용되면 실제 테이블 상태를 확인한다. [DB 변경 명령](LOCAL-SETUP.md)
 
 ---
 

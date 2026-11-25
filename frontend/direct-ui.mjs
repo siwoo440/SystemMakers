@@ -1,17 +1,20 @@
 import { MessageFeed, createMessageList, messageForDisplay } from "./message-feed.mjs"; // 검증된 기록과 조회 수명
-import { createAttachmentView, uploadAttachment } from "./attachments-ui.mjs"; // 첨부 정보와 명시적 업로드
+import { ATTACHMENT_LIMIT_TEXT, createAttachmentView, uploadAttachment } from "./attachments-ui.mjs"; // 첨부 한도와 정보 및 업로드
 const validId = (value) => typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value) && (value.length < 20 || value <= "18446744073709551615"); // 문자열 식별자 검사
 const validUser = (user) => user && validId(user.id) && typeof user.username === "string" && user.username.length > 0; // 공개 사용자 검사
 const validConversation = (conversation) => conversation && validId(conversation.id) && validUser(conversation.other_user); // 공개 대화 검사
-export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError, createMessage, onBusyChange = () => undefined, startRealtime = () => null, setTimer, clearTimer }) // 개인 대화 화면 연결
+const compareId = (leftId, rightId) => leftId.length - rightId.length || (leftId > rightId ? 1 : leftId < rightId ? -1 : 0); // 큰 식별자의 문자열 비교
+export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError, createMessage, onBusyChange = () => undefined, startRealtime = () => null, setTimer, clearTimer, setListTimer = (callback, delay) => globalThis.setTimeout(callback, delay), clearListTimer = (timer) => globalThis.clearTimeout(timer) }) // 개인 대화 화면 연결
 {
     let identity = null; // 확인된 계정 식별자
     let version = 0; // 계정과 대화 수명
     let searchVersion = 0; // 검색 순서
-    let listVersion = 0; // 목록 순서
     let selectionVersion = 0; // 대화 선택 순서
     let searchController = null; // 검색 취소 도구
     let listController = null; // 목록 취소 도구
+    let listTimer = null; // 계정 단위 자동 갱신 예약
+    let suspended = false; // 페이지 이탈과 로그아웃 경계
+    let navigationOpen = false; // 개인 대화 목록 표시 여부
     let conversations = []; // 확인된 대화 목록
     let selected = null; // 선택한 개인 대화
     let sending = null; // 전송 중복 방지
@@ -21,19 +24,62 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
     const feeds = new Map(); // 대화별 조회 상태
     const attachmentViews = new Map(); // 대화별 첨부 조회 상태
     const drafts = new Map(); // 대화별 미전송 원문
+    const latestSeen = new Map(); // 화면에 반영한 상대 메시지 기준
+    const acknowledged = new Map(); // 읽음 처리가 끝난 대화별 기준
+    const readRequests = new Map(); // 대화별 진행 중 읽음 요청
+    let listButtons = new Map(); // 새로고침 간 같은 대화 버튼 재사용
     const renderBubbles = createMessageList(byId("direct-messages"), createMessage); // 개인 대화별 말풍선 재사용
+    function showNavigation(show) // 인접한 탐색 패널 전환
+    {
+        if (navigationOpen !== show) // 다른 탐색 목록으로 전환
+        {
+            byId("sidebar-scroll").scrollTop = 0; // 새 목록의 제목과 검색부터 표시
+        }
+        navigationOpen = show; // 현재 탐색 모드 보관
+        byId("channel-sidebar").setAttribute("aria-label", show ? "개인 대화 목록" : "채널 목록"); // 현재 패널의 접근 가능한 이름
+        byId("direct-navigation").hidden = !show; // 개인 대화 목록 표시 여부
+        byId("server-navigation").hidden = show; // 서버와 채널 목록 표시 여부
+        byId("direct-rail").setAttribute("aria-pressed", String(show)); // 레일 선택 상태
+    }
     function renderList() // 실제 대화 목록 표시
     {
-        byId("direct-list").replaceChildren(...conversations.map((conversation) => // 상대방별 선택 버튼
+        let hasUnread = false; // 레일 전체 읽지 않음 여부
+        const nextButtons = new Map(); // 현재 목록의 버튼 순서
+        for (const conversation of conversations) // 상대방별 선택 버튼
         {
-            const button = document.createElement("button"); // 키보드 접근 버튼
-            button.type = "button"; // 폼 제출 방지
-            button.className = "channel-button"; // 기존 탐색 스타일
-            button.textContent = conversation.other_user.username; // 공개 사용자명
+            const conversationId = conversation.id; // 대화의 문자열 식별자
+            let entry = listButtons.get(conversationId); // 기존 키보드 위치 보존
+            if (!entry) // 처음 표시하는 대화
+            {
+                const button = document.createElement("button"); // 키보드 접근 버튼
+                button.type = "button"; // 폼 제출 방지
+                button.className = "channel-button direct-choice"; // 기존 탐색과 배지 스타일
+                const name = document.createElement("span"); // 공개 사용자명 영역
+                const badge = document.createElement("span"); // 읽지 않은 대화 배지
+                badge.className = "direct-unread-badge"; // 공통 알림 모양
+                badge.textContent = "!"; // 읽지 않음 표시
+                badge.setAttribute("aria-hidden", "true"); // 버튼 이름에서 상태 별도 표시
+                button.replaceChildren(name, badge); // 대화와 상태 표시 구성
+                button.addEventListener("click", () => open(conversations.find((item) => item.id === conversationId))); // 최신 상대방 자료 사용
+                entry = { button, name, badge }; // 같은 요소 재사용 자료
+            }
+            const { button, name, badge } = entry; // 대화 행의 화면 요소
+            const unread = validId(conversation.unread_message_id) && compareId(conversation.unread_message_id, acknowledged.get(conversationId) || "0") > 0; // 확인한 읽음 이후의 새 메시지
+            name.textContent = conversation.other_user.username; // 공개 사용자명
+            badge.hidden = !unread; // 현재 대화의 안 읽은 상태
+            hasUnread ||= unread; // 전체 레일 배지 반영
+            button.setAttribute("aria-label", `${conversation.other_user.username}${unread ? " · 읽지 않은 메시지 있음" : ""}`); // 화면 낭독용 상태
             button.setAttribute("aria-pressed", String(active && selected?.id === conversation.id)); // 현재 대화 상태
-            button.addEventListener("click", () => open(conversation)); // 확인한 대화 선택
-            return button; // 생성한 버튼
-        }));
+            nextButtons.set(conversationId, entry); // 목록 순서에 등록
+        }
+        const previousIds = [...listButtons.keys()]; // 마지막 화면의 대화 순서
+        if (previousIds.length !== nextButtons.size || [...nextButtons.keys()].some((id, index) => id !== previousIds[index])) // 목록의 순서나 구성 변경
+        {
+            byId("direct-list").replaceChildren(...[...nextButtons.values()].map((entry) => entry.button)); // 변경된 대화 탐색 목록
+        }
+        listButtons = nextButtons; // 표시한 대화 요소 보관
+        byId("direct-rail-unread").hidden = !hasUnread; // 전체 개인 대화의 읽지 않음 표시
+        byId("direct-rail").setAttribute("aria-label", hasUnread ? "개인 대화 · 읽지 않은 메시지 있음" : "개인 대화"); // 레일의 접근 가능한 알림
     }
     function render() // 로그인과 입력 상태 반영
     {
@@ -54,7 +100,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         byId("direct-file-clear").disabled = byId("direct-upload").disabled; // 전송 중 선택 취소 차단
         byId("direct-file-clear").hidden = !byId("direct-file").files?.length; // 파일 선택 시에만 취소 표시
         byId("direct-older").hidden = !selected || !feeds.get(selected.id)?.hasOlder; // 과거 기록 존재 여부
-        if (ready && identity !== getUser().id) // 새 계정의 최초 목록 확인
+        if (ready && !suspended && identity !== getUser().id) // 새 계정의 최초 목록 확인
         {
             identity = getUser().id; // 중복 조회 방지
             refresh(); // 확인된 계정의 대화 목록
@@ -75,34 +121,94 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
     async function refresh() // 현재 계정의 대화 목록 조회
     {
         const userId = getUser()?.id; // 요청 계정
-        if (!userId || !isReady()) // 인증과 보호 정보 확인
+        if (!userId || suspended || listController) // 계정과 중복 요청 확인
         {
-            return; // 게스트 조회 중단
+            return; // 불필요한 목록 조회 중단
+        }
+        clearListTimer(listTimer); // 이미 예약한 목록 확인 제거
+        listTimer = null; // 기존 예약 참조 정리
+        if (!isReady()) // 일시적인 인증 처리와 입력 잠금
+        {
+            listTimer = setListTimer(refresh, 10000); // 안정된 계정에서 후속 확인
+            return; // 처리 중인 계정 요청 보호
         }
         const requestVersion = version; // 계정 수명
-        const requestOrder = ++listVersion; // 최신 목록 순서
-        listController?.abort(); // 이전 목록 요청 취소
         const controller = new AbortController(); // 이번 목록 취소 도구
         listController = controller; // 계정 종료 연결
         try // 실제 목록 확인
         {
             const response = await request("./backend/api/list_dms.php", null, controller.signal); // 인증된 목록 요청
-            if (requestVersion !== version || requestOrder !== listVersion || getUser()?.id !== userId) // 교체된 계정 또는 목록
+            if (requestVersion !== version || controller.signal.aborted || getUser()?.id !== userId) // 교체된 계정 또는 목록
             {
                 return; // 이전 응답 무시
             }
-            if (!Array.isArray(response.conversations) || response.conversations.some((conversation) => !validConversation(conversation)) || new Set(response.conversations.map((conversation) => conversation.id)).size !== response.conversations.length) // 대화 목록 계약
+            if (!Array.isArray(response.conversations) || response.conversations.some((conversation) => !validConversation(conversation) || (conversation.unread_message_id != null && !validId(conversation.unread_message_id))) || new Set(response.conversations.map((conversation) => conversation.id)).size !== response.conversations.length) // 대화 목록과 알림 기준 계약
             {
                 throw new Error("개인 대화 목록을 확인하지 못했습니다."); // 잘못된 목록 거절
             }
             conversations = response.conversations; // 확인한 목록 보관
             renderList(); // 목록 표시
+            readShown(); // 표시 중에 발견한 상대 메시지 읽음 확인
         }
         catch (error) // 조회 실패
         {
-            if (requestOrder === listVersion) // 최신 요청 실패
+            if (!controller.signal.aborted) // 현재 요청 실패
             {
                 await report(error, requestVersion, userId); // 현재 계정 오류 표시
+            }
+        }
+        finally // 요청 종료 후 일정한 간격의 재확인
+        {
+            if (listController === controller) // 같은 계정의 목록 요청
+            {
+                listController = null; // 완료된 요청 참조 정리
+                if (!suspended && version === requestVersion && getUser()?.id === userId) // 여전히 같은 인증 계정
+                {
+                    listTimer = setListTimer(refresh, 10000); // 계정 전체 알림을 한 요청으로 확인
+                }
+            }
+        }
+    }
+    async function readShown() // 실제 화면에 반영한 상대 메시지의 읽음 처리
+    {
+        const conversationId = selected?.id; // 선택한 대화의 기준
+        const userId = getUser()?.id; // 표시 중인 계정
+        const messageId = latestSeen.get(conversationId); // 현재 표시한 상대 메시지
+        const unreadId = conversations.find((entry) => entry.id === conversationId)?.unread_message_id; // 목록에서 확인한 미확인 기록
+        const lastReadId = acknowledged.get(conversationId) || "0"; // 마지막 확인한 읽음 기준
+        if (!active || !userId || !isReady() || suspended || document.visibilityState === "hidden" || feeds.get(conversationId)?.blocked || !validId(messageId) || !validId(unreadId) || compareId(messageId, lastReadId) <= 0 || compareId(unreadId, lastReadId) <= 0 || readRequests.has(conversationId)) // 표시 중인 권한과 중복 처리 확인
+        {
+            return; // 미표시 기록과 이미 처리한 기록 보호
+        }
+        const scroll = byId("direct-scroll"); // 실제로 읽는 위치
+        if (byId("direct-conversation").inert || scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight > 80) // 덮인 목록이나 과거 기록 확인 중
+        {
+            return; // 최신 기록을 확인할 때까지 읽지 않음 유지
+        }
+        const requestVersion = version; // 작성할 계정의 수명
+        const controller = new AbortController(); // 계정 종료용 읽음 요청 정리
+        readRequests.set(conversationId, controller); // 같은 대화의 중복 쓰기 차단
+        try // 확인한 대화의 읽음 상태 저장
+        {
+            const response = await request("./backend/api/mark_dm_read.php", { conversation_id: conversationId, message_id: messageId }, controller.signal); // 토큰과 권한으로 보호한 변경
+            if (!controller.signal.aborted && version === requestVersion && getUser()?.id === userId && response.last_read_message_id === messageId) // 상태 변경 결과와 계정 확인
+            {
+                acknowledged.set(conversationId, messageId); // 이전 목록의 알림 복원 차단
+                renderList(); // 남은 미확인 메시지 표시
+            }
+        }
+        catch (error) // 계정 종료 또는 읽음 저장 실패
+        {
+            if (!controller.signal.aborted && (error.status === 401 || ["SESSION_CHANGED", "CSRF_INVALID"].includes(error.code))) // 공통 계정 복구 조건
+            {
+                await report(error, requestVersion, userId); // 같은 계정의 인증 복구
+            }
+        }
+        finally // 새 목록에서 다음 읽음 처리 가능
+        {
+            if (readRequests.get(conversationId) === controller) // 동일한 읽음 요청
+            {
+                readRequests.delete(conversationId); // 현재 요청의 잠금 해제
             }
         }
     }
@@ -122,9 +228,10 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
             realtime = null; // 이전 알림 연결 제거
         }
         byId("direct-file").value = ""; // 이전 대화의 선택 파일 제거
-        byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 이전 파일 상태 제거
+        byId("direct-file-status").textContent = ATTACHMENT_LIMIT_TEXT; // 이전 파일 상태 제거
         selected = conversation; // 현재 상대방 고정
         active = true; // 개인 대화 표시
+        showNavigation(true); // 개인 대화 목록 모드 유지
         const userId = getUser().id; // 현재 계정 경계
         const requestVersion = version; // 계정 수명
         onOpen(); // 채널 조회 중단과 화면 전환
@@ -164,6 +271,12 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
                 render(); // 입력과 과거 버튼 갱신
                 if (change.messages && feed.active && !feed.blocked) // 현재 대화의 확인된 페이지
                 {
+                    const newestIncoming = change.messages.findLast((message) => message.user_id === conversation.other_user.id)?.id; // 표시한 상대방 메시지 중 가장 최신 ID
+                    if (newestIncoming && compareId(newestIncoming, latestSeen.get(conversation.id) || "0") > 0) // 새로 확인한 상대방 메시지
+                    {
+                        latestSeen.set(conversation.id, newestIncoming); // 해당 대화에서 확인한 범위 갱신
+                    }
+                    readShown(); // 실제로 표시 중인 대화만 읽음 처리
                     attachmentViews.get(conversation.id)?.load(change.messages); // 새 페이지와 미완료 첨부 확인
                 }
             }, onError: (error) => report(error, requestVersion, userId) }); // 인증 오류 연결
@@ -214,7 +327,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         realtime?.stop(); // 개인 대화의 알림 중단
         realtime = null; // 이전 연결 제거
         byId("direct-file").value = ""; // 이전 대상 파일 선택 제거
-        byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 이전 파일 상태 제거
+        byId("direct-file-status").textContent = ATTACHMENT_LIMIT_TEXT; // 이전 파일 상태 제거
         active = false; // 채널 화면 표시
         byId("direct-conversation").hidden = true; // 개인 화면 숨김
         byId("channel-conversation").hidden = false; // 채널 화면 표시
@@ -224,26 +337,27 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
     {
         version++; // 이전 모든 결과 무효화
         searchVersion++; // 이전 검색 결과 무효화
-        listVersion++; // 이전 목록 결과 무효화
         selectionVersion++; // 이전 대화 생성 결과 무효화
         searchController?.abort(); // 검색 취소
-        listController?.abort(); // 목록 취소
-        feeds.forEach((feed) => feed.pause()); // 모든 조회와 예약 취소
+        suspend(); // 계정 전체의 조회와 읽음 처리 중단
+        feeds.forEach((feed) => feed.pause()); // 모든 대화의 예약 취소
         attachmentViews.forEach((view) => view.stop()); // 모든 첨부 조회 취소
-        realtime?.stop(); // 이전 계정의 알림 중단
-        realtime = null; // 이전 계정의 연결 제거
         feeds.clear(); // 개인 기록 제거
         attachmentViews.clear(); // 개인 파일 정보 제거
         drafts.clear(); // 개인 초안 제거
+        latestSeen.clear(); // 이전 계정의 표시 범위 제거
+        acknowledged.clear(); // 이전 계정의 읽음 처리 기준 제거
         conversations = []; // 이전 계정 목록 제거
         selected = null; // 선택 상대방 제거
         identity = null; // 계정 확인 초기화
         sending = null; // 이전 전송 잠금 폐기
         creating = null; // 이전 생성 잠금 폐기
         active = false; // 개인 화면 종료
+        suspended = false; // 다음 계정의 자동 확인 허용
+        showNavigation(false); // 다음 계정의 서버 목록 복구
         byId("direct-input").value = ""; // 초안 화면 제거
         byId("direct-file").value = ""; // 이전 계정의 선택 파일 제거
-        byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 이전 파일 상태 제거
+        byId("direct-file-status").textContent = ATTACHMENT_LIMIT_TEXT; // 이전 파일 상태 제거
         byId("direct-search-input").value = ""; // 검색어 제거
         byId("direct-search-results").replaceChildren(); // 검색 결과 제거
         renderBubbles(null, []); // 계정 종료 후 말풍선과 참조 정리
@@ -271,7 +385,8 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
             {
                 return; // 이전 계정 또는 잘못된 대상 무시
             }
-            conversations = [created.conversation, ...conversations.filter((entry) => entry.id !== created.conversation.id)]; // 중복 없는 목록 병합
+            const existing = conversations.find((entry) => entry.id === created.conversation.id); // 기존 대화의 미확인 상태 조회
+            conversations = [{ ...created.conversation, unread_message_id: existing?.unread_message_id ?? null }, ...conversations.filter((entry) => entry.id !== created.conversation.id)]; // 미확인 상태를 보존한 목록 병합
             byId("direct-search-results").replaceChildren(); // 이전 검색 결과 제거
             await open(created.conversation); // 생성한 대화 표시
         }
@@ -339,10 +454,19 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         byId("direct-search-results").replaceChildren(); // 이전 검색 결과 제거
     });
     byId("direct-refresh").addEventListener("click", refresh); // 대화 목록 명시적 갱신
+    byId("direct-scroll").addEventListener("scroll", readShown); // 새 상대방 메시지까지 스크롤했을 때 읽음 처리
     byId("direct-input").addEventListener("input", render); // 초안 유효성 갱신
+    byId("direct-input").addEventListener("keydown", (event) => // 개인 대화 입력 단축키
+    {
+        if (event.key === "Enter" && !event.shiftKey && !event.isComposing && event.keyCode !== 229) // 줄바꿈과 한글 조합을 제외한 전송 키
+        {
+            event.preventDefault(); // 단독 Enter의 기본 줄바꿈 차단
+            byId("direct-form").requestSubmit(); // 기존 검증과 잠금을 거친 폼 전송
+        }
+    });
     byId("direct-file").addEventListener("change", () => // 파일 선택 상태 갱신
     {
-        byId("direct-file-status").textContent = byId("direct-file").files[0]?.name || "최대 약 5.24 MB"; // 선택한 파일 이름 안내
+        byId("direct-file-status").textContent = byId("direct-file").files[0]?.name || ATTACHMENT_LIMIT_TEXT; // 선택한 파일 이름 안내
         render(); // 파일 전송 가능 여부 갱신
     });
     byId("direct-file-clear").addEventListener("click", () => // 선택한 개인 파일 취소
@@ -352,7 +476,7 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
             return; // 진행 중 전송 보존
         }
         byId("direct-file").value = ""; // 선택한 파일만 제거
-        byId("direct-file-status").textContent = "최대 약 5.24 MB"; // 기본 파일 안내 복구
+        byId("direct-file-status").textContent = ATTACHMENT_LIMIT_TEXT; // 기본 파일 안내 복구
         render(); // 취소와 전송 상태 갱신
     });
     byId("direct-upload").addEventListener("click", async () => // 명시적 개인 파일 전송
@@ -481,6 +605,13 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
     });
     function suspend() // 화면 이탈 시 조회 중단
     {
+        suspended = true; // 목록과 읽음 처리 중지
+        clearListTimer(listTimer); // 계정 목록 예약 취소
+        listTimer = null; // 대기 중인 예약 참조 제거
+        listController?.abort(); // 진행 중인 계정 목록 취소
+        listController = null; // 취소한 요청 참조 제거
+        readRequests.forEach((controller) => controller.abort()); // 진행 중인 읽음 처리 취소
+        readRequests.clear(); // 취소한 읽음 요청 참조 제거
         feeds.get(selected?.id)?.pause(); // 현재 기록 조회 중단
         attachmentViews.get(selected?.id)?.stop(); // 현재 첨부 조회 중단
         realtime?.stop(); // 현재 알림 연결 중단
@@ -488,6 +619,8 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
     }
     function resume() // 복원된 화면의 누락 기록 확인
     {
+        suspended = false; // 계정 단위 확인 재개
+        refresh(); // 모든 대화의 알림 재확인
         if (active && selected && getUser() && isReady()) // 같은 계정의 개인 화면
         {
             const feed = feeds.get(selected.id); // 이전 기록 조회 상태
@@ -499,5 +632,5 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
     {
         feeds.get(selected?.id)?.renameUser(userId, username); // 현재 기록의 작성자 갱신
     }
-    return { render, refresh, clear, close, suspend, resume, startConversation, renameUser, isActive: () => active, isBusy: () => Boolean(sending) }; // 계정과 채널 연결 경계
+    return { render, refresh, clear, close, suspend, resume, readShown, showNavigation, startConversation, renameUser, isNavigationOpen: () => navigationOpen, isActive: () => active, isBusy: () => Boolean(sending) }; // 계정과 채널 연결 경계
 }

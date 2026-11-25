@@ -3,7 +3,7 @@ declare(strict_types=1); // 엄격한 자료형 검사
 require_once __DIR__ . '/messages.php'; // 공개 메시지 변환과 권한 오류
 function attachment_public(array $row): array // 첨부 공개 필드
 {
-    return ['id' => (string) $row['id'], 'message_id' => (string) $row['message_id'], 'original_name' => $row['original_name'], 'file_size' => (int) $row['file_size']]; // 파일 내용 제외
+    return ['id' => (string) $row['id'], 'message_id' => (string) $row['message_id'], 'original_name' => $row['original_name'], 'file_size' => (int) $row['file_size'], 'preview_mime' => $row['preview_mime'] ?? null]; // 저장 키와 파일 내용 제외
 }
 function read_authorized_message_page(PDO $databaseConnection, bool $direct, string $targetId, int $messageLimit, ?string $beforeMessageId, ?string $afterMessageId, bool $includeAttachments): array // 권한을 잠근 대화의 페이지 조회
 {
@@ -19,7 +19,7 @@ function read_authorized_message_page(PDO $databaseConnection, bool $direct, str
     $sql = $fields . $source . $range; // 기존 클라이언트의 기본 조회
     if ($includeAttachments) // 첨부 메타데이터 요청
     {
-        $sql = $fields . ', a.id AS attachment_id, a.original_name, a.file_size' . $source . " LEFT JOIN message_attachments a ON a.$attachmentKey = m.id" . $range; // 파일 바이트 제외
+        $sql = $fields . ', a.id AS attachment_id, a.original_name, a.file_size, a.preview_mime' . $source . " LEFT JOIN message_attachments a ON a.$attachmentKey = m.id" . $range; // 원본과 저장 키를 제외한 파일 정보
     }
     try // 네이티브 준비 시 테이블 확인
     {
@@ -27,11 +27,12 @@ function read_authorized_message_page(PDO $databaseConnection, bool $direct, str
     }
     catch (PDOException $error) // 첨부 테이블 도입 전 DB 호환
     {
-        if (!$includeAttachments || (int) ($error->errorInfo[1] ?? 0) !== 1146) // 테이블 누락 이외의 오류
+        if (!$includeAttachments || !in_array((int) ($error->errorInfo[1] ?? 0), [1146, 1054], true)) // 첨부 이전 테이블 또는 신규 열 누락 이외의 오류
         {
             throw $error; // 실제 DB 오류 전달
         }
-        $messageQuery = $databaseConnection->prepare($fields . $source . $range); // 기존 테이블에서 같은 페이지 조회
+        $legacySql = $fields . ', a.id AS attachment_id, a.original_name, a.file_size' . $source . " LEFT JOIN message_attachments a ON a.$attachmentKey = m.id" . $range; // 기존 BLOB 첨부의 공개 정보
+        $messageQuery = $databaseConnection->prepare((int) ($error->errorInfo[1] ?? 0) === 1054 ? $legacySql : $fields . $source . $range); // 기존 테이블에서 같은 페이지 조회
     }
     $messageQuery->bindValue(':target', $targetId, PDO::PARAM_STR); // 권한이 확인된 대화 ID
     if ($paginationMode !== 'initial') // 범위 커서 존재 여부

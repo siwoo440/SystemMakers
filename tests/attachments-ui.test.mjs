@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"; // 결과 검사
 import test from "node:test"; // 기본 검사 도구
-import { createAttachmentView, uploadAttachment } from "../frontend/attachments-ui.mjs"; // 실제 첨부 화면 경계
+import { createAttachmentElements, createAttachmentView, uploadAttachment, validAttachment } from "../frontend/attachments-ui.mjs"; // 실제 첨부 화면 경계
 test("첨부 정보는 메시지별 최대 50건으로 조회하며 중복 요청을 피함", async () => // 제한 초과와 반복 조회 차단
 {
     const calls = []; // 실제 메타데이터 요청
@@ -66,11 +66,24 @@ test("파일 업로드는 대상과 파일을 multipart 본문으로 한 번 전
     assert.equal(calls[0].body.get("file").name, "문서.txt"); // 실제 선택 파일
     assert.equal(result.attachment.message_id, "2"); // 저장 메시지와 파일 연결
 });
-test("빈 파일과 5 MiB 초과 파일은 업로드 요청 없이 거절", async () => // 제한 밖 파일의 서버 전송 차단
+test("빈 파일과 200 MB 초과 파일은 업로드 요청 없이 거절", async () => // 제한 밖 파일의 서버 전송 차단
 {
     let requests = 0; // 실제 전송 수
     const request = async () => requests++; // 네트워크 요청 관찰
     await assert.rejects(uploadAttachment({ kind: "channel", targetId: "5", userId: "1", file: new File([], "빈파일.txt"), request })); // 빈 파일 거절
-    await assert.rejects(uploadAttachment({ kind: "channel", targetId: "5", userId: "1", file: new File([new Uint8Array(5242881)], "큰파일.bin"), request })); // 상한 초과 거절
+    await assert.rejects(uploadAttachment({ kind: "channel", targetId: "5", userId: "1", file: { size: 200000001 }, request })); // 메모리 할당 없는 초과 확인
     assert.equal(requests, 0); // 실제 업로드 요청 없음
+});
+test("첨부 기록은 200 MB 경계와 검증된 미리보기 형식을 사용", () => // 브라우저 표시와 이전 첨부 호환
+{
+    const limits = { id: "1", message_id: "2", original_name: "파일", file_size: 200000000 }; // 최대 크기의 첨부
+    assert.equal(validAttachment(limits), true); // 이전 형식과 정확한 상한 허용
+    assert.equal(validAttachment({ ...limits, file_size: 200000001 }), false); // 초과한 서버 응답 거절
+    assert.equal(validAttachment({ ...limits, preview_mime: "image/svg+xml" }), false); // 실행 가능 이미지 형식 제외
+    const element = (tagName) => ({ tagName }); // 표시 요소와 속성만 관측
+    const [preview, download] = createAttachmentElements({ ...limits, preview_mime: "image/webp" }, element); // 허용 이미지와 원본
+    assert.equal(preview.tagName, "img"); // 실제 이미지 요소
+    assert.match(preview.src, /download_attachment\.php\?id=1&preview=1$/); // 보호된 읽기 경로
+    assert.equal(download.tagName, "a"); // 원본 다운로드 링크
+    assert.deepEqual(createAttachmentElements(limits, element), [download]); // 이전 파일 다운로드 유지
 });

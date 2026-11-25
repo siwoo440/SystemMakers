@@ -9,7 +9,7 @@
 ## 1. 실행 환경
 
 - PHP 8.3의 Argon2id 지원과 `pdo_mysql`·`mbstring`·`gd` 확장, MySQL 8.4, Node.js가 필요하다. `php -r "print_r(password_algos());"`에서 `argon2id`를 확인한다. GD가 없으면 프로필 사진 저장은 503이다.
-- 웹 서버는 최대 5 MiB 첨부를 위해 `upload_max_filesize=6M`, `post_max_size=7M`을 적용한다. MySQL `max_allowed_packet`도 파일과 SQL 오버헤드를 수용하도록 설정한다.
+- Windows 개발 스크립트는 200 MB 첨부와 multipart 본문을 수용하도록 PHP 한도를 지정한다. 저장 공간과 PHP 임시 업로드 폴더의 쓰기 권한을 확인한다. 새 첨부는 기본 `.runtime/attachments`에 저장한다. 다른 위치를 사용할 때는 `ATTACHMENT_STORAGE_DIR`을 PHP가 쓸 수 있는 비공개 경로로 설정한다. DB와 이 폴더를 함께 백업한다.
 - 개인 PHP·MySQL 도구와 DB, `.runtime/web-env.json`은 Git에 포함되지 않는다. 다른 컴퓨터에서는 따로 준비한다.
 - `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`를 명시한다. 실제 접속 값은 Git이나 공유 문서에 적지 않는다.
 - `MYSQL_HOST`는 웹 서버 주소와 별개이며 실제 MySQL 서비스의 주소에 따라 `127.0.0.1` 또는 `localhost` 등을 사용한다. 코드는 `MYSQL_PASSWORD`의 빈 값을 허용하지만 실제 접속 가능 여부는 MySQL 계정 설정에 달려 있다.
@@ -20,8 +20,8 @@
 
 ## 2. 데이터베이스 구조 적용
 
-- 새로운 DB는 `backend/sql/schema.sql`을 적용한 뒤 001 변경을 적용하고 아래 002~005 도구를 순서대로 실행한다.
-- 기존 DB는 먼저 백업하고 001~005 중 이미 적용한 변경을 확인한다. 변경 전용 계정과 명시적인 MYSQL_* 환경 변수로 아직 적용하지 않은 도구만 순서대로 실행한다.
+- 새로운 DB는 `backend/sql/schema.sql`을 적용한 뒤 아래 명령을 순서대로 실행한다.
+- 기존 DB는 먼저 백업하고 001~007 중 이미 적용한 변경을 확인한다. 변경 전용 계정과 명시적인 MYSQL_* 환경 변수로 미적용 도구만 순서대로 실행한다.
 - 변경 도구는 개인 웹 설정을 자동으로 불러오거나 DB 권한을 올리지 않는다. 기존 구조·이름 충돌과 부분 적용을 확인하며, 완료 시 변경 파일 해시를 출력한다.
 - MySQL DDL의 파일 전체 자동 롤백은 보장되지 않는다. 실패하면 실제 적용 상태를 확인한다.
 
@@ -31,6 +31,8 @@
 .\.runtime\php83\php.exe -c .runtime/php83.ini scripts/migrate-003.php # 프로필 구조 추가
 .\.runtime\php83\php.exe -c .runtime/php83.ini scripts/migrate-004.php # 첨부 파일 구조 추가
 .\.runtime\php83\php.exe -c .runtime/php83.ini scripts/migrate-005.php # 친구 요청과 수락 구조 추가
+.\.runtime\php83\php.exe -c .runtime/php83.ini scripts/migrate-006.php # 비공개 첨부 저장 정보 추가
+.\.runtime\php83\php.exe -c .runtime/php83.ini scripts/migrate-007.php # 개인 대화 읽은 위치 추가
 ```
 
 ---
@@ -53,7 +55,7 @@
 ## 같은 Wi-Fi에서 개발용으로 공유
 
 - 웹과 실시간 서버는 같은 Wi-Fi 사설 IPv4에 연결한다. 네트워크를 바꾸면 새 주소를 확인한다.
-- MySQL은 서버 컴퓨터의 로컬 주소에 두고, 기존 DB를 백업한 뒤 001~005 적용 상태를 확인한다.
+- MySQL은 서버 컴퓨터의 로컬 주소에 두고, 기존 DB를 백업한 뒤 001~007 적용 상태를 확인한다.
 - PowerShell 7 터미널 두 개를 열어 각각 아래 명령을 실행한다. 두 서버와 MySQL이 켜져 있어야 한다.
 
 ```powershell
@@ -106,6 +108,7 @@ $wifiAddress = Get-SystemMakersWifiAddress # 현재 Wi-Fi 사설 주소
 - `PHP_TEST_BIN`, `MYSQL_TEST_CLIENT`, `MYSQL_TEST_PORT=33361`을 지정한다. 공개 웹 라우터 검사에는 위 MYSQL_*·APP_ENV·SESSION_COOKIE_SECURE 설정도 필요하다.
 - 테스트 인스턴스는 로컬 root·빈 비밀번호 기준이며 검사마다 전용 DB를 만들고 해당 DB만 정리한다. 개발 DB `33360`과 분리한다.
 - `PHP_TEST_INI`로 PHP 8.3용 설정 파일을 지정하며, `pdo_mysql`, `mbstring`, `gd`와 세션 저장 위치를 설정한다.
+- Windows의 기본 회귀 검사는 PHP 내장 서버에서 실제 12 MB 전송을 확인한다. 200 MB 전체 전송과 초과 거절은 Apache·Caddy를 사용하는 [Docker 검사](NAS-DEPLOYMENT.md#7-자동-회귀-검사와-컨테이너-검증)에서 확인한다.
 - 화면·세션·백업 보존 및 AMD64·ARM64 컨테이너 검사 명령은 [자동 검사 구성](../.github/workflows/docker.yml)에서 확인한다.
 
 ```powershell

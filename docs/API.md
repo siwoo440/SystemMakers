@@ -4,7 +4,7 @@
 
 서버는 여러 채널을 묶으며, 유효한 초대로 서버에 참여한 회원은 `get_channels.php`에서 해당 서버의 전체 채널을 조회한다. 각 채널의 기존 대화는 `get_messages.php?channel_id=...`로 조회하며, 서버에 소속되지 않은 사용자의 접근은 거절한다. 서버 참여 성공 후 화면은 참여한 서버와 채널 목록을 다시 불러온다.
 
-현재 PHP API 경로는 34개다. 같은 파일이 여러 HTTP 메서드를 지원해도 경로 하나로 센다. 두 실행 환경 모두 같은 허용 목록을 사용한다. [라우터](../router.php)
+현재 PHP API 경로는 35개다. 같은 파일이 여러 HTTP 메서드를 지원해도 경로 하나로 센다. 두 실행 환경 모두 같은 허용 목록을 사용한다. [라우터](../router.php)
 
 Windows 개발과 NAS Docker는 같은 API와 세션·CSRF·접근 권한 검사를 사용한다. NAS에서는 같은 HTTPS 출처로 API를 호출하고 WSS는 새 메시지 알림에 사용한다. [실시간 연결](REALTIME.md)
 
@@ -199,7 +199,7 @@ X-Expected-User-Id는 화면이 의도한 계정과 서버 세션의 일치 조�
 
 `GET ./backend/api/health.php` · 입력 없음 · 정상 200
 
-현재 앱 계정이 기본 및 001~005 마이그레이션의 테이블 14개를 모두 조회할 수 있으면 `200`과 `data.status=ok`를 반환한다. 빈 DB나 필수 테이블 누락은 `503 SERVICE_UNAVAILABLE`, DB 연결 오류는 `500 INTERNAL_ERROR`로 응답한다. 응답에는 DB 이름이나 테이블 목록을 포함하지 않는다.
+현재 앱 계정에서 마이그레이션 001~007에 필요한 테이블 15개와 첨부 저장 열을 확인하면 `200`과 `data.status=ok`를 반환한다. 스키마 누락은 `503 SERVICE_UNAVAILABLE`, DB 연결 오류는 `500 INTERNAL_ERROR`로 응답한다. 응답에는 DB 이름이나 테이블 목록을 포함하지 않는다.
 
 ---
 
@@ -509,12 +509,13 @@ confirm_name은 삭제 미리보기에서 확인한 현재 이름이다. 화면�
 | --- | --- | --- |
 | GET `search_users.php` | `q`: 사용자명 검색어 | 공개 `users` 목록, 이메일 제외 |
 | POST `create_dm.php` | JSON `user_id` | `conversation`: 본인과 대상의 고유 대화, 기존 대화 재사용 |
-| GET `list_dms.php` | 없음 | 본인이 참여한 `conversations` 목록 |
+| GET `list_dms.php` | 없음 | 본인의 `conversations` 목록, `unread`와 가장 최근 미확인 메시지 ID `unread_message_id` 포함 |
+| POST `mark_dm_read.php` | JSON `conversation_id`, `message_id` | 해당 참여자의 읽은 위치를 전진시키고 `last_read_message_id` 반환 |
 | POST `send_dm.php` | JSON `conversation_id`, `content` | 저장된 `message` |
 | GET `get_dm_messages.php` | `conversation_id`, 선택 `limit`, `before_id` 또는 `after_id`, `include_attachments=1` | `messages`와 `pagination` |
 | POST `upload_attachment.php` | multipart `kind` (`channel` 또는 `direct`), `target_id`, `file` | 원자적으로 저장한 `message`, `attachment` |
-| GET `list_attachments.php` | `kind`, `target_id`, `message_ids` (쉼표로 구분한 최대 50개) | 허용된 대화의 첨부 ID·메시지 ID·파일명·바이트 크기 |
-| GET `download_attachment.php` | `id` | 현재 참여 권한을 확인한 원본 바이트; 강제 다운로드 |
+| GET `list_attachments.php` | `kind`, `target_id`, `message_ids` (쉼표로 구분한 최대 50개) | 허용된 대화의 첨부 ID·메시지 ID·파일명·크기·선택적 `preview_mime` |
+| GET `download_attachment.php` | `id`, 선택 `preview=1` | 현재 참여 권한을 확인한 원본 다운로드 또는 검증된 이미지 표시 |
 | GET `profile_details.php` | `user_id` | 공개 사용자명·상태 메시지·사진 유무 |
 | PATCH `profile_details.php` | JSON `status_message` | 본인 상태 메시지 저장; 최대 200자 |
 | GET `profile_picture.php` | `user_id` | 검증 후 재인코딩한 PNG 또는 JPEG |
@@ -525,11 +526,11 @@ confirm_name은 삭제 미리보기에서 확인한 현재 이름이다. 화면�
 | GET `friends.php` | 없음 | 수락된 `friends`, 받은 `incoming`, 보낸 `outgoing` 목록 |
 | POST `friends.php` | JSON `user_id`, `action` | `request`, `accept`, `decline`, `cancel`, `remove` 동작 |
 
-첨부 파일은 1~5,242,880바이트(화면 표시: 최대 약 5.24 MB, 이진 단위: 5 MiB)이고 MySQL `MEDIUMBLOB`에 보관한다. 파일명은 문자로만 표시하며 서버에서 실행하지 않는다. 다운로드는 `application/octet-stream`, `Content-Disposition: attachment`, `nosniff`를 사용한다. PHP 업로드·본문 크기와 MySQL `max_allowed_packet`은 5 MiB 파일을 수용해야 한다.
+테스트용 첨부 한도는 1~200,000,000바이트다. 새 파일은 비공개 첨부 저장소에 보관하고, 기존 MySQL 원본도 같은 주소로 내려받을 수 있다. 다운로드는 `application/octet-stream`, `Content-Disposition: attachment`, `nosniff`를 사용한다. 실제 디코딩을 통과한 PNG·JPEG·WebP에 `preview_mime`이 포함된다. 미리보기 한도는 원본 20 MB, 가로와 세로 각각 8,192픽셀, 전체 1,600만 픽셀이다. 미리보기 범위를 넘은 원본은 다운로드로 제공한다. 두 요청 모두 같은 권한 검사를 적용한다.
 
 개인 대화는 두 사용자만 조회할 수 있다. 한쪽이 차단하면 양쪽의 새 텍스트·파일 전송을 거부하며 기존 대화 및 파일 조회는 유지한다. WebSocket은 내용 없는 새 메시지 알림을 보내며 실제 내용은 권한을 다시 확인하는 HTTP 조회로 받는다.
 
-친구 요청은 상대방만 수락할 수 있다. 수락 후 양쪽 친구 목록에 표시되며 기존 개인 대화와는 별도로 보관한다. 차단 중인 두 계정은 새 요청과 수락을 할 수 없다. 요청과 차단 변경은 같은 사용자 잠금 순서로 처리한다.
+친구 요청은 받은 사람이 수락한다. 브라우저의 ‘모두 수락’은 화면에 표시된 받은 요청마다 같은 수락 API를 한 번씩 호출하고, 보낸 요청의 ‘상태 확인’은 최신 목록을 조회한다. 수락 후 양쪽 친구 목록에 표시된다. 차단 중인 두 계정은 새 요청과 수락을 할 수 없다. 요청과 차단 변경은 같은 사용자 잠금 순서로 처리한다.
 
 ---
 

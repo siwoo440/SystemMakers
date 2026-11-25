@@ -17,7 +17,7 @@ function element() // DOM 입출력 경계
     };
     return item; // 최소 DOM 요소
 }
-function setup(request, name = "검증 서버", onDeparted = () => undefined, onReload = async () => undefined, address = "https://example.test/Team006/index.html", onSelect = async () => undefined) // 실제 모듈과 외부 DOM 연결
+function setup(request, name = "검증 서버", onDeparted = () => undefined, onReload = async () => undefined, address = "https://example.test/Team006/index.html", onSelect = async () => undefined, isReady = () => true) // 실제 모듈과 외부 DOM 연결
 {
     const elements = new Map(); // 식별자별 요소
     const byId = (id) => // 동일 요소 재사용
@@ -34,7 +34,7 @@ function setup(request, name = "검증 서버", onDeparted = () => undefined, on
     let ui; // 실제 화면 연결
     const manager = new ServerManager({ request, getUser: () => ({ id: "1" }), onChange: () => ui?.render() }); // 실제 수명 상태
     Object.assign(manager, { identity: "1", selected: "1", servers: [{ id: "1", name, owner_id: "1", role: "owner" }] }); // 확인된 소속 자료
-    ui = mountServerUI({ manager, byId, onDeparted, onReload, onSelect, onError: async (error) => error.message, isReady: () => true }); // 실제 작업 핸들러
+    ui = mountServerUI({ manager, byId, onDeparted, onReload, onSelect, onError: async (error) => error.message, isReady }); // 실제 작업 핸들러
     return { byId, ui, manager }; // 관측할 DOM 경계
 }
 test("서버 목록은 같은 상태에서 버튼을 재생성하지 않고 선택 잠금을 반영", () => // 관리 화면의 변경 범위 확인
@@ -72,6 +72,8 @@ test("서버 관리 창 바깥 클릭은 입력을 정리하고 닫음", async (
 {
     const testHarness = setup(async () => ({})); // 로그인한 서버 화면
     await testHarness.byId("create-server").fire("click"); // 서버 만들기 열기
+    assert.equal(testHarness.byId("server-impact").textContent, ""); // 기존 서버 이름 숨김
+    assert.equal(testHarness.byId("server-impact").hidden, true); // 빈 안내 영역 숨김
     const dialog = testHarness.byId("server-dialog"); // 실제 관리 창
     dialog.getBoundingClientRect = () => ({ left: 20, right: 120, top: 20, bottom: 120 }); // 창의 화면 경계
     testHarness.byId("server-value").value = "작성 중"; // 저장하지 않은 입력
@@ -79,28 +81,47 @@ test("서버 관리 창 바깥 클릭은 입력을 정리하고 닫음", async (
     assert.equal(dialog.open, false); // 실제 창 닫힘
     assert.equal(testHarness.byId("server-value").value, ""); // 입력 정리
 });
-test("공유 링크는 새로고침 후에도 명시적 참여 전 요청을 보내지 않음", async () => // 방문만으로 가입되는 오류 차단
+test("초대 링크는 로그인 준비 후 기존 참여 API를 한 번 호출", async () => // 인증 후 자동 참여
 {
     const requests = []; // 서버 변경 요청 관측
     const code = "a".repeat(64); // 발급된 코드 형식
     const address = "https://example.test/Team006/index.html#invite=" + code; // 같은 출처 공유 주소
-    setup(async (path, body) => requests.push({ path, body }), "검증 서버", () => undefined, async () => undefined, address); // 첫 방문
+    let signedIn = false; // 인증 전 초대 보존
+    let selections = 0; // 참여한 서버로 이동 횟수
     const testHarness = setup(async (path, body) => // 새로고침 뒤 실제 제출 경계
     {
         requests.push({ path, body }); // 변경 요청 기록
         return { server: { id: "2" } }; // 참여 성공 응답
-    }, "검증 서버", () => undefined, async () => undefined, address); // 재방문 화면
-    testHarness.ui.render(); // 로그인된 화면 표시
-    assert.equal(requests.length, 0); // 자동 가입 요청 없음
+    }, "검증 서버", () => undefined, async () => undefined, address, async () => { selections++; }, () => signedIn); // 인증과 화면 전환 경계
+    testHarness.ui.render(); // 게스트 상태의 초대 링크 확인
+    assert.equal(requests.length, 0); // 게스트 가입 요청 없음
+    assert.equal(globalThis.location.hash, "#invite=" + code); // 로그인까지 초대 주소 보존
     assert.match(testHarness.byId("server-status").textContent, /초대/); // 대기 초대 안내
-    await testHarness.byId("join-server").fire("click"); // 사용자의 참여 화면 선택
-    assert.equal(testHarness.byId("server-value").value, code); // 확인 가능한 코드 입력
-    assert.equal(globalThis.location.hash, ""); // 화면 표시 뒤 주소 정리
-    assert.equal(requests.length, 0); // 확인 화면에서도 자동 가입 없음
-    await testHarness.byId("server-form").fire("submit"); // 사용자의 최종 참여 확인
+    signedIn = true; // 기존 로그인과 새 보호 토큰 준비
+    testHarness.ui.render(); // 실제 계정·화면 갱신으로 자동 참여 시작
+    await Promise.all([testHarness.ui.acceptInviteLink(), testHarness.ui.acceptInviteLink()]); // 연속 렌더나 주소 이벤트 경합
+    assert.equal(globalThis.location.hash, ""); // 제출 뒤 주소 원문 정리
+    assert.equal(testHarness.byId("server-dialog").open, false); // 수동 코드 입력 없이 참여
+    assert.equal(testHarness.manager.selected, "2"); // 참여 서버 선택
+    assert.equal(selections, 1); // 화면 한 번 전환
     assert.equal(requests.length, 1); // 한 번의 변경 요청
     assert.match(requests[0].path, /join_server\.php$/); // 기존 참여 API
     assert.deepEqual(requests[0].body, { code }); // 본문으로만 코드 전달
+});
+test("유효하지 않은 초대 링크는 오류를 보이고 다시 제출하지 않음", async () => // 만료·폐기 안내
+{
+    let attempts = 0; // 같은 링크 요청 횟수
+    const address = "https://example.test/Team006/index.html#invite=" + "a".repeat(64); // 제출 가능한 코드
+    const harness = setup(async () => // PHP가 만료된 초대를 거절하는 상황
+    {
+        attempts++; // 실제 참여 요청 횟수
+        throw Object.assign(new Error("유효하지 않은 초대 코드입니다."), { status: 400, code: "INVALID_INVITE" }); // 기존 API 오류
+    }, "검증 서버", () => undefined, async () => undefined, address); // 기존 서버 선택 보존
+    await harness.ui.acceptInviteLink(); // 자동 참여 시도
+    await harness.ui.acceptInviteLink(); // 완료 뒤 다시 확인
+    assert.equal(attempts, 1); // 실패 링크 자동 재전송 방지
+    assert.match(harness.byId("server-status").textContent, /만료|폐기/); // 링크 발급자에게 확인할 안내
+    assert.equal(harness.manager.selected, "1"); // 기존 참여 서버 선택 유지
 });
 test("발급한 공유 링크는 같은 출처와 fragment만 사용", async () => // 코드의 서버 요청 주소 노출 차단
 {

@@ -72,7 +72,7 @@ try # 상태 감시 시작
                 if (-not (Test-SystemMakersListener -Address $wifiAddress -Port 8088)) # 웹 수신 종료 확인
                 {
                     $env:REALTIME_PUBLIC_HOST = $wifiAddress # CSP의 실시간 호스트
-                    $webArguments = @('-c', "`"$phpIni`"", '-d', 'upload_max_filesize=6M', '-d', 'post_max_size=7M', '-S', "${wifiAddress}:8088", '-t', "`"$projectRoot`"", "`"$routerPath`"") # 웹 실행 설정
+                    $webArguments = @('-c', "`"$phpIni`"", '-d', 'upload_max_filesize=200000000', '-d', 'post_max_size=201000000', '-d', 'max_execution_time=300', '-d', 'max_input_time=900', '-S', "${wifiAddress}:8088", '-t', "`"$projectRoot`"", "`"$routerPath`"") # 200 MB와 15분 업로드를 허용한 웹 실행 설정
                     $managedWeb = Start-Process -FilePath $phpPath -ArgumentList $webArguments -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $runtimeDirectory 'lan-watch-web-out.log') -RedirectStandardError (Join-Path $runtimeDirectory 'lan-watch-web-error.log') # 웹 서버 시작
                 }
                 if (-not (Test-SystemMakersListener -Address $wifiAddress -Port 8090)) # 실시간 수신 종료 확인

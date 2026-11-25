@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"; // 실제 응답 검증
 import { execFileSync, spawn } from "node:child_process"; // 변경 도구와 웹 서버
 import { createServer } from "node:net"; // 빈 포트 확보
+import { readFileSync, writeFileSync } from "node:fs"; // 검사 전용 세션의 활동 시각 확인
 import path from "node:path"; // 실행 경로 조합
 import test from "node:test"; // 검사 실행
 import { fixture } from "./helpers/management-fixture.mjs"; // 격리된 실제 DB
@@ -9,6 +10,7 @@ test("개인 대화의 참여자 권한과 차단 경계", async (context) => //
 {
     const environment = await fixture(context); // 독립 검사 환경
     execFileSync(environment.php, ["-c", process.env.PHP_TEST_INI || path.join(environment.root, ".runtime/php.ini"), path.join(environment.root, "scripts/migrate-002.php")], { env: environment.env, encoding: "utf8", windowsHide: true }); // 보존형 변경 적용
+    execFileSync(environment.php, ["-c", process.env.PHP_TEST_INI || path.join(environment.root, ".runtime/php.ini"), path.join(environment.root, "scripts/migrate-007.php")], { env: environment.env, encoding: "utf8", windowsHide: true }); // 읽음 상태 구조 적용
     const alice = await environment.account("dm_alice"); // 첫 참여자
     const bob = await environment.account("dm_bob"); // 둘째 참여자
     const outsider = await environment.account("dm_outsider"); // 제3자
@@ -68,6 +70,19 @@ test("개인 대화의 참여자 권한과 차단 경계", async (context) => //
     assert.equal((await outsider.request("get_dm_messages.php?conversation_id=" + conversationId)).status, 403); // 제3자 조회 차단
     assert.equal((await outsider.request("send_dm.php", { conversation_id: conversationId, content: "침입" })).status, 403); // 제3자 전송 차단
     const first = await alice.request("send_dm.php", { conversation_id: conversationId, content: "첫 메시지" }); // 첫 참여자 저장
+    const firstMessageId = first.data.message.id; // 첫 번째 상대방의 미확인 메시지
+    assert.equal((await alice.request("list_dms.php")).data.conversations[0].unread, false); // 보낸 본인의 메시지는 알림 없음
+    const incoming = (await bob.request("list_dms.php")).data.conversations[0]; // 로그인 계정 전용 미확인 상태
+    assert.equal(incoming.unread, true); // 받은 상대 메시지의 읽지 않음 표시
+    assert.equal(incoming.unread_message_id, firstMessageId); // 가장 최신의 안 읽은 상대 메시지
+    const readBody = { conversation_id: conversationId, message_id: firstMessageId }; // 확인할 개인 대화와 메시지
+    assert.equal((await environment.client().request("mark_dm_read.php", readBody)).status, 401); // 게스트의 읽음 처리 차단
+    assert.equal((await outsider.request("mark_dm_read.php", readBody)).status, 403); // 제3자의 읽음 처리 차단
+    assert.equal((await bob.request("mark_dm_read.php", readBody, { "X-CSRF-Token": "wrong" })).status, 403); // 잘못된 토큰의 읽음 처리 차단
+    assert.equal((await alice.request("mark_dm_read.php", readBody)).status, 404); // 본인 작성 메시지의 커서 사용 차단
+    assert.equal((await bob.request("mark_dm_read.php", { ...readBody, message_id: "18446744073709551615" })).status, 404); // 확인하지 않은 커서 거절
+    assert.deepEqual((await bob.request("mark_dm_read.php", readBody)).data, { last_read_message_id: firstMessageId }); // 받은 실제 메시지 확인
+    assert.equal((await bob.request("list_dms.php")).data.conversations[0].unread, false); // 저장된 읽음 상태 유지
     const second = await bob.request("send_dm.php", { conversation_id: conversationId, content: "답장" }); // 둘째 참여자 저장
     assert.equal(first.status, 201); // 첫 메시지 생성
     assert.equal(second.data.message.user_id, bob.id); // 인증된 작성자
@@ -77,12 +92,18 @@ test("개인 대화의 참여자 권한과 차단 경계", async (context) => //
     assert.deepEqual(earlier.messages.map((message) => message.id), [first.data.message.id]); // 중복 없는 이전 메시지
     const after = (await alice.request("get_dm_messages.php?conversation_id=" + conversationId + "&after_id=" + first.data.message.id)).data; // 신규 페이지
     assert.deepEqual(after.messages.map((message) => message.id), [second.data.message.id]); // 중복 없는 신규 메시지
+    assert.equal((await alice.request("list_dms.php")).data.conversations[0].unread_message_id, second.data.message.id); // 기록 GET 후에도 명시적 읽음 변경 대기
+    assert.equal((await bob.request("list_dms.php")).data.conversations[0].unread, false); // 다른 참여자의 읽음 기준 분리
     environment.sql("INSERT INTO user_blocks (blocker_id,blocked_id) VALUES (" + bob.id + "," + alice.id + ")"); // 둘째 참여자의 차단
     assert.equal((await alice.request("send_dm.php", { conversation_id: conversationId, content: "거절" })).status, 403); // 차단당한 쪽 전송 거절
     assert.equal((await bob.request("send_dm.php", { conversation_id: conversationId, content: "거절" })).status, 403); // 차단한 쪽 전송 거절
     assert.equal((await bob.request("get_dm_messages.php?conversation_id=" + conversationId)).data.messages.length, 2); // 기존 대화 보존
     environment.sql("DELETE FROM user_blocks"); // 차단 해제
-    assert.equal((await alice.request("send_dm.php", { conversation_id: conversationId, content: "복구" })).status, 201); // 차단 해제 후 전송
+    const newer = await alice.request("send_dm.php", { conversation_id: conversationId, content: "복구" }); // 차단 해제 후 전송
+    assert.equal(newer.status, 201); // 차단 해제 후 전송 성공
+    assert.equal((await bob.request("mark_dm_read.php", { ...readBody, message_id: newer.data.message.id })).status, 200); // 최신 상대방의 메시지 확인
+    assert.equal((await bob.request("mark_dm_read.php", readBody)).status, 200); // 오래된 읽음 요청 재실행 안전성
+    assert.equal((await bob.request("list_dms.php")).data.conversations[0].unread, false); // 늦은 과거 요청에 커서 후퇴 방지
     const release = await environment.hold("SELECT id FROM users WHERE id=" + alice.id + " FOR UPDATE", "INSERT INTO user_blocks (blocker_id,blocked_id) VALUES (" + bob.id + "," + alice.id + ")"); // 차단 직전 참여자 잠금
     const pending = alice.request("send_dm.php", { conversation_id: conversationId, content: "경합" }); // 차단 중 전송 경합
     await new Promise((resolve) => setTimeout(resolve, 200)); // 잠금 대기 진입
@@ -96,6 +117,19 @@ test("개인 대화의 참여자 권한과 차단 경계", async (context) => //
     assert.equal(environment.sql("SELECT COUNT(*) FROM direct_messages"), "3"); // 실패 저장 롤백
     environment.sql("DROP TRIGGER dm_test_failure"); // 장애 제거
     assert.equal((await bob.request("send_dm.php", { conversation_id: conversationId, content: "정상" })).status, 201); // 실패 후 잠금 해제
+    const otherConversation = (await bob.request("create_dm.php", { user_id: outsider.id })).data.conversation.id; // 다른 참여 대화 준비
+    assert.equal((await bob.request("mark_dm_read.php", { ...readBody, conversation_id: otherConversation })).status, 404); // 같은 계정의 다른 대화 메시지 거절
+    assert.throws(() => execFileSync(environment.php, ["-c", process.env.PHP_TEST_INI || path.join(environment.root, ".runtime/php.ini"), path.join(environment.root, "scripts/migrate-007.php")], { env: environment.env, windowsHide: true, stdio: "pipe" })); // 읽음 상태 변경 재적용 거절
+    assert.equal(environment.sql("SELECT last_read_message_id FROM direct_read_receipts WHERE conversation_id=" + conversationId + " AND user_id=" + bob.id), newer.data.message.id); // 재적용 시 최신 읽음 상태 보존
+    const sessionId = bob.cookie.split("=")[1]; // 검사 계정의 실제 세션 식별자
+    assert.match(sessionId, /^[a-zA-Z0-9,-]+$/); // 검사 파일 경로 제한
+    const sessionFile = path.join(environment.root, ".runtime", environment.env.MYSQL_DATABASE, "sess_" + sessionId); // 검사 전용 세션 파일
+    const sessionData = readFileSync(sessionFile, "utf8"); // 최근 활동 상태 읽기
+    const idleActivity = Math.floor(Date.now() / 1000) - 60; // 아직 만료되지 않은 과거의 활동 시각
+    writeFileSync(sessionFile, sessionData.replace(/(authenticated_at|last_activity_at)\|i:\d+;/g, `$1|i:${idleActivity};`)); // 오래된 활동이 유지된 계정 상태
+    assert.equal((await bob.request("list_dms.php")).status, 200); // 자동 목록 확인에서 로그인 상태 유지
+    assert.equal((await bob.request("mark_dm_read.php", readBody)).status, 200); // 자동 읽음 변경에서 로그인 상태 유지
+    assert.equal(Number(/last_activity_at\|i:(\d+);/.exec(readFileSync(sessionFile, "utf8"))?.[1]), idleActivity); // 자동 요청이 세션 유휴 시각을 연장하지 않는 상태
 });
 
 test("개인 대화 변경의 기존 자료 보존과 재적용 차단", async (context) => // 실제 DDL 상태 검사

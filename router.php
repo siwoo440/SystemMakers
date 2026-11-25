@@ -64,6 +64,7 @@ $apiFiles = // 공개 API 허용 목록
     '/api/search_users.php' => 'search_users.php', // 사용자 검색
     '/api/create_dm.php' => 'create_dm.php', // 개인 대화 생성
     '/api/list_dms.php' => 'list_dms.php', // 개인 대화 목록
+    '/api/mark_dm_read.php' => 'mark_dm_read.php', // 개인 대화 읽음 상태 변경
     '/api/send_dm.php' => 'send_dm.php', // 개인 메시지 저장
     '/api/get_dm_messages.php' => 'get_dm_messages.php', // 개인 기록 조회
     '/api/profile_details.php' => 'profile_details.php', // 확장 프로필

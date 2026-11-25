@@ -28,13 +28,13 @@ export async function fixture(context) // 독립 공개 API 검사 환경
     sql(readFileSync(path.join(projectRoot, "backend/sql/schema.sql"), "utf8")); // 기존 스키마 적용
     const sessionDirectory = path.join(projectRoot, ".runtime", database); // 독립 세션 폴더
     mkdirSync(sessionDirectory, { recursive: true }); // 검사 저장소 준비
-    const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "management-test-key-at-least-32-bytes-only" }; // 독립 설정
+    const serverEnvironment = { ...process.env, MYSQL_HOST: "127.0.0.1", MYSQL_PORT: port, MYSQL_DATABASE: database, MYSQL_USER: "root", MYSQL_PASSWORD: "", APP_ENV: "test", SESSION_COOKIE_SECURE: "0", AUTH_RATE_LIMIT_KEY: "management-test-key-at-least-32-bytes-only", ATTACHMENT_STORAGE_DIR: path.join(sessionDirectory, "attachments") }; // 독립 DB와 비공개 파일 저장소
     const probe = createServer(); // 빈 포트 확인
     await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve)); // 임의 포트 배정
     const address = probe.address().port; // 배정된 포트
     await new Promise((resolve) => probe.close(resolve)); // 포트 예약 종료
     const origin = "http://127.0.0.1:" + address; // 공개 라우터 주소
-    server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "upload_max_filesize=6M", "-d", "post_max_size=7M", "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + address, path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 실제 PHP 웹 서버
+    server = spawn(phpBinary, ["-c", process.env.PHP_TEST_INI || path.join(projectRoot, ".runtime/php.ini"), "-d", "upload_max_filesize=200000000", "-d", "post_max_size=201000000", "-d", "max_execution_time=300", "-d", "max_input_time=900", "-d", "session.save_path=" + sessionDirectory, "-S", "127.0.0.1:" + address, path.join(projectRoot, "router.php")], { env: serverEnvironment, windowsHide: true, stdio: "ignore" }); // 200 MB 파일을 처리하는 실제 PHP 웹 서버
     function client() // 독립 회원 쿠키 경계
     {
         const session = { cookie: "", token: "", id: "" }; // 실제 인증 상태

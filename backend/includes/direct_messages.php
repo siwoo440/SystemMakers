@@ -147,6 +147,32 @@ function read_direct_messages(PDO $databaseConnection, string $conversationId, s
         throw $caughtException; // 호출자 오류 전달
     }
 }
+function mark_direct_read(PDO $databaseConnection, string $conversationId, string $userId, string $messageId): void // 읽은 상대방 메시지 범위 저장
+{
+    try // 참여 확인과 기준 변경 원자화
+    {
+        $databaseConnection->beginTransaction(); // 읽음 변경 트랜잭션 시작
+        $pair = direct_access($databaseConnection, $conversationId, $userId, false); // 기존 기록과 동일한 참여 권한 검사
+        $otherId = (string) $pair['user_a_id'] === $userId ? (string) $pair['user_b_id'] : (string) $pair['user_a_id']; // 현재 대화의 상대방 ID
+        $checkMessage = $databaseConnection->prepare('SELECT id FROM direct_messages WHERE id = :message AND conversation_id = :conversation AND user_id = :author'); // 대화에 실제로 있는 상대방 메시지 검증
+        $checkMessage->execute(['message' => $messageId, 'conversation' => $conversationId, 'author' => $otherId]); // 인증된 대화와 상대방 확인
+        if ($checkMessage->fetchColumn() === false) // 다른 대화 또는 보낸 메시지 검출
+        {
+            throw new DirectAccessException('MESSAGE_NOT_FOUND', 404); // 임의의 읽음 기준 거절
+        }
+        $save = $databaseConnection->prepare('INSERT INTO direct_read_receipts (conversation_id, user_id, last_read_message_id) VALUES (:conversation, :user, :message) ON DUPLICATE KEY UPDATE last_read_message_id = GREATEST(last_read_message_id, CAST(:requested AS UNSIGNED))'); // 동시 요청에서도 후퇴하지 않는 계정별 읽음 기준
+        $save->execute(['conversation' => $conversationId, 'user' => $userId, 'message' => $messageId, 'requested' => $messageId]); // 검증한 상대방 메시지 저장
+        $databaseConnection->commit(); // 읽음 상태 확정
+    }
+    catch (Throwable $caughtException) // 권한 또는 저장 실패
+    {
+        if ($databaseConnection->inTransaction()) // 이어지는 트랜잭션 확인
+        {
+            $databaseConnection->rollBack(); // 저장과 잠금 취소
+        }
+        throw $caughtException; // API 오류 응답 전달
+    }
+}
 function respond_direct_error(DirectAccessException $caughtException): never // 비밀 없는 접근 오류
 {
     respond_error($caughtException->getMessage(), $caughtException->getCode() === 404 ? '대상을 찾을 수 없습니다.' : ($caughtException->getCode() === 422 ? '입력값을 확인하세요.' : '요청을 처리할 수 없습니다.'), $caughtException->getCode()); // 일반 오류 응답

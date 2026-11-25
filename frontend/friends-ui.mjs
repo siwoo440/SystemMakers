@@ -9,12 +9,41 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
     let listController = null; // 현재 친구 목록 조회
     let timer = null; // 후속 조회 예약
     let searchController = null; // 이전 검색 취소 도구
+    let requestsOpen = false; // 요청 묶음 펼침 상태
+    let incomingIds = []; // 현재 받은 요청 사용자
+    let seenIncomingIds = new Set(); // 현재 계정에서 확인한 요청
+    function renderRequestActions() // 받은 요청과 보낸 요청의 조작 상태
+    {
+        const unavailable = !requestsOpen || !getUser() || !isReady() || requestBusy; // 펼친 상태와 계정 및 변경 확인
+        byId("friend-accept-all").disabled = unavailable || incomingIds.length === 0; // 수락할 요청 존재 여부
+        byId("friend-check-status").disabled = unavailable || Boolean(listController); // 상태 확인의 중복 조회 차단
+    }
+    function renderRequests() // 요청 묶음과 미확인 수 표시
+    {
+        if (requestsOpen) // 요청을 확인하는 화면
+        {
+            incomingIds.forEach((userId) => seenIncomingIds.add(userId)); // 보이는 요청 확인 처리
+        }
+        const unreadCount = incomingIds.filter((userId) => !seenIncomingIds.has(userId)).length; // 아직 펼쳐 보지 않은 요청 수
+        const bell = byId("friend-requests-toggle"); // 요청 진입 버튼
+        bell.setAttribute("aria-expanded", String(requestsOpen)); // 펼침 상태 안내
+        bell.setAttribute("aria-label", "친구 요청 " + (requestsOpen ? "접기" : "펼치기") + (unreadCount ? ", 미확인 받은 요청 " + unreadCount + "개" : "")); // 버튼 동작과 미확인 수 안내
+        byId("friend-requests").hidden = !requestsOpen; // 받은 요청과 보낸 요청 함께 전환
+        byId("friend-request-count").textContent = String(unreadCount); // 실제 미확인 수
+        byId("friend-request-count").hidden = unreadCount === 0; // 확인한 요청 숫자 숨김
+        renderRequestActions(); // 상태에 맞는 요청 버튼 갱신
+    }
     function clear() // 로그아웃과 계정 변경
     {
         version++; // 이전 응답 무효화
         searchVersion++; // 이전 검색 무효화
         identity = null; // 이전 계정 제거
         requestBusy = false; // 이전 변경 잠금 제거
+        requestsOpen = false; // 이전 계정 요청 접기
+        incomingIds = []; // 이전 받은 요청 제거
+        seenIncomingIds.clear(); // 이전 계정 확인 이력 제거
+        byId("friend-requests-toggle").disabled = true; // 게스트 요청 열기 차단
+        renderRequests(); // 이전 계정 요청 배지 제거
         listController?.abort(); // 이전 계정의 목록 조회 취소
         listController = null; // 조회 참조 정리
         window.clearTimeout(timer); // 이전 갱신 예약 취소
@@ -32,6 +61,8 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
         byId("friend-search-input").disabled = !ready || requestBusy; // 검색 입력 제한
         byId("friend-search-submit").disabled = !ready || requestBusy; // 검색 동작 제한
         byId("friend-refresh").disabled = !ready || requestBusy; // 수동 조회 제한
+        byId("friend-requests-toggle").disabled = !ready; // 로그인한 요청 탐색만 허용
+        renderRequestActions(); // 인증과 잠금 상태를 요청 버튼에 반영
         if (ready && identity !== getUser().id) // 새 계정의 최초 조회
         {
             identity = getUser().id; // 중복 조회 방지
@@ -110,6 +141,7 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
         const requestVersion = version; // 현재 계정 수명
         const controller = new AbortController(); // 이번 목록 조회의 수명
         listController = controller; // 동시 조회 방지
+        renderRequestActions(); // 확인 중 상태 버튼 잠금
         try // 인증된 친구 목록 요청
         {
             const data = await request("./backend/api/friends.php", null, controller.signal); // 취소 가능한 친구 목록 조회
@@ -127,7 +159,11 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
             byId("friend-list").replaceChildren(...data.friends.map((user) => row(user, "friends"))); // 수락된 친구 세로 표시
             byId("friend-incoming").replaceChildren(...data.incoming.map((user) => row(user, "incoming"))); // 받은 요청 표시
             byId("friend-outgoing").replaceChildren(...data.outgoing.map((user) => row(user, "outgoing"))); // 보낸 요청 표시
+            incomingIds = data.incoming.map((user) => user.id); // 최신 받은 요청 식별자
+            seenIncomingIds = new Set([...seenIncomingIds].filter((userId) => incomingIds.includes(userId))); // 종료한 요청 확인 이력 제거
+            renderRequests(); // 새 요청 배지와 펼침 상태 갱신
             byId("friend-status").textContent = data.friends.length ? "친구 " + data.friends.length + "명" : ""; // 친구 수 안내
+            return true; // 최신 목록이 실제로 표시된 결과
         }
         catch (error) // 실제 조회 실패
         {
@@ -141,6 +177,7 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
             if (listController === controller) // 현재 조회만 잠금 해제
             {
                 listController = null; // 완료한 조회 정리
+                renderRequestActions(); // 목록 조회가 끝난 상태 버튼 복구
                 schedule(); // 다음 요청 확인 예약
             }
         }
@@ -179,6 +216,94 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
                 requestBusy = false; // 변경 잠금 해제
                 render(); // 조작 가능 상태 복구
             }
+        }
+    }
+    async function acceptAll() // 현재 받은 요청의 일괄 수락
+    {
+        const userId = getUser()?.id; // 수락 요청의 현재 계정
+        if (!requestsOpen || !userId || identity !== userId || !isReady() || requestBusy || incomingIds.length === 0) // 표시 중인 대상과 계정 확인
+        {
+            return; // 중복 또는 접근 불가 수락 중단
+        }
+        const requestVersion = version; // 일괄 작업의 계정 수명
+        const sameAccount = () => requestVersion === version && getUser()?.id === userId; // 후속 요청의 계정 경계 확인
+        const targets = [...new Set(incomingIds)]; // 클릭 때 확정한 받은 요청 스냅샷
+        let accepted = 0; // 성공이 확인된 수락 개수
+        let skipped = 0; // 서버에서 수락할 수 없던 요청 개수
+        let interruption = ""; // 중단 사유의 사용자 안내
+        requestBusy = true; // 다른 관계 변경과 중복 클릭 차단
+        listController?.abort(); // 변경 전 목록 결과 폐기
+        listController = null; // 처리 후 새 목록 조회 허용
+        window.clearTimeout(timer); // 일괄 처리 중 자동 갱신 취소
+        render(); // 같은 계정의 버튼 잠금 표시
+        byId("friend-status").textContent = "받은 요청을 수락하고 있습니다."; // 진행 상태 안내
+        try // 받은 요청을 한 번에 한 건씩 처리
+        {
+            for (const targetId of targets) // 클릭 시점의 요청 순서
+            {
+                if (!sameAccount()) // 작업 도중 계정 전환 여부
+                {
+                    return; // 이전 계정의 후속 전송 차단
+                }
+                if (!isReady()) // 인증이나 보호 정보 확인 중
+                {
+                    interruption = "남은 요청 처리를 중단했습니다."; // 아직 처리하지 않은 대상 안내
+                    break; // 전송 가능한 상태가 아닌 경우 중단
+                }
+                try // 기존 참여자 전용 수락 API 재사용
+                {
+                    await request("./backend/api/friends.php", { action: "accept", user_id: targetId }); // 받은 요청의 명시적 수락
+                    accepted++; // 확정 성공 집계
+                }
+                catch (error) // 대상별 수락 오류 확인
+                {
+                    if (["FRIEND_STATE_CONFLICT", "USER_NOT_FOUND", "FORBIDDEN"].includes(error.code)) // 요청이 끝났거나 수락할 수 없는 대상
+                    {
+                        skipped++; // 이미 불가능한 요청 한 건 건너뛰기
+                        continue; // 나머지 받은 요청 처리
+                    }
+                    await report(error, requestVersion, userId); // 인증 복구와 실제 실패 상태 안내
+                    if (sameAccount()) // 오류 복구 중 현재 계정 확인
+                    {
+                        interruption = byId("friend-status").textContent; // 계정에 해당하는 실제 중단 사유
+                    }
+                    break; // 인증 또는 불확실한 실패 뒤 쓰기 중단
+                }
+            }
+            if (!sameAccount()) // 목록을 읽기 전 계정 검사
+            {
+                return; // 이전 계정의 조회와 상태 안내 차단
+            }
+            const refreshed = await refresh(); // 일괄 처리 후 친구와 요청 목록 한 번 확인
+            if (sameAccount()) // 조회 중 계정 전환 여부 확인
+            {
+                const confirmation = accepted ? `받은 요청 ${accepted}개를 수락했습니다.` : "수락이 확인된 요청이 없습니다."; // 확정된 처리 결과
+                const omitted = skipped ? `${skipped}개는 처리할 수 없었습니다.` : ""; // 건너뛴 요청 결과
+                const listStatus = refreshed ? "" : "친구 목록을 다시 확인하지 못했습니다."; // 재조회 실패 안내
+                byId("friend-status").textContent = [confirmation, omitted, interruption, listStatus].filter(Boolean).join(" "); // 성공과 일부 처리의 접근 가능한 결과
+            }
+        }
+        finally // 일괄 처리 잠금 해제
+        {
+            if (sameAccount()) // 동일한 계정의 작업 확인
+            {
+                requestBusy = false; // 수락과 다른 관계 변경 허용
+                render(); // 최신 목록의 요청 버튼 복구
+            }
+        }
+    }
+    async function checkSentStatus() // 보낸 요청과 현재 친구 관계 재확인
+    {
+        const userId = getUser()?.id; // 확인 중인 계정
+        const requestVersion = version; // 상태 조회의 계정 수명
+        if (byId("friend-check-status").disabled) // 닫힌 요청이나 이미 진행 중인 조회
+        {
+            return; // 불필요한 목록 요청 중단
+        }
+        byId("friend-status").textContent = "보낸 요청 상태를 확인하고 있습니다."; // 조회 진행 상태 안내
+        if (await refresh() && requestVersion === version && getUser()?.id === userId) // 인증된 최신 관계 확인
+        {
+            byId("friend-status").textContent = "보낸 요청 상태를 확인했습니다."; // GET 조회 완료 안내
         }
     }
     byId("friend-search-form").addEventListener("submit", async (event) => // 명시적 친구 검색
@@ -225,5 +350,28 @@ export function mountFriendsUI({ byId, request, getUser, isReady, onOpen, onErro
         byId("friend-search-results").replaceChildren(); // 이전 결과 제거
     });
     byId("friend-refresh").addEventListener("click", refresh); // 명시적 목록 확인
+    byId("friend-accept-all").addEventListener("click", acceptAll); // 받은 요청 일괄 수락
+    byId("friend-check-status").addEventListener("click", checkSentStatus); // 보낸 요청의 읽기 전용 상태 확인
+    byId("friend-requests-toggle").addEventListener("click", () => // 종 버튼의 요청 묶음 전환
+    {
+        if (!getUser() || !isReady()) // 현재 인증 준비 확인
+        {
+            return; // 사용할 수 없는 요청 탐색 차단
+        }
+        requestsOpen = !requestsOpen; // 펼침 상태 반전
+        renderRequests(); // 요청과 미확인 수 갱신
+    });
+    byId("friend-requests").addEventListener("keydown", (event) => // 요청 안쪽 키보드 닫기
+    {
+        if (event.key === "Escape" && requestsOpen) // 펼친 요청의 닫기 키
+        {
+            event.preventDefault(); // 기본 닫기 동작 차단
+            event.stopPropagation(); // 모바일 친구 패널의 중복 닫기 차단
+            requestsOpen = false; // 요청 묶음 접기
+            renderRequests(); // 숨김 상태 갱신
+            byId("friend-requests-toggle").focus(); // 요청 진입점으로 복귀
+        }
+    });
+    renderRequests(); // 최초 요청 접힘 상태 적용
     return { render, refresh, clear }; // 계정과 목록 수명 연결
 }

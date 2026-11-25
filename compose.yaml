@@ -47,8 +47,10 @@ services: # 운영 서비스
     environment: # 세션과 실제 접속 IP 설정
       <<: *appEnvironment # 공통 인증과 DB 설정
       CADDY_PROXY_IP: ${CADDY_PROXY_IP:-172.30.60.2} # 헤더를 신뢰할 단일 프록시
+      ATTACHMENT_STORAGE_DIR: /var/lib/systemmakers/attachments # 웹 루트 밖 원본 저장 위치
     volumes: # PHP 프로세스 사이의 세션 공유
       - sessions:/var/lib/systemmakers/sessions # 공통 세션 파일
+      - attachments:/var/lib/systemmakers/attachments # 대용량 첨부 원본 영속 저장
     networks: [proxy_net, data_net] # 프록시와 DB에만 연결
     depends_on: # 준비된 DB 사용
       database: # MySQL 상태 조건
@@ -114,5 +116,6 @@ networks: # 서비스 경계
 volumes: # 운영 영속 데이터
   mysql_data: # DB 자료 보존
   sessions: # 웹과 Ratchet 공통 인증 상태
+  attachments: # DB 메타데이터와 함께 백업할 원본 파일
   caddy_data: # 인증서 자료 보존
   caddy_config: # 프록시 상태 보존

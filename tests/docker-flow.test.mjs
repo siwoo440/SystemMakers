@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'; // 실제 응답 검사
 import { randomBytes, createHash } from 'node:crypto'; // 독립 계정과 첨부 해시
 import test from 'node:test'; // 통합 검사 도구
 import { openWebsocket, until } from './helpers/websocket.mjs'; // 실제 WSS 검사 경계
+import { uploadMultipart } from './helpers/attachment-upload.mjs'; // 대용량 원본 스트리밍 검사
 const origin = process.env.DOCKER_INTEGRATION_URL; // 격리된 검사 주소
-test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { skip: !origin, timeout: 90000 }, async (context) => // 운영 컨테이너의 실제 흐름
+test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { skip: !origin, timeout: 900000 }, async (context) => // 운영 컨테이너의 실제 흐름
 {
     const suffix = randomBytes(4).toString('hex'); // 검사 계정 구분
     const sockets = []; // 정리할 WSS 연결
@@ -96,14 +97,10 @@ test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { ski
     await until(() => directSocket.messages.some((message) => message.type === 'message.created')); // 개인 알림 확인
     async function upload(size) // 실제 최대 첨부 요청
     {
-        const form = new FormData(); // 브라우저 파일 본문
-        form.append('kind', 'channel'); // 채널 첨부 구분
-        form.append('target_id', channelId); // 승인된 채널
-        form.append('file', new Blob([new Uint8Array(size)]), 'container.bin'); // 바이너리 첨부
-        return fetch(`${origin}/Team006/backend/api/upload_attachment.php`, { method: 'POST', headers: { Cookie: owner.cookie, 'X-Expected-User-Id': owner.id, 'X-CSRF-Token': owner.token }, body: form }); // 실제 Apache·PHP·DB 전송
+        return uploadMultipart(`${origin}/Team006/backend/api/upload_attachment.php`, owner, 'channel', channelId, new Uint8Array(size)); // 실제 프록시와 PHP를 통과하는 원본 요청
     }
-    assert.equal((await upload(5242881)).status, 422); // 기존 첨부 상한 초과 거절
-    const uploaded = await upload(5242880); // 정확히 5 MiB 첨부
+    assert.equal((await upload(200000001)).status, 422); // 십진수 200 MB 초과 거절
+    const uploaded = await upload(200000000); // 정확히 십진수 200 MB 첨부
     assert.equal(uploaded.status, 201); // 컨테이너 전체 한도 확인
     const attachment = (await uploaded.json()).data.attachment; // 실제 첨부 번호
     const historyPath = "get_messages.php?channel_id=" + channelId + "&include_attachments=1"; // 파일 정보를 포함한 HTTPS 기록
@@ -115,8 +112,13 @@ test('Docker HTTPS·WSS의 인증·CSRF·권한·첨부와 세션 공유', { ski
     assert.equal((await fetch(downloadPath, { headers: { Cookie: outsider.cookie } })).status, 403); // 외부 사용자 첨부 접근 차단
     const downloaded = await fetch(downloadPath, { headers: { Cookie: member.cookie } }); // 소속 사용자 다운로드
     assert.equal(downloaded.status, 200); // 첨부 권한 승인
-    const hash = (bytes) => createHash('sha256').update(bytes).digest('hex'); // 실제 바이너리 무결성 비교
-    assert.equal(hash(Buffer.from(await downloaded.arrayBuffer())), hash(new Uint8Array(5242880))); // 바이너리 데이터 보존
+    const actualHash = createHash('sha256'); // 수신 파일의 점진적 해시
+    for await (const chunk of downloaded.body) // 전체 파일의 제한된 메모리 수신
+    {
+        actualHash.update(chunk); // 수신 원본 해시 누적
+    }
+    const expectedHash = createHash('sha256').update(new Uint8Array(200000000)).digest('hex'); // 실제 200 MB 원본 해시
+    assert.equal(actualHash.digest('hex'), expectedHash); // 바이너리 데이터 보존
     assert.equal((await member.request('logout.php', {})).status, 200); // 웹 세션 폐기
     await until(() => memberSocket.closed && directSocket.closed); // Ratchet에서 같은 로그아웃 반영
 });

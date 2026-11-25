@@ -13,7 +13,7 @@ function element() // 최소 화면 요소
     item.removeChild = (node) => item.children.splice(item.children.indexOf(node), 1); // 사라진 말풍선 정리
     return item; // 화면 요소 반환
 }
-function setup(request, timers = { set: () => 1, clear: () => undefined }) // 실제 화면과 테스트 경계
+function setup(request, timers = { set: () => 1, clear: () => undefined }, listTimers = { set: () => 1, clear: () => undefined }) // 실제 화면과 테스트 경계
 {
     const elements = new Map(); // 식별자별 화면 요소
     const byId = (id) => // 화면 요소 조회
@@ -26,10 +26,94 @@ function setup(request, timers = { set: () => 1, clear: () => undefined }) // �
     };
     globalThis.document = { createElement: element }; // 버튼 생성 경계
     let user = { id: "1", username: "alice" }; // 로그인 계정
-    const ui = mountDirectUI({ byId, request, getUser: () => user, isReady: () => Boolean(user), onOpen: () => undefined, onError: async (error) => error.message, createMessage: (message) => message, setTimer: timers.set, clearTimer: timers.clear }); // 실제 화면 연결
+    const ui = mountDirectUI({ byId, request, getUser: () => user, isReady: () => Boolean(user), onOpen: () => undefined, onError: async (error) => error.message, createMessage: (message) => message, setTimer: timers.set, clearTimer: timers.clear, setListTimer: listTimers.set, clearListTimer: listTimers.clear }); // 실제 화면 연결
     return { byId, ui, setUser: (value) => user = value }; // 관찰 경계
 }
 const emptyPage = { messages: [], pagination: { mode: "initial", has_more: false, next_before_id: null, next_after_id: "0" } }; // 빈 최초 기록 응답
+test("채널 화면에서도 개인 대화 알림을 확인하고 표시한 메시지를 읽음 처리", async () => // 계정 단위 확인과 실제 대화 읽음 경계
+{
+    let nextCheck; // 예약된 계정 목록 확인
+    const readCalls = []; // 읽음 변경 요청
+    const conversation = { id: "10", other_user: { id: "2", username: "bob" } }; // 확인한 상대방
+    let unreadId = null; // 계정의 새 메시지 상태
+    const harness = setup(async (path, body) => // 실제 화면의 공개 요청 경계
+    {
+        if (path.includes("list_dms")) // 계정 전체의 목록 조회
+        {
+            return { conversations: [{ ...conversation, unread: unreadId !== null, unread_message_id: unreadId }] }; // 상대방의 최신 미확인 메시지
+        }
+        if (path.includes("mark_dm_read")) // 읽음 처리 요청
+        {
+            readCalls.push(body); // 대화와 실제 표시한 메시지 기록
+            return { last_read_message_id: body.message_id }; // 확인된 읽음 기준
+        }
+        const message = { id: "12", conversation_id: "10", user_id: "2", username: "bob", content: "새 메시지", created_at: "2026-11-11T00:00:00Z", attachment: null }; // 실제 확인할 메시지
+        return { messages: [message], pagination: { mode: "initial", has_more: false, next_before_id: "12", next_after_id: "12" } }; // 확인된 최신 기록
+    }, undefined, { set: (callback) => nextCheck = callback, clear: () => undefined }); // 독립 계정 목록 예약
+    harness.ui.render(); // 로그인과 목록 확인 시작
+    await new Promise((resolve) => setImmediate(resolve)); // 최초 계정 목록 응답
+    assert.equal(harness.byId("direct-rail-unread").hidden, true); // 처음에는 배지 숨김
+    unreadId = "12"; // 채널 화면 도중 상대의 새 대화
+    await nextCheck(); // 계정의 다음 목록 확인
+    assert.equal(harness.ui.isActive(), false); // 채널 본문 유지
+    assert.equal(harness.byId("direct-rail-unread").hidden, false); // 레일에 읽지 않음 표시
+    harness.ui.showNavigation(true); // 레일 아이콘으로 목록 표시
+    assert.equal(harness.byId("direct-navigation").hidden, false); // 인접한 개인 대화 목록
+    assert.equal(harness.byId("server-navigation").hidden, true); // 서버 목록에서 개인 목록으로 전환
+    assert.equal(harness.byId("direct-list").children[0].children[1].hidden, false); // 대화 행에 읽지 않음 표시
+    assert.deepEqual(readCalls, []); // 목록을 보는 동안 읽음 유지
+    globalThis.document.visibilityState = "hidden"; // 가려진 탭의 대화 기록
+    await harness.byId("direct-list").children[0].fire("click"); // 해당 대화의 기록 표시
+    assert.deepEqual(readCalls, []); // 탭이 가려진 동안 읽지 않음 유지
+    globalThis.document.visibilityState = "visible"; // 대화가 보이는 탭으로 복귀
+    await harness.ui.readShown(); // 사용자에게 표시된 기록 읽음 처리
+    assert.deepEqual(readCalls, [{ conversation_id: "10", message_id: "12" }]); // 조회한 상대방 메시지 기준
+    assert.equal(harness.byId("direct-rail-unread").hidden, true); // 읽기 성공 후 배지 제거
+    await nextCheck(); // 읽음 처리 전 자료의 늦은 목록 확인
+    assert.equal(harness.byId("direct-rail-unread").hidden, true); // 오래된 목록으로 배지 재표시 방지
+    unreadId = "13"; // 아직 표시되지 않은 새로운 상대방 메시지
+    await nextCheck(); // 계정 목록 재확인
+    assert.equal(harness.byId("direct-rail-unread").hidden, false); // 새로운 메시지 배지 표시
+    harness.setUser(null); // 계정 종료
+    harness.ui.clear(); // 기존 계정 알림 폐기
+    assert.equal(harness.byId("direct-rail-unread").hidden, true); // 이전 계정 배지 제거
+});
+test("개인 대화 Enter는 전송하고 Shift와 한글 조합은 줄바꿈 경로 유지", async () => // 폼 전송 재사용과 키 입력 보호
+{
+    const sendCalls = []; // 텍스트 전송 요청 기록
+    const harness = setup(async (path, body) => // 기존 폼의 실제 요청 경계
+    {
+        if (path.includes("list_dms")) // 기존 개인 대화
+        {
+            return { conversations: [{ id: "10", other_user: { id: "2", username: "bob" } }] }; // 확인된 대상
+        }
+        if (path.includes("send_dm")) // 저장 응답
+        {
+            sendCalls.push(body); // 전송 본문과 대상 기록
+            return { message: { id: "3", conversation_id: "10", user_id: "1", username: "alice", content: body.content, created_at: "2026-11-11T00:00:00Z" } }; // 실제 저장 형식
+        }
+        return emptyPage; // 빈 최초 기록
+    });
+    await harness.ui.refresh(); // 인증된 목록 조회
+    await harness.byId("direct-list").children[0].fire("click"); // 실제 개인 대화 열기
+    const form = harness.byId("direct-form"); // 기존 전송 폼
+    let pending; // 전송 완료 대기
+    form.requestSubmit = () => pending = form.fire("submit"); // 브라우저 기본 폼 제출 경계
+    const input = harness.byId("direct-input"); // 메시지 입력란
+    let prevented = 0; // 기본 줄바꿈 취소 횟수
+    const keyEvent = { key: "Enter", preventDefault: () => prevented++ }; // 공통 Enter 이벤트
+    input.value = "보낼 내용"; // 사용자가 작성한 원문
+    input.fire("keydown", { ...keyEvent, shiftKey: true }); // 명시적인 줄바꿈
+    input.fire("keydown", { ...keyEvent, isComposing: true }); // 한글 조합 중 Enter
+    input.fire("keydown", { ...keyEvent, keyCode: 229 }); // 이전 브라우저 한글 조합 상태
+    assert.equal(prevented, 0); // 일반 입력 동작 보존
+    assert.deepEqual(sendCalls, []); // 보호된 입력에게 전송 없음
+    input.fire("keydown", keyEvent); // 전송 Enter
+    await pending; // 기존 폼 처리 완료
+    assert.equal(prevented, 1); // 단독 Enter의 줄바꿈 취소
+    assert.deepEqual(sendCalls, [{ conversation_id: "10", content: "보낼 내용" }]); // 기존 전송 경로 한 번 호출
+    harness.ui.clear(); // 조회 예약 정리
+});
 test("로그인하면 개인 대화의 로그인 안내 제거", async () => // 인증 상태별 안내
 {
     const harness = setup(async () => ({ conversations: [] })); // 로그인 계정과 빈 목록
@@ -64,7 +148,7 @@ test("개인 대화에서 선택한 파일만 전송 전에 취소", async () =>
     harness.byId("direct-file-clear").fire("click"); // 명시적 선택 취소
     assert.equal(input.files.length, 0); // 선택한 파일 제거
     assert.equal(harness.byId("direct-upload").disabled, true); // 파일 전송 비활성
-    assert.equal(harness.byId("direct-file-status").textContent, "최대 약 5.24 MB"); // 기본 안내 복구
+    assert.equal(harness.byId("direct-file-status").textContent, "최대 200 MB"); // 기본 안내 복구
     assert.equal(calls.some((path) => path.includes("upload_attachment")), false); // 서버 전송 없음
     harness.ui.clear(); // 조회 수명 정리
 });

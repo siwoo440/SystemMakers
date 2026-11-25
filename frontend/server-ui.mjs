@@ -1,5 +1,5 @@
 import { bindBackdropDismiss } from "./dialog-dismiss.mjs"; // 바깥 클릭 닫기
-export function mountServerUI({ manager, byId, onReload, onSelect, onError, isReady, onDeparted = () => undefined }) // 관리 화면의 외부 연결
+export function mountServerUI({ manager, byId, onReload, onSelect, onError, isReady, canAcceptInvite = () => true, onDeparted = () => undefined }) // 관리 화면의 외부 연결
 {
     const managementDialog = byId("server-dialog"); // 공통 관리 대화상자
     const managementForm = byId("server-form"); // 단일 제출 폼
@@ -9,6 +9,8 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
     let deletionPreviewReady = false; // 삭제 대상 최신 조회 여부
     let dialogVersion = 0; // 닫힌 화면의 늦은 결과 차단
     let serverListState = {}; // 마지막으로 표시한 서버 목록·선택·잠금
+    let inviteTask = null; // 링크별 중복 참여 방지
+    let inviteNotice = null; // 참여를 시도한 계정과 결과
     function clear() // 원문 코드와 이전 입력 정리
     {
         dialogVersion++; // 기존 비동기 화면 무효화
@@ -38,6 +40,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
                 serverButton.disabled = disabled; // 진행 작업의 대상 변경 차단
                 serverButton.addEventListener("click", async () => // 확인한 서버 전환
                 {
+                    inviteNotice = null; // 선택한 서버의 소속 안내 복원
                     manager.select(serverEntry.id); // 선택 ID 저장
                     await onSelect(); // 선택한 서버의 채널 표시
                 });
@@ -46,9 +49,14 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
         }
         byId("selected-server").textContent = server?.name || "참여 서버 없음"; // 실제 서버 제목
         byId("server-status").textContent = manager.loading ? "서버 확인 중…" : server ? `내 역할: ${server.role === "owner" ? "소유자" : server.role === "admin" ? "관리자" : "일반 회원"}` : ""; // 소속 상태
-        if (/^#invite=[a-f0-9]{64}$/.test(globalThis.location?.hash || "")) // 수신한 공유 링크 확인
+        if (globalThis.location?.hash?.startsWith("#invite=")) // 수신한 공유 링크 확인
         {
-            byId("server-status").textContent = "초대 링크가 도착했습니다. 로그인 후 초대로 참여 버튼을 눌러 확인하세요."; // 명시적 참여 안내
+            byId("server-status").textContent = isReady() ? "초대 링크를 확인하는 중입니다." : "로그인하면 초대된 서버에 참여합니다."; // 인증과 초대 상태 안내
+            void acceptInviteLink(); // 준비된 계정의 일회 참여
+        }
+        else if (manager.identity && inviteNotice?.userId === manager.identity) // 현재 계정의 참여 결과
+        {
+            byId("server-status").textContent = inviteNotice.text; // 접근 가능한 결과 안내
         }
         for (const elementId of ["create-server", "join-server", "refresh-servers"]) // 로그인 후 공통 동작
         {
@@ -72,6 +80,58 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             managementDialog.close(); // 이전 계정 관리 종료
         }
     }
+    function showJoinedServer(responseData) // 생성·참여 응답의 실제 서버 선택
+    {
+        manager.selected = responseData.server.id; // 확인된 서버 ID
+        manager.channel = responseData.channel?.id || null; // 기본 채널 또는 첫 채널 선택
+    }
+    function acceptInviteLink() // 인증 완료 후 브라우저 초대 처리
+    {
+        const hash = globalThis.location?.hash || ""; // 현재에만 유효한 초대 주소
+        const userId = manager.identity; // 목록으로 확인한 현재 계정
+        if (inviteTask || !hash.startsWith("#invite=") || !userId || !isReady() || !canAcceptInvite() || manager.busy || manager.loading || managementDialog.open) // 인증·모달·중복 작업 경계
+        {
+            return inviteTask; // 진행 작업 공유 또는 로그인까지 대기
+        }
+        inviteTask = Promise.resolve().then(async () => // 렌더 종료 뒤 보호된 요청 실행
+        {
+            if (manager.identity !== userId || globalThis.location?.hash !== hash || !isReady() || !canAcceptInvite() || manager.busy || manager.loading || managementDialog.open) // 실제 요청 직전 변경 확인
+            {
+                return; // 최신 주소와 계정 준비까지 대기
+            }
+            globalThis.history.replaceState(globalThis.history.state, "", globalThis.location.pathname + globalThis.location.search); // 제출 전에 주소에서 원문 제거
+            inviteNotice = { userId, text: "초대 링크를 확인하는 중입니다." }; // 현재 계정의 참여 표시
+            if (!/^#invite=[a-f0-9]{64}$/.test(hash)) // 링크 형식 검사
+            {
+                inviteNotice.text = "초대 링크 형식이 올바르지 않습니다."; // 잘못된 코드 안내
+                return; // 불필요한 요청 차단
+            }
+            try // 기존 참여 API 사용
+            {
+                const responseData = await manager.execute("join_server", { code: hash.slice(8) }); // 세션과 CSRF를 적용한 참여
+                showJoinedServer(responseData); // 참여한 서버 선택
+                await onSelect(); // 실제 채널 목록 열기
+                inviteNotice.text = "초대된 서버에 참여했습니다."; // 확정한 가입 결과
+            }
+            catch (operationError) // 링크 거절과 통신 오류
+            {
+                if (operationError.code === "STALE_RESPONSE" || manager.identity !== userId) // 교체된 계정의 응답
+                {
+                    return; // 이전 결과 폐기
+                }
+                inviteNotice.text = operationError.code === "INVALID_INVITE" ? "초대 링크가 만료되었거나 폐기되었습니다." : await onError(operationError) || "초대 링크를 처리하지 못했습니다."; // 기존 인증 복구와 오류 표시
+                if (!operationError.status && manager.identity === userId) // 전송 결과 확인 불가
+                {
+                    await onReload(); // 재전송 없이 현재 소속 확인
+                }
+            }
+        }).finally(() => // 모든 참여 경로의 공통 정리
+        {
+            inviteTask = null; // 다음 직접 연 링크 허용
+            render(); // 최신 화면과 처리 결과 반영
+        });
+        return inviteTask; // 진행 상태와 테스트 경계
+    }
     async function failure(operationError, requestViewVersion) // 실제 실패·계정 종료 연결
     {
         const message = await onError(operationError); // 기존 인증·CSRF 처리
@@ -91,9 +151,10 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
     }
     async function open(nextOperation) // 대상이 고정된 관리 화면
     {
+        inviteNotice = null; // 새 작업에서 이전 링크 결과 제거
         clear(); // 이전 코드와 입력 정리
         managementMode = nextOperation; // 이번 작업 종류
-        managementTarget = manager.servers.find((serverEntry) => serverEntry.id === manager.selected) || null; // 당시 실제 서버
+        managementTarget = ["invite", "leave", "delete"].includes(nextOperation) ? manager.servers.find((serverEntry) => serverEntry.id === manager.selected) || null : null; // 대상이 필요한 작업만 서버 연결
         const requestViewVersion = dialogVersion; // 열린 화면 수명
         const titles = { create: "서버 만들기", join: "초대 코드로 참여", invite: "초대 관리", leave: "서버 탈퇴", delete: "서버 삭제" }; // 사용자 작업 제목
         const help = { create: "팀 공간의 이름을 입력하세요. 일반 채널이 함께 만들어집니다.", join: "소유자에게 받은 64자리 초대 코드를 입력하세요.", invite: "새 코드를 발급하면 이전 코드는 즉시 무효화됩니다. 코드는 24시간 유효하며 이번 화면에서만 확인할 수 있습니다.", leave: "작성한 메시지는 남고, 탈퇴 후 이 서버의 대화에 접근할 수 없습니다.", delete: "이 서버를 삭제하시겠습니까? 모든 채널·초대·대화가 영구 삭제됩니다." }; // 실제 영향 설명
@@ -105,14 +166,10 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
         managementInput.maxLength = nextOperation === "join" ? 100 : 1000; // 공백 정규화 전 입력 상한
         byId("invite-panel").hidden = nextOperation !== "invite"; // 초대 전용 영역
         byId("server-impact").textContent = managementTarget ? `대상 서버: ${managementTarget.name}` : ""; // 이름으로 대상 구분
+        byId("server-impact").hidden = !managementTarget; // 새 서버 생성과 초대 입력에서 대상 숨김
         byId("server-close").textContent = nextOperation === "delete" ? "아니오" : "취소·닫기"; // 삭제 취소와 일반 닫기
         byId("server-submit").textContent = { create: "만들기", join: "참여", invite: "새 코드 발급 및 이전 코드 무효화", leave: "탈퇴 확인", delete: "네" }[nextOperation]; // 명시적 실행 버튼
         managementDialog.showModal(); // 배경 조작 차단
-        if (nextOperation === "join" && /^#invite=[a-f0-9]{64}$/.test(globalThis.location?.hash || "")) // 명시적으로 연 초대 화면
-        {
-            managementInput.value = globalThis.location.hash.slice(8); // 링크 코드 확인 입력
-            globalThis.history.replaceState(globalThis.history.state, "", globalThis.location.pathname + globalThis.location.search); // 주소 표시의 코드 제거
-        }
         render(); // 권한·처리 상태 반영
         try // 현재 초대와 삭제 영향 확인
         {
@@ -178,8 +235,7 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
             {
                 if (responseData.server) // 생성·참여한 서버 우선 선택
                 {
-                    manager.selected = responseData.server.id; // 새 서버 ID
-                    manager.channel = responseData.channel?.id || null; // 생성된 기본 채널
+                    showJoinedServer(responseData); // 생성·참여한 서버와 기본 채널 선택
                 }
                 if (managementMode === "leave" || managementMode === "delete") // 확인된 소속 종료
                 {
@@ -283,5 +339,5 @@ export function mountServerUI({ manager, byId, onReload, onSelect, onError, isRe
         clear(); // 코드와 입력 폐기
         render(); // 서버 탐색 다시 허용
     });
-    return { render, clear }; // 계정 변경 시 연결할 경계
+    return { render, clear, acceptInviteLink }; // 계정과 초대 주소의 진입점
 }

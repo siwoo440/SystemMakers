@@ -30,10 +30,12 @@ function admin(operation, options = {}, selectedProject = project, selectedEnvir
 {
     return compose(['exec', '-T', 'database', 'sh', '/opt/systemmakers/database.sh', operation], options, selectedProject, selectedEnvironment); // 실제 DB 관리 도구
 }
-const snapshotQuery = 'SELECT COUNT(*) FROM users; SELECT COUNT(*) FROM messages; SELECT COUNT(*) FROM direct_messages; SELECT id,SHA2(file_data,256) FROM message_attachments ORDER BY id'; // 계정·대화·바이너리 보존 기준
+const snapshotQuery = 'SELECT COUNT(*) FROM users; SELECT COUNT(*) FROM messages; SELECT COUNT(*) FROM direct_messages; SELECT id,SHA2(file_data,256),storage_key,preview_mime,file_size FROM message_attachments ORDER BY id'; // 기존 BLOB과 신규 저장 키의 보존 기준
 function snapshot(selectedProject = project, selectedEnvironment = environment) // 비밀 값 없는 데이터 비교
 {
-    return compose(['exec', '-T', 'database', 'sh', '-c', 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -u root "$MYSQL_DATABASE" -NB'], { input: snapshotQuery, stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf8' }, selectedProject, selectedEnvironment).trim(); // 실제 원본과 복원본 결과
+    const database = compose(['exec', '-T', 'database', 'sh', '-c', 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -u root "$MYSQL_DATABASE" -NB'], { input: snapshotQuery, stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf8' }, selectedProject, selectedEnvironment).trim(); // 실제 DB 메타데이터 비교
+    const attachments = compose(['exec', '-T', 'web', 'php', 'scripts/check-attachments.php'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' }, selectedProject, selectedEnvironment).trim(); // 비공개 원본의 실제 해시 비교
+    return database + '\n' + attachments; // 메타데이터와 파일의 일관된 기준
 }
 let restoreProject = null; // 정리할 별도 복원 프로젝트
 let restoreEnvironment = null; // 복원망 설정
@@ -65,12 +67,12 @@ try // 실패 시에도 검사 자원 정리
         }
     }, 15000); // 인증서 준비 마감
     const testEnvironment = { ...environment, DOCKER_INTEGRATION_URL: `https://localhost:${httpsPort}`, NODE_EXTRA_CA_CERTS: rootCertificate }; // 인증서 검증을 유지하는 검사 설정
-    execFileSync(process.execPath, ['--test', 'tests/docker-flow.test.mjs'], { env: testEnvironment, stdio: 'inherit', timeout: 120000 }); // 실제 HTTPS와 WSS 전체 흐름
+    execFileSync(process.execPath, ['--test', 'tests/docker-flow.test.mjs'], { env: testEnvironment, stdio: 'inherit', timeout: 900000 }); // 실제 HTTPS와 WSS 및 200 MB 흐름
     const redirect = await fetch(`http://127.0.0.1:${httpPort}/Team006/`, { redirect: 'manual' }); // HTTP 이동 확인
     assert.equal(redirect.status, 308); // HTTPS 이동 유지
     compose(['restart', 'database']); // 기존 PDO 연결의 장애 유발
     await new Promise((resolve) => setTimeout(resolve, 12000)); // DB 감시와 프로세스 재시작 유예
-    execFileSync(process.execPath, ['--test', 'tests/docker-flow.test.mjs'], { env: testEnvironment, stdio: 'inherit', timeout: 120000 }); // DB 복구 뒤 실제 로그인과 WSS 재확인
+    execFileSync(process.execPath, ['--test', 'tests/docker-flow.test.mjs'], { env: testEnvironment, stdio: 'inherit', timeout: 900000 }); // DB 복구 뒤 로그인과 WSS 및 대용량 원본 재확인
     const before = snapshot(); // 재생성 전 기준
     const backupPath = execFileSync('sh', ['scripts/backup.sh', scratch], { env: { ...environment, COMPOSE_PROJECT_NAME: project, COMPOSE_FILE: ['compose.yaml', 'docker/compose.test.yaml'].join(path.delimiter) }, encoding: 'utf8' }).trim(); // 운영 절차로 검사 볼륨 백업
     const backup = readFileSync(backupPath); // 완료된 덤프만 복원 검사에 사용
@@ -82,8 +84,7 @@ try // 실패 시에도 검사 자원 정리
     restoreProject = `${project}restore`; // 새로운 복원 볼륨 구분
     restoreEnvironment = { ...environment, PROXY_SUBNET: `172.28.${proxySegment}.0/24`, PROXY_DYNAMIC_RANGE: `172.28.${proxySegment}.128/25`, CADDY_PROXY_IP: `172.28.${proxySegment}.2` }; // 복원 전용 연결망
     compose(['up', '-d', '--wait', '--wait-timeout', '180', 'database'], {}, restoreProject, restoreEnvironment); // 별도 빈 DB 접속 대기
-    admin('restore-empty', { input: backup, stdio: ['pipe', 'pipe', 'pipe'] }, restoreProject, restoreEnvironment); // 새 볼륨으로만 복원
-    admin('restrict-app', {}, restoreProject, restoreEnvironment); // 복원 후 앱 최소 권한
+    execFileSync('sh', ['scripts/restore.sh', backupPath], { env: { ...restoreEnvironment, COMPOSE_PROJECT_NAME: restoreProject, COMPOSE_FILE: ['compose.yaml', 'docker/compose.test.yaml'].join(path.delimiter) }, stdio: 'inherit', timeout: 600000 }); // 운영 절차로 별도 빈 DB와 첨부 볼륨 복원
     compose(['up', '-d', '--wait', '--wait-timeout', '180'], {}, restoreProject, restoreEnvironment); // 복원된 스키마로 서비스 준비 확인
     assert.equal(snapshot(restoreProject, restoreEnvironment), before); // 원본과 복원 데이터 비교
     console.log('컨테이너 HTTPS·WSS·권한·세션·DB 장애 복구·영속성·백업 복원 검사 통과'); // 확인한 결과만 보고

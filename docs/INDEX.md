@@ -24,7 +24,7 @@
 
 - **개발 PC에서 실행** — PHP·MySQL 준비, 스키마 적용, 같은 Wi-Fi 공유와 테스트 명령. [로컬 실행](LOCAL-SETUP.md)
 - **NAS에 배포** — Caddy가 HTTPS 화면과 WSS 구독을 각각 웹·Ratchet으로 전달하는 구성, DB 이관과 복구, 외부망 검사. [Compose 구성](../compose.yaml) · [프록시 설정](../docker/Caddyfile) · [배포 절차](NAS-DEPLOYMENT.md)
-- **API와 데이터** — 경로별 요청·응답·권한, 14개 테이블의 관계와 마이그레이션. [API 명세](API.md) · [DB 구조](DATABASE.md)
+- **API와 데이터** — 경로별 요청·응답·권한, 15개 테이블의 관계와 마이그레이션. [API 명세](API.md) · [DB 구조](DATABASE.md)
 - **실시간 갱신** — 웹·Ratchet의 세션 공유, 연결 중단 시 재조회와 재연결. [실시간 연결](REALTIME.md)
 - **디자인** — 다섯 CSS 파일의 역할, 화면별 수정 위치와 모바일 메뉴. [화면 안내](UI-DIRECTION.md) · [이전 테마 화면 예시](../README.md#화면-살펴보기)
 - **운영 전 확인** — 실제 NAS·외부망·기기 검증 항목과 기존 최적화 측정치. [남은 작업](DEVELOPMENT-DIRECTION.md)

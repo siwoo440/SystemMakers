@@ -47,7 +47,7 @@ export function createMessageList(container, createBubble) // 대화별 말풍�
             const old = previous?.message; // 이전 표시 값
             let node = previous?.node; // 재사용할 화면 요소
             const sameContent = old && old.isOwn === message.isOwn && old.name === message.name && old.timestamp === message.timestamp && old.text === message.text; // 글과 작성자 표시 일치
-            const sameAttachment = old?.attachment?.id === message.attachment?.id && old?.attachment?.original_name === message.attachment?.original_name && old?.attachment?.file_size === message.attachment?.file_size; // 다운로드 링크와 안내 일치
+            const sameAttachment = old?.attachment?.id === message.attachment?.id && old?.attachment?.original_name === message.attachment?.original_name && old?.attachment?.file_size === message.attachment?.file_size && old?.attachment?.preview_mime === message.attachment?.preview_mime; // 다운로드와 이미지 표시 일치
             if (!sameContent || !sameAttachment) // 새 말풍선 또는 표시 변경
             {
                 node = createBubble(message); // 추가 또는 변경된 말풍선 생성

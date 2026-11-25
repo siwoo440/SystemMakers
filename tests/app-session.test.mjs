@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs"; // 실제 화면 코드 읽기
 import vm from "node:vm"; // 독립 브라우저 실행 영역
 import { MessageFeed, createMessageList, messageForDisplay } from "../frontend/message-feed.mjs"; // 실제 메시지 상태 관리
 import { ServerManager } from "../frontend/server-manager.mjs"; // 실제 서버 소속 상태
-import { createAttachmentView, uploadAttachment } from "../frontend/attachments-ui.mjs"; // 실제 파일 화면 경계
+import { ATTACHMENT_LIMIT_TEXT, createAttachmentElements, createAttachmentView, uploadAttachment } from "../frontend/attachments-ui.mjs"; // 실제 파일 화면 경계
 import { createRealtimeClient, realtimeUrlForLocation } from "../frontend/realtime.mjs"; // 실제 알림 연결과 주소 검사
 const source = readFileSync(new URL("../frontend/app.js", import.meta.url), "utf8"); // 검사 대상 원본
 const noChange = () => undefined; // 상태 변화 없는 브라우저 경계
@@ -28,7 +28,7 @@ function setup(handler, websocketClass = undefined) // 실제 화면 함수와 �
         }
     }
     const context = vm.createContext({ // 독립 화면 전역 준비
-        MessageFeed: BrowserFeed, createMessageList, messageForDisplay, ServerManager, createAttachmentView, uploadAttachment, createRealtimeClient, realtimeUrlForLocation, AbortController, URLSearchParams, FormData, File, Date, console, // 실제 상태 모듈과 표준 도구
+        MessageFeed: BrowserFeed, createMessageList, messageForDisplay, ServerManager, ATTACHMENT_LIMIT_TEXT, createAttachmentElements, createAttachmentView, uploadAttachment, createRealtimeClient, realtimeUrlForLocation, AbortController, URLSearchParams, FormData, File, Date, console, // 실제 상태 모듈과 표준 도구
         window: { matchMedia: () => ({ matches: false }), setTimeout: setTimer, clearTimeout: clearTimer, WebSocket: websocketClass, location: { protocol: "http:", hostname: "127.0.0.6" } }, // 화면 크기와 연결 경계
         document: { getElementById: (id) => // 식별자별 동일 요소 반환
         {
@@ -121,9 +121,9 @@ test("서버 선택은 개인 대화를 닫은 뒤 서버 채널을 불러옴", 
 {
     const harness = setup(() => ({ status: 200, data: {} })); // 화면 실행 환경
     context.after(harness.stop); // 예약 정리
-    harness.evaluate('var transitions = []; directUI = { close: () => transitions.push("close") }; loadChannels = async () => transitions.push("load");'); // 화면 전환 관측
+    harness.evaluate('var transitions = []; directUI = { showNavigation: (open) => transitions.push(open ? "direct" : "channels"), close: () => transitions.push("close") }; loadChannels = async () => transitions.push("load");'); // 탐색 목록과 대화 전환 관측
     await harness.evaluate("selectServerConversation()"); // 실제 서버 전환 함수
-    assert.equal(harness.evaluate('transitions.join(",")'), "close,load"); // 개인 대화 종료 후 목록 조회
+    assert.equal(harness.evaluate('transitions.join(",")'), "channels,close,load"); // 채널 목록 복원과 개인 대화 종료
 });
 test("계정 아이콘은 로그인 상태에 맞는 설명과 그림을 표시", (context) => // 아이콘의 접근성과 인증 상태
 {
@@ -237,7 +237,7 @@ test("채널에서 선택한 파일을 전송 전에 취소", (context) => // �
     harness.evaluate('clearChannelFile()'); // 사용자 취소 동작
     assert.equal(harness.evaluate('byId("channel-file").files.length'), 0); // 선택 파일 제거
     assert.equal(harness.evaluate('byId("channel-upload").disabled'), true); // 파일 전송 차단
-    assert.equal(harness.evaluate('byId("channel-file-status").textContent'), "최대 약 5.24 MB"); // 안내 복구
+    assert.equal(harness.evaluate('byId("channel-file-status").textContent'), ATTACHMENT_LIMIT_TEXT); // 안내 복구
     assert.equal(harness.calls.length, 0); // 서버 요청 없음
 });
 test("파일 본문은 보호 헤더를 유지하며 multipart로 직접 전송", async (context) => // 파일 본문의 JSON 변환과 경계 누락 차단
@@ -249,6 +249,17 @@ test("파일 본문은 보호 헤더를 유지하며 multipart로 직접 전송"
     assert.equal(harness.calls[0].headers["Content-Type"], undefined); // 브라우저 multipart 경계 생성
     assert.equal(harness.calls[0].headers["X-Expected-User-Id"], "1"); // 요청 계정 보호
     assert.equal(harness.calls[0].headers["X-CSRF-Token"], "a".repeat(64)); // 기존 보호 토큰 유지
+});
+test("채팅 첨부에만 긴 전송 시간을 허용하고 프록시 크기 오류를 표시", async (context) => // 느린 업로드와 일반 API 시간 경계
+{
+    const harness = setup(() => ({ status: 413 })); // 프록시 본문 크기 초과 응답
+    context.after(harness.stop); // 타이머와 조회 정리
+    const attachmentRequest = harness.evaluate('requestEndpoint("./backend/api/upload_attachment.php", new FormData())'); // 채팅 파일의 실제 전송 경로
+    assert.ok([...harness.timers.values()].some(({ delay }) => delay === 900000)); // 200 MB 전송을 위한 시간 확보
+    await assert.rejects(attachmentRequest, { status: 413, message: "서버가 파일 크기를 허용하지 않습니다. 첨부 한도와 서버 설정을 확인하세요." }); // 원인에 맞는 실패 안내
+    const profileRequest = harness.evaluate('requestEndpoint("./backend/api/profile_picture.php", new FormData())'); // 일반 multipart 요청
+    assert.ok([...harness.timers.values()].some(({ delay }) => delay === 15000)); // 일반 요청의 시간 경계 유지
+    await assert.rejects(profileRequest, { status: 413 }); // 공통 오류 계약 보존
 });
 test("채널 파일 전송은 선택한 채널의 저장 메시지에 첨부 표시", async (context) => // 채널과 파일 연결 누락 차단
 {

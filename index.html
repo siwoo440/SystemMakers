@@ -17,7 +17,7 @@
     <a class="skip-link" href="#message-input">메시지 입력으로 이동</a> <!-- 키보드 바로가기 -->
     <div class="workspace"> <!-- 메신저 전체 배치 -->
         <aside class="server-rail" aria-label="작업 공간"> <!-- 서버 선택 영역 -->
-            <div class="server-mark" title="SystemMakers" aria-label="SystemMakers">SM</div> <!-- 현재 서버 표시 -->
+            <button type="button" id="direct-rail" class="server-choice direct-rail" aria-label="개인 대화" aria-controls="direct-navigation" aria-pressed="false" title="개인 대화"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5"/><path d="M5 20v-1a7 7 0 0 1 14 0v1"/></svg><span id="direct-rail-unread" class="direct-unread-badge" aria-hidden="true" hidden>!</span></button> <!-- 개인 대화 목록과 읽지 않음 표시 -->
             <div class="rail-line" aria-hidden="true"></div> <!-- 서버 구분선 -->
             <div id="server-list" class="server-list"></div> <!-- 채널 없는 서버도 포함한 실제 목록 -->
             <span class="rail-caption" aria-hidden="true">TEAM<br>SPACE</span> <!-- 공간 장식 문구 -->
@@ -28,8 +28,8 @@
                 <div class="eyebrow">YOUR WORKSPACE</div> <!-- 작업 공간 보조 제목 -->
                 <h1>SystemMakers<span class="workspace-dot" aria-hidden="true"></span></h1> <!-- 서비스 이름 -->
             </header> <!-- 작업 공간 제목 끝 -->
-            <div class="sidebar-scroll" tabindex="0" aria-label="서버와 대화 목록"> <!-- 스크롤할 탐색 영역 -->
-            <section class="server-group" aria-labelledby="selected-server"> <!-- 서버와 채널 묶음 -->
+            <div class="sidebar-scroll" id="sidebar-scroll" tabindex="0" aria-label="서버와 대화 목록"> <!-- 스크롤할 탐색 영역 -->
+            <section class="server-group" id="server-navigation" aria-labelledby="selected-server"> <!-- 서버와 채널 묶음 -->
             <section class="server-tools" aria-label="서버 관리"> <!-- 실제 소속 관리 -->
                 <strong id="selected-server">참여 서버 없음</strong> <!-- 현재 서버 이름 -->
                 <p id="server-status" role="status">로그인 후 서버를 확인합니다.</p> <!-- 소속과 역할 -->
@@ -44,7 +44,7 @@
                 <button type="button" class="channel-retry" id="retry-channels" hidden>채널 목록 다시 확인</button> <!-- 실패한 실제 조회 재시도 -->
             </nav> <!-- 채널 탐색 끝 -->
             </section> <!-- 서버와 채널 묶음 끝 -->
-            <section class="direct-navigation" aria-label="개인 대화"> <!-- 개인 대화 탐색 -->
+            <section class="direct-navigation" id="direct-navigation" aria-label="개인 대화" hidden> <!-- 개인 대화 탐색 -->
                 <p class="section-label">개인 대화 <button type="button" id="direct-refresh" class="history-button" disabled>목록 새로고침</button></p> <!-- 개인 대화와 목록 갱신 -->
                 <form id="direct-search-form" class="direct-search"><label class="visually-hidden" for="direct-search-input">사용자명 검색</label><input id="direct-search-input" maxlength="32" placeholder="사용자명 검색" autocomplete="off" disabled><button type="submit" id="direct-search-submit" class="search-action icon-action" aria-label="사용자 검색" title="사용자 검색" data-tooltip="사용자 검색" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></svg></button></form> <!-- 사용자 검색 -->
                 <div id="direct-search-results"></div> <!-- 검색한 사용자 목록 -->
@@ -64,7 +64,6 @@
                 <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-controls="channel-sidebar" aria-expanded="false" aria-label="채널 목록 열기">☰</button> <!-- 모바일 채널 열기 -->
                 <span class="header-hash" aria-hidden="true">#</span> <!-- 채널 기호 -->
                 <div class="channel-heading"><h2 id="channel-title">채널 선택</h2><p id="channel-description">참여 중인 채널에서 대화를 시작하세요</p></div> <!-- 채널 제목과 설명 -->
-                <span class="header-tag">팀 프로젝트</span> <!-- 작업 공간 유형 -->
                 <button type="button" class="sidebar-toggle friends-toggle" aria-controls="friend-panel" aria-expanded="false" aria-label="친구 목록 열기">친구</button> <!-- 접힌 친구 목록 열기 -->
             </header> <!-- 현재 채널 제목 끝 -->
             <div class="preview-banner"><span class="preview-icon" aria-hidden="true">◈</span><p>이전 대화 조회 <span aria-hidden="true">·</span> 새 메시지 자동 갱신</p><span class="preview-badge">CONNECTED</span></div> <!-- 실제 대화 기록과 자동 갱신 안내 -->
@@ -78,7 +77,7 @@
                 <form class="composer" id="message-form"> <!-- 실제 메시지 저장 폼 -->
                     <label class="visually-hidden" for="message-input" id="message-label">메시지 작성</label> <!-- 메시지 필드 레이블 -->
                     <textarea id="message-input" rows="2" placeholder="로그인 후 메시지를 작성하세요" disabled aria-describedby="composer-help message-count composer-feedback"></textarea> <!-- 여러 줄 메시지 입력 -->
-                    <div class="composer-footer"><span class="message-count" id="message-count">0 / 2,000</span><div class="attachment-controls"><input type="file" id="channel-file" class="visually-hidden attachment-input" aria-label="파일 선택" disabled><label for="channel-file" class="attachment-picker icon-action" title="파일 선택" data-tooltip="파일 선택"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 12.5 15 5.5a4 4 0 0 1 5.7 5.7l-9 9a6 6 0 0 1-8.5-8.5l9-9M7 16l8-8"/></svg></label><button type="button" id="channel-upload" disabled>파일 전송</button><button type="button" id="channel-file-clear" class="attachment-clear" aria-label="선택한 파일 제거" title="선택한 파일 제거" disabled hidden>×</button><span id="channel-file-status" role="status">최대 약 5.24 MB</span></div><span class="composer-help" id="composer-help">Enter 전송 <span>·</span> Shift+Enter 줄바꿈</span><button type="submit" class="send-button" id="send-button" disabled>전송 <span aria-hidden="true">↗</span></button></div> <!-- 입력 수와 전송 버튼 -->
+                    <div class="composer-footer"><span class="message-count" id="message-count">0 / 2,000</span><div class="attachment-controls"><input type="file" id="channel-file" class="visually-hidden attachment-input" aria-label="파일 선택" disabled><label for="channel-file" class="attachment-picker icon-action" title="파일 선택" data-tooltip="파일 선택"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 12.5 15 5.5a4 4 0 0 1 5.7 5.7l-9 9a6 6 0 0 1-8.5-8.5l9-9M7 16l8-8"/></svg></label><button type="button" id="channel-upload" disabled>파일 전송</button><button type="button" id="channel-file-clear" class="attachment-clear" aria-label="선택한 파일 제거" title="선택한 파일 제거" disabled hidden>×</button><span id="channel-file-status" role="status">최대 200 MB</span></div><span class="composer-help" id="composer-help">Enter 전송 <span>·</span> Shift+Enter 줄바꿈</span><button type="submit" class="send-button" id="send-button" disabled>전송 <span aria-hidden="true">↗</span></button></div> <!-- 입력 수와 전송 버튼 -->
                 </form> <!-- 실제 메시지 저장 폼 끝 -->
                 <p class="composer-feedback" id="composer-feedback" role="status">로그인 후 참여 중인 채널에 메시지를 보낼 수 있습니다.</p> <!-- 실제 전송 조건 안내 -->
             </div> <!-- 메시지 작성 영역 끝 -->
@@ -91,16 +90,24 @@
                 <button type="button" class="sidebar-toggle friends-toggle" aria-controls="friend-panel" aria-expanded="false" aria-label="친구 목록 열기">친구</button> <!-- 개인 대화에서 친구 목록 열기 -->
             </header> <!-- 개인 대화 제목 끝 -->
             <section class="message-scroll" id="direct-scroll" aria-label="개인 대화 내역"><div class="history-controls"><button type="button" id="direct-older" class="history-button" hidden>이전 대화 더 보기</button></div><div class="messages" id="direct-messages" aria-label="개인 메시지"></div></section> <!-- 개인 기록과 이전 조회 -->
-            <div class="composer-region"><form class="composer" id="direct-form"><label class="visually-hidden" for="direct-input">개인 메시지 작성</label><textarea id="direct-input" rows="2" placeholder="개인 메시지 작성" disabled></textarea><div class="composer-footer"><div class="attachment-controls"><input type="file" id="direct-file" class="visually-hidden attachment-input" aria-label="파일 선택" disabled><label for="direct-file" class="attachment-picker icon-action" title="파일 선택" data-tooltip="파일 선택"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 12.5 15 5.5a4 4 0 0 1 5.7 5.7l-9 9a6 6 0 0 1-8.5-8.5l9-9M7 16l8-8"/></svg></label><button type="button" id="direct-upload" disabled>파일 전송</button><button type="button" id="direct-file-clear" class="attachment-clear" aria-label="선택한 파일 제거" title="선택한 파일 제거" disabled hidden>×</button><span id="direct-file-status" role="status">최대 약 5.24 MB</span></div><span class="composer-help">최대 2,000자</span><button type="submit" class="send-button" id="direct-send" disabled>전송 ↗</button></div></form></div> <!-- 개인 메시지와 파일 전송 -->
+            <div class="composer-region"><form class="composer" id="direct-form"><label class="visually-hidden" for="direct-input">개인 메시지 작성</label><textarea id="direct-input" rows="2" placeholder="개인 메시지 작성" aria-describedby="direct-composer-help" disabled></textarea><div class="composer-footer"><div class="attachment-controls"><input type="file" id="direct-file" class="visually-hidden attachment-input" aria-label="파일 선택" disabled><label for="direct-file" class="attachment-picker icon-action" title="파일 선택" data-tooltip="파일 선택"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 12.5 15 5.5a4 4 0 0 1 5.7 5.7l-9 9a6 6 0 0 1-8.5-8.5l9-9M7 16l8-8"/></svg></label><button type="button" id="direct-upload" disabled>파일 전송</button><button type="button" id="direct-file-clear" class="attachment-clear" aria-label="선택한 파일 제거" title="선택한 파일 제거" disabled hidden>×</button><span id="direct-file-status" role="status">최대 200 MB</span></div><span class="composer-help" id="direct-composer-help">최대 2,000자 <span>·</span> Enter 전송 <span>·</span> Shift+Enter 줄바꿈</span><button type="submit" class="send-button" id="direct-send" disabled>전송 ↗</button></div></form></div> <!-- 개인 메시지와 파일 전송 -->
         </main> <!-- 개인 대화 끝 -->
         <aside class="friend-sidebar" id="friend-panel" aria-label="친구 목록" tabindex="-1"> <!-- 오른쪽 친구 패널 -->
-            <header class="friend-heading"><h2>친구</h2><button type="button" id="friend-refresh" class="icon-action" title="친구 목록 새로고침" data-tooltip="친구 목록 새로고침" aria-label="친구 목록 새로고침" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 8a7 7 0 0 0-12-2L5 8M5 4v4h4M5 16a7 7 0 0 0 12 2l2-2M19 20v-4h-4"/><circle cx="12" cy="12" r="1.5"/></svg></button></header> <!-- 친구 제목과 새로고침 -->
+            <header class="friend-heading"><h2>친구</h2><div class="friend-heading-actions"><button type="button" id="friend-requests-toggle" class="icon-action friend-bell" aria-label="친구 요청 펼치기" aria-controls="friend-requests" aria-expanded="false" title="친구 요청" data-tooltip="친구 요청" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span id="friend-request-count" class="friend-request-count" aria-hidden="true" hidden>0</span></button><button type="button" id="friend-refresh" class="icon-action" title="친구 목록 새로고침" data-tooltip="친구 목록 새로고침" aria-label="친구 목록 새로고침" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 8a7 7 0 0 0-12-2L5 8M5 4v4h4M5 16a7 7 0 0 0 12 2l2-2M19 20v-4h-4"/><circle cx="12" cy="12" r="1.5"/></svg></button></div></header> <!-- 친구 제목과 요청 알림 -->
+            <div class="friend-section friend-primary"><h3 id="friend-list-title">친구 목록</h3><div id="friend-list" class="friend-list" aria-labelledby="friend-list-title"></div></div> <!-- 가장 먼저 보이는 수락된 친구 -->
             <form id="friend-search-form" class="friend-search"><label class="visually-hidden" for="friend-search-input">친구 사용자명 검색</label><input id="friend-search-input" placeholder="사용자명 검색" autocomplete="off" disabled><button type="submit" id="friend-search-submit" class="search-action icon-action" aria-label="친구 검색" title="친구 검색" data-tooltip="친구 검색" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="8" r="2"/><path d="M6.5 14a3.5 3.5 0 0 1 7 0M15 15l5 5"/></svg></button></form> <!-- 친구 요청 대상 검색 -->
             <p id="friend-status" class="friend-status" role="status">로그인 후 친구를 확인하세요.</p> <!-- 친구 요청 상태 -->
             <div id="friend-search-results" class="friend-list"></div> <!-- 검색 결과 -->
-            <div class="friend-section"><h3>받은 요청</h3><div id="friend-incoming" class="friend-list"></div></div> <!-- 수락 대기 요청 -->
-            <div class="friend-section"><h3>보낸 요청</h3><div id="friend-outgoing" class="friend-list"></div></div> <!-- 취소 가능한 요청 -->
-            <div class="friend-section"><h3>친구 목록</h3><div id="friend-list" class="friend-list"></div></div> <!-- 수락된 친구 목록 -->
+            <section id="friend-requests" class="friend-requests" aria-label="친구 요청" hidden> <!-- 종 버튼으로 펼치는 요청 묶음 -->
+                <div class="friend-section"> <!-- 수락 대기 요청 구역 -->
+                    <div class="friend-request-heading"><h3 id="friend-incoming-title">받은 요청</h3><button type="button" id="friend-accept-all" class="icon-action" aria-label="모두 수락" title="모두 수락" data-tooltip="모두 수락" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m2 12 4 4 8-8m-3 6 2 2 8-8"/></svg></button></div> <!-- 받은 요청 제목과 모두 수락 아이콘 -->
+                    <div id="friend-incoming" class="friend-list" aria-labelledby="friend-incoming-title"></div> <!-- 받은 요청 목록 -->
+                </div> <!-- 수락 대기 요청 구역 끝 -->
+                <div class="friend-section"> <!-- 취소 가능한 요청 구역 -->
+                    <div class="friend-request-heading"><h3 id="friend-outgoing-title">보낸 요청</h3><button type="button" id="friend-check-status" class="icon-action" aria-label="상태 확인" title="상태 확인" data-tooltip="상태 확인" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="6.5"/><path d="m8 10 1.5 1.5L12 9m2.5 5.5L20 20"/></svg></button></div> <!-- 보낸 요청 제목과 상태 확인 아이콘 -->
+                    <div id="friend-outgoing" class="friend-list" aria-labelledby="friend-outgoing-title"></div> <!-- 보낸 요청 목록 -->
+                </div> <!-- 취소 가능한 요청 구역 끝 -->
+            </section> <!-- 친구 요청 묶음 끝 -->
         </aside> <!-- 친구 패널 끝 -->
     </div> <!-- 메신저 전체 배치 끝 -->
     <button type="button" class="sidebar-backdrop" id="sidebar-backdrop" aria-label="열린 목록 닫기" hidden></button> <!-- 목록 바깥 닫기 영역 -->

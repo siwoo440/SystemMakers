@@ -51,9 +51,9 @@ function current_user(PDO $databaseConnection, bool $refresh = false): ?array //
     }
     return $authenticatedUser; // 공개 본인 계정 정보
 }
-function require_user(PDO $databaseConnection): array // 필수 로그인 사용자 검증
+function require_user(PDO $databaseConnection, bool $refreshActivity = true): array // 필수 로그인 사용자와 활동 갱신 선택
 {
-    $authenticatedUser = current_user($databaseConnection, true); // 계정과 인증 수명 확인
+    $authenticatedUser = current_user($databaseConnection, $refreshActivity); // 계정과 인증 수명 확인
     if ($authenticatedUser === null) // 일반 게스트 또는 만료 인증
     {
         respond_error('UNAUTHORIZED', '로그인이 필요합니다.', 401); // 공통 비로그인 응답
