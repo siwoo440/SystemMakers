@@ -57,6 +57,8 @@ test("채널 화면에서도 개인 대화 알림을 확인하고 표시한 메�
     await nextCheck(); // 계정의 다음 목록 확인
     assert.equal(harness.ui.isActive(), false); // 채널 본문 유지
     assert.equal(harness.byId("direct-rail-unread").hidden, false); // 레일에 읽지 않음 표시
+    assert.equal(harness.byId("channel-menu-unread").hidden, false); // 닫힌 서버 목록의 채널 상단 표시
+    assert.equal(harness.byId("direct-menu-unread").hidden, false); // 닫힌 서버 목록의 개인 대화 상단 표시
     harness.ui.showNavigation(true); // 레일 아이콘으로 목록 표시
     assert.equal(harness.byId("direct-navigation").hidden, false); // 인접한 개인 대화 목록
     assert.equal(harness.byId("server-navigation").hidden, true); // 서버 목록에서 개인 목록으로 전환
@@ -69,6 +71,8 @@ test("채널 화면에서도 개인 대화 알림을 확인하고 표시한 메�
     await harness.ui.readShown(); // 사용자에게 표시된 기록 읽음 처리
     assert.deepEqual(readCalls, [{ conversation_id: "10", message_id: "12" }]); // 조회한 상대방 메시지 기준
     assert.equal(harness.byId("direct-rail-unread").hidden, true); // 읽기 성공 후 배지 제거
+    assert.equal(harness.byId("channel-menu-unread").hidden, true); // 채널 상단의 읽지 않음 해제
+    assert.equal(harness.byId("direct-menu-unread").hidden, true); // 개인 대화 상단의 읽지 않음 해제
     await nextCheck(); // 읽음 처리 전 자료의 늦은 목록 확인
     assert.equal(harness.byId("direct-rail-unread").hidden, true); // 오래된 목록으로 배지 재표시 방지
     unreadId = "13"; // 아직 표시되지 않은 새로운 상대방 메시지

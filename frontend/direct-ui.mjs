@@ -80,6 +80,11 @@ export function mountDirectUI({ byId, request, getUser, isReady, onOpen, onError
         listButtons = nextButtons; // 표시한 대화 요소 보관
         byId("direct-rail-unread").hidden = !hasUnread; // 전체 개인 대화의 읽지 않음 표시
         byId("direct-rail").setAttribute("aria-label", hasUnread ? "개인 대화 · 읽지 않은 메시지 있음" : "개인 대화"); // 레일의 접근 가능한 알림
+        byId("channel-menu-unread").hidden = !hasUnread; // 채널 화면의 모바일 알림
+        byId("direct-menu-unread").hidden = !hasUnread; // 개인 대화 화면의 모바일 알림
+        const menuLabel = hasUnread ? "서버 목록 · 읽지 않은 개인 메시지 있음" : "서버 목록"; // 모바일 서버 목록의 접근 가능한 알림
+        byId("sidebar-toggle").setAttribute("aria-label", menuLabel); // 채널 화면의 메뉴 이름
+        byId("direct-sidebar-toggle").setAttribute("aria-label", menuLabel); // 개인 대화 화면의 메뉴 이름
     }
     function render() // 로그인과 입력 상태 반영
     {

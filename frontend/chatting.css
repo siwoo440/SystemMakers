@@ -8,6 +8,10 @@
     overflow: hidden; /* 넘치는 내용 처리 */
     background: var(--pageBg); /* 배경색과 무늬 */
 }
+.navigation-panel /* 데스크톱 서버 목록과 채널 목록 */
+{
+    display: contents; /* 두 목록의 기존 격자 열 유지 */
+}
 .server-rail /* 서버 선택 막대 */
 {
     display: flex; /* 요소 배치 방식 */
@@ -198,7 +202,7 @@
     font-size: 11px; /* 느낌표 글자 크기 */
     font-weight: 800; /* 배지 강조 글자 굵기 */
 }
-.direct-rail .direct-unread-badge /* 레일 오른쪽 위 전체 알림 */
+.direct-rail .direct-unread-badge, .navigation-toggle .direct-unread-badge /* 개인 대화 전체 알림 */
 {
     position: absolute; /* 사람 아이콘 위 알림 표시 */
     top: -4px; /* 배지 위쪽 위치 */
@@ -468,11 +472,35 @@
     padding-top: 12px; /* 위쪽 안쪽 여백 */
     border: none; /* 테두리 */
 }
-.friend-section h3 /* 구역 이름 */
+.friend-section-heading /* 친구 구역의 제목과 오른쪽 아이콘 */
 {
-    margin-bottom: 10px; /* 아래쪽 여백 */
+    display: flex; /* 제목과 아이콘의 한 줄 배치 */
+    align-items: center; /* 제목과 아이콘 사이 높이 정렬 */
+    justify-content: space-between; /* 아이콘 오른쪽 정렬 */
+    gap: 8px; /* 제목과 아이콘 간격 */
+    margin-bottom: 8px; /* 요청 목록 위 여백 */
+}
+.friend-section-heading h3 /* 친구 구역 이름 */
+{
     color: #aaa7c0; /* 글자색 */
     font-size: 12px; /* 글자 크기 */
+}
+.friend-section-icon /* 수신함과 보내기 및 사람 그림 */
+{
+    display: inline-grid; /* 아이콘 배치 */
+    place-items: center; /* 가로 세로 중앙 정렬 */
+    flex: none; /* 정사각형 아이콘 유지 */
+    width: 30px; /* 아이콘 상자 너비 */
+    height: 30px; /* 아이콘 상자 높이 */
+    border: 1px solid #45415c; /* 기존 보조 조작 테두리 */
+    border-radius: 8px; /* 아이콘 상자 모서리 */
+    background: var(--inputBg); /* 보라색 계열 상자 배경 */
+    color: var(--accentHover); /* 보라색 계열 아이콘 선 */
+}
+.friend-section-icon svg /* 친구 구역 아이콘 선 */
+{
+    width: 16px; /* 작은 아이콘 너비 */
+    height: 16px; /* 작은 아이콘 높이 */
 }
 .friend-list /* 친구 항목 세로 목록 */
 {
@@ -495,10 +523,16 @@
 }
 .sidebar-toggle /* 모바일 목록 열기 */
 {
-    display: none; /* 요소 배치 방식 */
-    background: transparent; /* 배경색과 무늬 */
-    color: var(--accentHover); /* 글자색 */
-    font-size: 20px; /* 글자 크기 */
+    display: none; /* 넓은 화면의 목록 버튼 숨김 */
+    position: relative; /* 읽지 않음 표시 위치 기준 */
+    place-items: center; /* 그림 가운데 정렬 */
+    flex: none; /* 좁은 헤더의 버튼 크기 유지 */
+    width: 44px; /* 터치 영역 너비 */
+    height: 44px; /* 터치 영역 높이 */
+    border: 1px solid #45415c; /* 기존 아이콘 테두리 */
+    border-radius: 9px; /* 버튼 모서리 */
+    background: var(--inputBg); /* 기존 입력 영역 배경 */
+    color: var(--accentHover); /* 보라색 계열 아이콘 선 */
 }
 .sidebar-backdrop /* 모바일 목록 닫기 배경 */
 {
@@ -916,9 +950,7 @@
     }
     .friends-toggle /* 대화 상단의 친구 버튼 */
     {
-        display: block; /* 접힌 목록의 진입점 표시 */
-        padding: 6px 10px; /* 버튼 안쪽 여백 */
-        font-size: 14px; /* 버튼 글자 크기 */
+        display: inline-grid; /* 접힌 친구 목록의 그림 버튼 */
     }
     .sidebar-backdrop /* 열린 목록 바깥 배경 */
     {
@@ -928,9 +960,26 @@
 
 @media (max-width: 650px) /* 모바일 채팅 화면 */
 {
-    .workspace /* 서버 막대와 대화 화면 */
+    .workspace /* 대화 전체 너비 */
     {
-        grid-template-columns: 50px minmax(0, 1fr); /* 모바일 두 열 배치 */
+        grid-template-columns: minmax(0, 1fr); /* 기본 화면의 대화 한 열 */
+    }
+    .navigation-panel /* 왼쪽 서버와 채널 패널 */
+    {
+        display: grid; /* 서버 막대와 채널 목록 배치 */
+        grid-template-columns: 50px minmax(0, 1fr); /* 서버 막대와 채널 영역 너비 */
+        position: fixed; /* 대화 위에 배치 */
+        inset: 0 auto 0 0; /* 화면 왼쪽 정렬 */
+        width: min(300px, calc(100% - 50px)); /* 터치로 닫을 바깥 영역 확보 */
+        z-index: 10; /* 배경보다 위에 표시 */
+        visibility: hidden; /* 닫힌 목록의 키보드 접근 방지 */
+        transform: translateX(-100%); /* 닫힌 목록의 화면 밖 위치 */
+        transition: transform .25s ease; /* 목록 펼침 효과 */
+    }
+    .navigation-panel.open /* 선택한 왼쪽 목록 */
+    {
+        visibility: visible; /* 요청한 목록 표시 */
+        transform: translateX(0); /* 화면 왼쪽으로 이동 */
     }
     .server-rail /* 작은 서버 막대 */
     {
@@ -943,26 +992,9 @@
         min-height: 34px; /* 누를 수 있는 높이 */
         height: 34px; /* 아이콘 높이 */
     }
-    .channel-sidebar /* 접힌 채널 목록 */
-    {
-        position: fixed; /* 대화 위에 배치 */
-        inset: 0 auto 0 50px; /* 서버 막대 오른쪽 정렬 */
-        width: min(250px, calc(100% - 50px)); /* 화면 안쪽에 맞춘 목록 너비 */
-        z-index: 10; /* 배경보다 위에 표시 */
-        visibility: hidden; /* 닫힌 목록의 키보드 접근 방지 */
-        transform: translateX(-120%); /* 화면 밖으로 이동 */
-        transition: transform .25s ease; /* 목록 펼침 효과 */
-    }
-    .channel-sidebar.open /* 펼친 채널 목록 */
-    {
-        visibility: visible; /* 선택 가능한 목록 표시 */
-        transform: translateX(0); /* 서버 막대 옆으로 이동 */
-    }
     .sidebar-toggle /* 채널과 친구 목록 버튼 */
     {
-        display: block; /* 모바일 목록 버튼 표시 */
-        min-width: 34px; /* 최소 터치 너비 */
-        min-height: 34px; /* 최소 터치 높이 */
+        display: inline-grid; /* 양쪽 그림 버튼 표시 */
     }
     .conversation-header /* 채널과 개인 대화 제목 */
     {
@@ -976,7 +1008,7 @@
     {
         padding: 10px 10px max(10px, env(safe-area-inset-bottom)); /* 하단 안전 영역 확보 */
     }
-    .header-tag /* 대화 상단 보조 문구 */
+    .header-tag, .header-hash /* 대화 상단 보조 문구와 기호 */
     {
         display: none; /* 좁은 화면 제목 공간 확보 */
     }
@@ -996,7 +1028,7 @@
 
 @media (prefers-reduced-motion: reduce) /* 화면 이동 효과 축소 설정 */
 {
-    .channel-sidebar /* 모바일 채널 목록 */
+    .navigation-panel /* 모바일 서버와 채널 목록 */
     {
         transition: none; /* 이동 효과 생략 */
     }

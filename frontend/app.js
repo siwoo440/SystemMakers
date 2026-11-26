@@ -736,6 +736,7 @@ function setSidebar(panel) // 좁은 화면에서 선택한 목록 열기 또는
     }
     byId("channel-conversation").inert = Boolean(panel); // 펼친 목록 뒤 채널 입력 차단
     byId("direct-conversation").inert = Boolean(panel); // 펼친 목록 뒤 개인 대화 입력 차단
+    byId("navigation-panel").inert = panel?.id === "friend-panel"; // 친구 목록 뒤 서버 선택 차단
     if (panel) // 목록 열기
     {
         panel.focus(); // 처음부터 목록 탐색
@@ -1441,23 +1442,18 @@ messageScroll.addEventListener("scroll", () => // 사용자의 대화 읽기 위
 byId("new-messages").addEventListener("click", scrollToBottom); // 새 메시지로 직접 이동
 byId("direct-rail").addEventListener("click", () => // 레일의 개인 대화 목록 열기
 {
-    const sidebar = byId("channel-sidebar"); // 레일 옆의 공통 탐색 패널
-    const show = mobileQuery.matches ? openSidebar !== sidebar || !directUI.isNavigationOpen() : !directUI.isNavigationOpen(); // 화면 너비에 따른 개인 목록 전환
-    directUI.showNavigation(show); // 서버 목록과 개인 대화 목록 교체
-    if (mobileQuery.matches) // 접힌 모바일 탐색 패널
-    {
-        setSidebar(show ? sidebar : null); // 레일 옆에 목록 열기 또는 닫기
-    }
+    directUI.showNavigation(!directUI.isNavigationOpen()); // 열린 패널 안에서 채널과 개인 대화 목록 전환
 });
 for (const button of document.querySelectorAll(".sidebar-toggle")) // 두 대화 화면의 목록 버튼 연결
 {
     button.addEventListener("click", () => // 버튼이 가리키는 목록 열기
     {
-        if (button.id === "direct-sidebar-toggle") // 개인 대화의 모바일 열기 버튼
+        const panel = byId(button.getAttribute("aria-controls")); // 버튼이 제어하는 패널
+        if (panel === byId("navigation-panel") && panel !== openSidebar) // 서버 목록의 새 열기 여부
         {
-            directUI?.showNavigation(true); // 개인 대화 내의 바로가기에서 개인 목록 표시
+            directUI.showNavigation(false); // 왼쪽 메뉴의 서버 목록부터 표시
         }
-        setSidebar(byId(button.getAttribute("aria-controls"))); // 대상 목록의 모바일 패널 표시
+        setSidebar(panel === openSidebar ? null : panel); // 선택한 패널만 열거나 닫기
     });
 }
 byId("sidebar-backdrop").addEventListener("click", () => setSidebar(null)); // 목록 바깥 클릭 닫기
@@ -1550,7 +1546,7 @@ authDialog.addEventListener("close", () => // 인증 화면 닫힌 뒤 정리
     clearAuthErrors(); // 입력 오류 상태 제거
     if (mobileQuery.matches) // 모바일 닫기 포커스 위치
     {
-        byId("sidebar-toggle").focus(); // 숨겨지지 않은 메뉴 버튼 포커스
+        document.querySelector(".conversation:not([hidden]) .navigation-toggle")?.focus(); // 현재 대화의 서버 목록 버튼 포커스
     }
     else if (lastAuthTrigger) // 이전 인증 버튼 존재 여부
     {

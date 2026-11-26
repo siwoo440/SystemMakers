@@ -7,6 +7,7 @@ import { ServerManager } from "../frontend/server-manager.mjs"; // 실제 서버
 import { ATTACHMENT_LIMIT_TEXT, createAttachmentElements, createAttachmentView, uploadAttachment } from "../frontend/attachments-ui.mjs"; // 실제 파일 화면 경계
 import { createRealtimeClient, realtimeUrlForLocation } from "../frontend/realtime.mjs"; // 실제 알림 연결과 주소 검사
 const source = readFileSync(new URL("../frontend/app.js", import.meta.url), "utf8"); // 검사 대상 원본
+const page = readFileSync(new URL("../index.html", import.meta.url), "utf8"); // 실제 화면 구조
 const noChange = () => undefined; // 상태 변화 없는 브라우저 경계
 function element() // 브라우저 요소의 외부 경계
 {
@@ -141,21 +142,33 @@ test("채널과 친구 목록은 각각 열리고 닫을 때 두 대화의 입�
     const harness = setup(noChange); // 독립 화면 준비
     context.after(harness.stop); // 메시지 조회 정리
     harness.evaluate(` // 두 목록 버튼의 접근성 상태 관측
-        const toggles = ["channel-sidebar", "friend-panel"].map(id => // 채널과 친구 목록 준비
+        const toggles = ["navigation-panel", "friend-panel"].map(id => // 서버와 친구 목록 준비
         {
             byId(id).id = id; // 실제 목록 식별자 지정
             return { getAttribute: () => id, setAttribute: (name, value) => byId(id).expanded = value }; // 각 목록 버튼의 펼침 상태
         });
         document.querySelectorAll = () => toggles; // 실제 함수의 버튼 탐색 연결
     `); // 목록 경계 준비 끝
-    harness.evaluate('setSidebar(byId("channel-sidebar")); setSidebar(byId("friend-panel"));'); // 채널 목록에서 친구 목록으로 전환
-    assert.equal(harness.evaluate('byId("channel-sidebar").expanded'), "false"); // 이전 목록 닫힘
+    harness.evaluate('setSidebar(byId("navigation-panel")); setSidebar(byId("friend-panel"));'); // 서버 목록에서 친구 목록으로 전환
+    assert.equal(harness.evaluate('byId("navigation-panel").expanded'), "false"); // 이전 목록 닫힘
+    assert.equal(harness.evaluate('byId("navigation-panel").inert'), true); // 친구 목록 뒤 서버 선택 차단
     assert.equal(harness.evaluate('byId("friend-panel").expanded'), "true"); // 선택한 목록 열림
     assert.equal(harness.evaluate('byId("direct-conversation").inert'), true); // 개인 대화의 배경 입력 차단
     harness.evaluate("setSidebar(null)"); // 목록 닫기
     assert.equal(harness.evaluate('byId("sidebar-backdrop").hidden'), true); // 닫기 배경 해제
+    assert.equal(harness.evaluate('byId("navigation-panel").inert'), false); // 서버 탐색 조작 복원
     assert.equal(harness.evaluate('byId("channel-conversation").inert'), false); // 채널 대화 입력 복원
     assert.equal(harness.evaluate('byId("direct-conversation").inert'), false); // 개인 대화 입력 복원
+});
+test("채널과 개인 대화의 모바일 서버·친구 버튼이 서로 다른 패널 제어", () => // 첨부 시안의 독립된 목록 버튼 확인
+{
+    for (const conversation of ["channel-conversation", "direct-conversation"]) // 두 종류의 대화 화면 검사
+    {
+        const header = page.match(new RegExp(`id="${conversation}"[^>]*>[^]*?<header[^>]*>([^]*?)</header>`))?.[1]; // 현재 대화의 상단 영역
+        assert.match(header, /<button[^>]+aria-controls="navigation-panel"[^>]+aria-label="서버 목록"[^>]*><svg/); // 왼쪽 서버 목록 아이콘
+        assert.match(header, /<button[^>]+aria-controls="friend-panel"[^>]+aria-label="친구 목록"[^>]*><svg/); // 오른쪽 친구 목록 아이콘
+    }
+    assert.match(page, /id="navigation-panel"[^>]*>[^]*?class="server-rail"[^]*?id="channel-sidebar"/); // 왼쪽 패널의 서버 선택과 채널 목록
 });
 test("로그인과 회원가입을 전환하면 창의 스타일과 사용자명 입력이 함께 변경", (context) => // 인증 모드와 화면 일치
 {
